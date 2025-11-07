@@ -4,6 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "preinstall": "node -e \"try{require('fs').unlinkSync('package-lock.json')}catch(e){}\"",
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview"
