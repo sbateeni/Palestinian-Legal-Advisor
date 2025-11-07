@@ -1,18 +1,33 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import useLocalStorage from '../hooks/useLocalStorage';
-import { LOCAL_STORAGE_OPENROUTER_API_KEY, LOCAL_STORAGE_API_SOURCE_KEY } from '../constants';
+import { LOCAL_STORAGE_OPENROUTER_API_KEY, LOCAL_STORAGE_API_SOURCE_KEY, LOCAL_STORAGE_GEMINI_API_KEY } from '../constants';
 import { ApiSource } from '../types';
 import { debugLocalStorage, clearAllData, exportData, importData } from '../utils/debugUtils';
 
 const SettingsPage: React.FC = () => {
   const [openRouterApiKey, setOpenRouterApiKey] = useLocalStorage<string>(LOCAL_STORAGE_OPENROUTER_API_KEY, '');
+  const [geminiApiKey, setGeminiApiKey] = useLocalStorage<string>(LOCAL_STORAGE_GEMINI_API_KEY, '');
   const [apiSource, setApiSource] = useLocalStorage<ApiSource>(LOCAL_STORAGE_API_SOURCE_KEY, 'gemini');
   
   const [inputValue, setInputValue] = useState<string>(openRouterApiKey);
+  const [geminiInputValue, setGeminiInputValue] = useState<string>(geminiApiKey);
   const [saved, setSaved] = useState<boolean>(false);
 
+  // Sync input values with localStorage when API source changes
+  useEffect(() => {
+    setInputValue(openRouterApiKey);
+  }, [openRouterApiKey, apiSource]);
+
+  useEffect(() => {
+    setGeminiInputValue(geminiApiKey);
+  }, [geminiApiKey, apiSource]);
+
   const handleSave = () => {
-    setOpenRouterApiKey(inputValue);
+    if (apiSource === 'openrouter') {
+      setOpenRouterApiKey(inputValue);
+    } else {
+      setGeminiApiKey(geminiInputValue);
+    }
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
   };
@@ -27,7 +42,7 @@ const SettingsPage: React.FC = () => {
             مزود خدمة الذكاء الاصطناعي
           </label>
           <p className="text-sm text-gray-400 mb-3">
-            اختر مزود الخدمة الذي ترغب في استخدامه. يتطلب OpenRouter إدخال مفتاح API أدناه.
+            اختر مزود الخدمة الذي ترغب في استخدامه. يمكنك إدخال مفتاح API لـ Google Gemini أو OpenRouter أدناه، أو استخدام نافذة Google AI Studio المنبثقة لـ Gemini.
           </p>
           <select
             id="api-source"
@@ -41,22 +56,50 @@ const SettingsPage: React.FC = () => {
         </div>
 
         {apiSource === 'gemini' && (
-            <div className="text-center p-4 border border-dashed border-gray-600 rounded-lg">
-                <h2 className="text-lg font-semibold text-gray-200 mb-2">إعدادات Google Gemini</h2>
-                <p className="text-gray-300">
-                    يستخدم Google Gemini مفتاح API المحدد من خلال نافذة Google AI Studio المنبثقة.
+          <div>
+            <div className="mb-6">
+              <label htmlFor="gemini-api-key" className="block text-lg font-medium text-gray-200 mb-2">
+                Google Gemini API Key (اختياري)
+              </label>
+              <p className="text-sm text-gray-400 mb-3">
+                أدخل مفتاح API الخاص بك لـ Google Gemini. سيتم حفظه في متصفحك. يمكنك الحصول على مفتاح من <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">هنا</a>.
+              </p>
+              <input
+                type="password"
+                id="gemini-api-key"
+                value={geminiInputValue}
+                onChange={(e) => setGeminiInputValue(e.target.value)}
+                className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                placeholder="AIzaSy..."
+              />
+              {!geminiInputValue && (
+                <p className="text-sm text-yellow-500 mt-2">
+                  ملاحظة: إذا لم تدخل مفتاح API هنا، فسيُطلب منك تحديده من خلال نافذة Google AI Studio المنبثقة عند بدء محادثة.
                 </p>
-                <p className="text-sm text-gray-400 mt-2">
-                    لا يلزم إدخال أي مفتاح هنا. سيُطلب منك تحديده عند بدء محادثة.
-                </p>
+              )}
             </div>
+            
+            <div className="flex items-center justify-end">
+              {saved && (
+                <span className="text-green-400 me-4 transition-opacity duration-300">
+                  تم الحفظ بنجاح!
+                </span>
+              )}
+              <button
+                onClick={handleSave}
+                className="px-6 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 disabled:bg-gray-500 transition-colors"
+              >
+                حفظ
+              </button>
+            </div>
+          </div>
         )}
 
         {apiSource === 'openrouter' && (
           <div>
             <div className="mb-6">
               <label htmlFor="openrouter-api-key" className="block text-lg font-medium text-gray-200 mb-2">
-                OpenRouter API Key
+                OpenRouter API Key (مطلوب)
               </label>
               <p className="text-sm text-gray-400 mb-3">
                 أدخل مفتاح API الخاص بك لـ OpenRouter. سيتم حفظه في متصفحك. يمكنك الحصول على مفتاح من <a href="https://openrouter.ai/settings/keys" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">هنا</a>.
@@ -69,6 +112,11 @@ const SettingsPage: React.FC = () => {
                 className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 focus:ring-2 focus:ring-blue-500 focus:outline-none"
                 placeholder="sk-or-..."
               />
+              {!inputValue && (
+                <p className="text-sm text-yellow-500 mt-2">
+                  ملاحظة: يجب إدخال مفتاح API لاستخدام OpenRouter.
+                </p>
+              )}
             </div>
             
             <div className="flex items-center justify-end">

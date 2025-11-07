@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { v4 as uuidv4 } from 'uuid';
 import useLocalStorage from '../hooks/useLocalStorage';
 import { Case, ChatMessage, ApiSource } from '../types';
-import { LOCAL_STORAGE_CASES_KEY, SUGGESTED_PROMPTS, LOCAL_STORAGE_API_SOURCE_KEY, LOCAL_STORAGE_OPENROUTER_API_KEY } from '../constants';
+import { LOCAL_STORAGE_CASES_KEY, SUGGESTED_PROMPTS, LOCAL_STORAGE_API_SOURCE_KEY, LOCAL_STORAGE_OPENROUTER_API_KEY, LOCAL_STORAGE_GEMINI_API_KEY } from '../constants';
 import { startChat, streamChatResponse } from '../services/geminiService';
 import { streamChatResponseFromOpenRouter } from '../services/openRouterService';
 import { formatStructuredLegalResponse } from '../utils/formatLegalResponse';
@@ -29,6 +29,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
   const [cases, setCases] = useLocalStorage<Case[]>(LOCAL_STORAGE_CASES_KEY, []);
   const [apiSource] = useLocalStorage<ApiSource>(LOCAL_STORAGE_API_SOURCE_KEY, 'gemini');
   const [openRouterApiKey] = useLocalStorage<string>(LOCAL_STORAGE_OPENROUTER_API_KEY, '');
+  const [geminiApiKey] = useLocalStorage<string>(LOCAL_STORAGE_GEMINI_API_KEY, '');
 
   // Ensure cases are properly loaded
   useEffect(() => {
@@ -47,20 +48,25 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
 
   useEffect(() => {
     if (apiSource === 'gemini') {
-        const checkApiKey = async () => {
-          if (window.aistudio && typeof window.aistudio.hasSelectedApiKey === 'function') {
-            const hasKey = await window.aistudio.hasSelectedApiKey();
-            setIsApiKeyReady(hasKey);
-          } else {
+        // If we have a stored API key, we're ready to go
+        if (geminiApiKey) {
+            setIsApiKeyReady(true);
+        } 
+        // Otherwise, check if the browser extension is available
+        else if (window.aistudio && typeof window.aistudio.hasSelectedApiKey === 'function') {
+            const checkApiKey = async () => {
+              const hasKey = await window.aistudio.hasSelectedApiKey();
+              setIsApiKeyReady(hasKey);
+            };
+            checkApiKey();
+        } else {
             console.warn('window.aistudio not found.');
             setIsApiKeyReady(true); // Assume it's handled if aistudio is not present
-          }
-        };
-        checkApiKey();
+        }
     } else { // openrouter
         setIsApiKeyReady(!!openRouterApiKey);
     }
-  }, [apiSource, openRouterApiKey]);
+  }, [apiSource, openRouterApiKey, geminiApiKey]);
 
   useEffect(() => {
     if (caseId) {
@@ -95,7 +101,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
   };
 
   const initializeChatSession = (history: ChatMessage[]): boolean => {
-      chatSessionRef.current = startChat(history);
+      chatSessionRef.current = startChat(history, geminiApiKey || undefined);
       if (!chatSessionRef.current) {
           alert("فشل في بدء المحادثة. تحقق من صلاحية مفتاح API الخاص بك.");
           window.aistudio?.hasSelectedApiKey().then(hasKey => {
@@ -249,8 +255,15 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
       return apiSource === 'gemini' ? (
         <div className="w-full flex flex-col items-center justify-center text-center p-4">
             <h2 className="text-2xl font-bold mb-4 text-gray-200">مطلوب مفتاح Google AI API</h2>
-            <p className="text-gray-400 mb-6 max-w-2xl">لاستخدام المستشار القانوني، يرجى تحديد مفتاح Google AI API الخاص بك.</p>
-            <button onClick={handleSelectApiKey} className="mt-6 px-8 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700">تحديد مفتاح API</button>
+            <p className="text-gray-400 mb-6 max-w-2xl">لاستخدام المستشار القانوني مع Google Gemini، يمكنك إما:</p>
+            <ul className="text-gray-400 mb-6 max-w-2xl text-right list-disc list-inside space-y-2">
+                <li>تحديد مفتاح Google AI API من خلال نافذة Google AI Studio المنبثقة</li>
+                <li>أو إدخال مفتاح API الخاص بك في صفحة الإعدادات</li>
+            </ul>
+            <div className="flex gap-4">
+                <button onClick={handleSelectApiKey} className="mt-6 px-8 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700">تحديد مفتاح API</button>
+                <button onClick={() => navigate('/settings')} className="mt-6 px-8 py-3 bg-gray-600 text-white font-semibold rounded-lg hover:bg-gray-700">الانتقال إلى الإعدادات</button>
+            </div>
         </div>
       ) : (
         <div className="w-full flex flex-col items-center justify-center text-center p-4">

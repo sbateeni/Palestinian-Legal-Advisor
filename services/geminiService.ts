@@ -2,9 +2,9 @@
 import { GoogleGenAI, Chat, GenerateContentResponse, Content } from "@google/genai";
 import { ChatMessage } from '../types';
 
-const getAiClient = (): GoogleGenAI | null => {
+const getAiClient = (apiKey?: string): GoogleGenAI | null => {
   try {
-    const ai = new GoogleGenAI({ apiKey: 'default' });
+    const ai = new GoogleGenAI({ apiKey: apiKey || 'default' });
     return ai;
   } catch (error) {
     console.error("Failed to initialize Google AI client:", error);
@@ -32,8 +32,8 @@ const SYSTEM_INSTRUCTION = `أنت مساعد ذكاء اصطناعي خبير �
 استخدم > للنصوص المقتبسة من القوانين.
 لا تستخدم أي رموز أو أحرف صينية في الإجابات.`;
 
-export const startChat = (history: ChatMessage[]): Chat | null => {
-    const ai = getAiClient();
+export const startChat = (history: ChatMessage[], apiKey?: string): Chat | null => {
+    const ai = getAiClient(apiKey);
     if (!ai) return null;
 
     // FIX: The type for formattedHistory should be Content[], not Part[].
