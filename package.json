@@ -1,5 +1,5 @@
 {
-  "name": "المستشار-القانوني-الفلسطيني",
+  "name": "palestinian-legal-advisor",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -13,6 +13,7 @@
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-router-dom": "^7.9.5",
+    "patch-package": "^6.5.1",
     "uuid": "^13.0.0"
   },
   "devDependencies": {
