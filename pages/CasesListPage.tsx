@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import useLocalStorage from '../hooks/useLocalStorage';
 import { Case } from '../types';
@@ -7,9 +7,14 @@ import { LOCAL_STORAGE_CASES_KEY } from '../constants';
 
 const CasesListPage: React.FC = () => {
   const [cases, setCases] = useLocalStorage<Case[]>(LOCAL_STORAGE_CASES_KEY, []);
+  const [sortedCases, setSortedCases] = useState<Case[]>([]);
   const navigate = useNavigate();
 
-  const sortedCases = [...cases].sort((a, b) => b.createdAt - a.createdAt);
+  // Ensure cases are sorted whenever they change
+  useEffect(() => {
+    const sorted = [...cases].sort((a, b) => b.createdAt - a.createdAt);
+    setSortedCases(sorted);
+  }, [cases]);
 
   const deleteCase = (id: string) => {
     if (window.confirm("هل أنت متأكد من حذف هذه القضية؟ لا يمكن التراجع عن هذا الإجراء.")) {

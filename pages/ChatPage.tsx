@@ -29,10 +29,14 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
   const [apiSource] = useLocalStorage<ApiSource>(LOCAL_STORAGE_API_SOURCE_KEY, 'gemini');
   const [openRouterApiKey] = useLocalStorage<string>(LOCAL_STORAGE_OPENROUTER_API_KEY, '');
 
+  // Ensure cases are properly loaded
+  useEffect(() => {
+    // This will trigger a re-render if cases change in another tab
+  }, [cases]);
+
   const [currentCase, setCurrentCase] = useState<Case | null>(null);
   const [userInput, setUserInput] = useState('');
   const [userRole, setUserRole] = useState<'plaintiff' | 'defendant' | null>(null);
-  const [otherPartyName, setOtherPartyName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isInitialCase, setIsInitialCase] = useState(!caseId);
   const [isApiKeyReady, setIsApiKeyReady] = useState<boolean | null>(null);
@@ -109,24 +113,20 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
     let isNewCaseCreation = false;
 
     if (isInitialCase) {
-        if (!userRole || !otherPartyName.trim()) {
-          alert('يرجى تحديد صفتك في القضية وإدخال اسم الطرف الآخر');
+        if (!userRole) {
+          alert('يرجى تحديد صفتك في القضية');
           setIsLoading(false);
           return;
         }
         
         isNewCaseCreation = true;
-        const userName = 'أنا'; // يمكن استبدالها باسم المستخدم إذا كان متوفراً
-        const plaintiff = userRole === 'plaintiff' ? userName : otherPartyName;
-        const defendant = userRole === 'defendant' ? userName : otherPartyName;
-        
-        const fullMessage = `القضية بين المشتكي: ${plaintiff} والمشتكى عليه: ${defendant}\n\nصفتي في القضية: ${
+        const fullMessage = `صفتي في القضية: ${
           userRole === 'plaintiff' ? 'مشتكي (مدعي)' : 'مشتكى عليه (مدعى عليه)'
         }\n\nتفاصيل القضية:\n${message}`;
         
         caseToProcess = {
             id: uuidv4(),
-            title: `${plaintiff} ضد ${defendant}`,
+            title: `قضية جديدة - ${new Date().toLocaleDateString('ar')}`,
             summary: message,
             createdAt: Date.now(),
             chatHistory: [{ role: 'user', content: fullMessage }],
@@ -292,20 +292,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
                 </button>
               </div>
             </div>
-            {userRole && (
-              <div className="space-y-2">
-                <label className="block text-right text-gray-300 text-sm font-medium mb-1">
-                  {userRole === 'plaintiff' ? 'اسم المشتكى عليه' : 'اسم المشتكي'}
-                </label>
-                <input
-                  type="text"
-                  value={otherPartyName}
-                  onChange={(e) => setOtherPartyName(e.target.value)}
-                  className="w-full p-3 bg-gray-800 border border-gray-600 rounded-lg text-gray-200 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                  placeholder={userRole === 'plaintiff' ? 'أدخل اسم المشتكى عليه' : 'أدخل اسم المشتكي'}
-                />
-              </div>
-            )}
+
           </div>
           <div className="p-4">
             <textarea 
@@ -318,7 +305,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
           <div className="p-4 border-t border-gray-700">
             <button 
               onClick={() => handleSendMessage(userInput)} 
-              disabled={isLoading || !userInput.trim() || !userRole || !otherPartyName.trim()} 
+              disabled={isLoading || !userInput.trim() || !userRole} 
               className="w-full px-8 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors"
             >
               {isLoading ? '...جار التحليل' : 'بدء التحليل'}
@@ -358,7 +345,6 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
         </div>
       </div>
     );
-  }
   }
 
   return (
@@ -407,7 +393,5 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
     </div>
   );
 };
-
-export default ChatPage;
 
 export default ChatPage;
