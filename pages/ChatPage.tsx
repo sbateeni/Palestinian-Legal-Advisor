@@ -307,52 +307,58 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
               </div>
             )}
           </div>
-            </div>
+          <div className="p-4">
+            <textarea 
+              value={userInput} 
+              onChange={(e) => setUserInput(e.target.value)} 
+              className="w-full h-48 p-4 bg-gray-800 border border-gray-600 rounded-lg text-gray-200 focus:ring-2 focus:ring-blue-500 focus:outline-none" 
+              placeholder="اكتب تفاصيل قضيتك هنا..."
+            />
           </div>
-          <textarea 
-            value={userInput} 
-            onChange={(e) => setUserInput(e.target.value)} 
-            className="w-full h-48 p-4 bg-gray-800 border-t border-gray-700 text-gray-200 focus:ring-2 focus:ring-blue-500 focus:outline-none" 
-            placeholder="اكتب تفاصيل قضيتك هنا..."
-          />
           <div className="p-4 border-t border-gray-700">
             <button 
               onClick={() => handleSendMessage(userInput)} 
-              disabled={isLoading || !userInput.trim()} 
+              disabled={isLoading || !userInput.trim() || !userRole || !otherPartyName.trim()} 
               className="w-full px-8 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors"
             >
               {isLoading ? '...جار التحليل' : 'بدء التحليل'}
             </button>
           </div>
           {currentCase && currentCase.chatHistory.length > 0 && (
-            <div className="mt-4 p-6 bg-gray-800 rounded-b-lg border-t border-gray-700">
-              <div className="text-right">
-                <div className="inline-block max-w-2xl px-5 py-3 bg-blue-600 text-white rounded-2xl rounded-tr-none">
-                  <pre className="whitespace-pre-wrap font-sans text-base">{currentCase.chatHistory[0].content}</pre>
-                </div>
-              </div>
-              {currentCase.chatHistory.length > 1 && (
-                <div className="mt-4 text-left">
-                  <div className="inline-block max-w-2xl px-5 py-3 bg-gray-700 text-gray-200 rounded-2xl rounded-tl-none">
-                    <div className="legal-analysis prose prose-invert prose-lg">
-                      <div dangerouslySetInnerHTML={{
-                        __html: currentCase.chatHistory[1].content
-                          ?.replace(/^([\d-]+\. )/gm, '<span class="text-blue-400 font-semibold">$1</span>')
-                          ?.replace(/\n\n/g, '</p><p class="mt-4">')
-                          ?.replace(/^- /gm, '<span class="inline-block w-2 h-2 bg-blue-400 rounded-full mr-2"></span>')
-                          ?.split('\n')
-                          ?.map(line => `<p class="mb-3">${line}</p>`)
-                          ?.join('\n') || (isLoading ? 'جاري التحليل...' : '')
-                      }} />
+            <div className="p-6 border-t border-gray-700">
+              <div className="space-y-4">
+                {currentCase.chatHistory.map((msg, index) => (
+                  <div key={index} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                    <div className={`max-w-2xl px-5 py-3 rounded-2xl ${
+                      msg.role === 'user' 
+                        ? 'bg-blue-600 text-white rounded-br-none' 
+                        : 'bg-gray-700 text-gray-200 rounded-bl-none'
+                    }`}>
+                      {msg.role === 'model' ? (
+                        <div className="legal-analysis prose prose-invert prose-lg">
+                          <div dangerouslySetInnerHTML={{
+                            __html: msg.content
+                              ?.replace(/^([\d-]+\. )/gm, '<span class="text-blue-400 font-semibold">$1</span>')
+                              ?.replace(/\n\n/g, '</p><p class="mt-4">')
+                              ?.replace(/^- /gm, '<span class="inline-block w-2 h-2 bg-blue-400 rounded-full mr-2"></span>')
+                              ?.split('\n')
+                              ?.map(line => `<p class="mb-3">${line}</p>`)
+                              ?.join('\n') || (isLoading ? 'جاري التحليل...' : '')
+                          }} />
+                        </div>
+                      ) : (
+                        <pre className="whitespace-pre-wrap font-sans text-base">{msg.content}</pre>
+                      )}
                     </div>
                   </div>
-                </div>
-              )}
+                ))}
+              </div>
             </div>
           )}
         </div>
       </div>
     );
+  }
   }
 
   return (
@@ -362,7 +368,21 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
           {currentCase?.chatHistory.map((msg, index) => (
             <div key={index} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
               <div className={`max-w-xl lg:max-w-2xl px-5 py-3 rounded-2xl ${msg.role === 'user' ? 'bg-blue-600 text-white rounded-br-none' : 'bg-gray-700 text-gray-200 rounded-bl-none'}`}>
-                 <pre className="whitespace-pre-wrap font-sans text-base">{msg.content || '...'}</pre>
+                {msg.role === 'model' ? (
+                  <div className="legal-analysis prose prose-invert prose-lg">
+                    <div dangerouslySetInnerHTML={{
+                      __html: msg.content
+                        ?.replace(/^([\d-]+\. )/gm, '<span class="text-blue-400 font-semibold">$1</span>')
+                        ?.replace(/\n\n/g, '</p><p class="mt-4">')
+                        ?.replace(/^- /gm, '<span class="inline-block w-2 h-2 bg-blue-400 rounded-full mr-2"></span>')
+                        ?.split('\n')
+                        ?.map(line => `<p class="mb-3">${line}</p>`)
+                        ?.join('\n') || (isLoading ? 'جاري التحليل...' : '')
+                    }} />
+                  </div>
+                ) : (
+                  <pre className="whitespace-pre-wrap font-sans text-base">{msg.content || '...'}</pre>
+                )}
               </div>
             </div>
           ))}
@@ -387,5 +407,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
     </div>
   );
 };
+
+export default ChatPage;
 
 export default ChatPage;
