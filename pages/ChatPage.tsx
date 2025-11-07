@@ -249,8 +249,41 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
       <div className="w-full flex flex-col items-center justify-center text-center p-4">
         <h2 className="text-2xl font-bold mb-4 text-gray-200">ابدأ قضية جديدة</h2>
         <p className="text-gray-400 mb-6 max-w-2xl">أدخل وصفاً كاملاً للقضية القانونية التي تريد تحليلها. كلما كانت التفاصيل أكثر، كانت الإجابات أدق.</p>
-        <textarea value={userInput} onChange={(e) => setUserInput(e.target.value)} className="w-full max-w-3xl h-48 p-4 bg-gray-800 border border-gray-600 rounded-lg text-gray-200 focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="اكتب تفاصيل قضيتك هنا..."/>
-        <button onClick={() => handleSendMessage(userInput)} disabled={isLoading || !userInput.trim()} className="mt-6 px-8 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors">{isLoading ? '...جار التحليل' : 'بدء التحليل'}</button>
+        <div className="w-full max-w-3xl bg-gray-900 rounded-lg shadow-lg overflow-hidden">
+          <textarea 
+            value={userInput} 
+            onChange={(e) => setUserInput(e.target.value)} 
+            className="w-full h-48 p-4 bg-gray-800 border border-gray-600 rounded-t-lg text-gray-200 focus:ring-2 focus:ring-blue-500 focus:outline-none" 
+            placeholder="اكتب تفاصيل قضيتك هنا..."
+          />
+          <div className="p-4 border-t border-gray-700">
+            <button 
+              onClick={() => handleSendMessage(userInput)} 
+              disabled={isLoading || !userInput.trim()} 
+              className="w-full px-8 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors"
+            >
+              {isLoading ? '...جار التحليل' : 'بدء التحليل'}
+            </button>
+          </div>
+          {currentCase && currentCase.chatHistory.length > 0 && (
+            <div className="mt-4 p-6 bg-gray-800 rounded-b-lg border-t border-gray-700">
+              <div className="text-right">
+                <div className="inline-block max-w-2xl px-5 py-3 bg-blue-600 text-white rounded-2xl rounded-tr-none">
+                  <pre className="whitespace-pre-wrap font-sans text-base">{currentCase.chatHistory[0].content}</pre>
+                </div>
+              </div>
+              {currentCase.chatHistory.length > 1 && (
+                <div className="mt-4 text-left">
+                  <div className="inline-block max-w-2xl px-5 py-3 bg-gray-700 text-gray-200 rounded-2xl rounded-tl-none">
+                    <pre className="whitespace-pre-wrap font-sans text-base">
+                      {currentCase.chatHistory[1].content || (isLoading ? 'جاري التحليل...' : '')}
+                    </pre>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     );
   }

@@ -3,13 +3,13 @@ import { GoogleGenAI, Chat, GenerateContentResponse, Content } from "@google/gen
 import { ChatMessage } from '../types';
 
 const getAiClient = (): GoogleGenAI | null => {
-  // FIX: API key should be read from environment variables as per guidelines.
-  const apiKey = process.env.API_KEY;
-  if (!apiKey) {
-    console.error("API Key not found in environment variables.");
+  try {
+    const ai = new GoogleGenAI({ apiKey: 'default' });
+    return ai;
+  } catch (error) {
+    console.error("Failed to initialize Google AI client:", error);
     return null;
   }
-  return new GoogleGenAI({ apiKey });
 };
 
 const SYSTEM_INSTRUCTION = `أنت مساعد ذكاء اصطناعي خبير ومتخصص في القانون الفلسطيني.
