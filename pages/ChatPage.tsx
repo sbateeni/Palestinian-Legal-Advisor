@@ -6,6 +6,7 @@ import { Case, ChatMessage, ApiSource } from '../types';
 import { LOCAL_STORAGE_CASES_KEY, SUGGESTED_PROMPTS, LOCAL_STORAGE_API_SOURCE_KEY, LOCAL_STORAGE_OPENROUTER_API_KEY } from '../constants';
 import { startChat, streamChatResponse } from '../services/geminiService';
 import { streamChatResponseFromOpenRouter } from '../services/openRouterService';
+import { formatStructuredLegalResponse } from '../utils/formatLegalResponse';
 import { Chat } from '@google/genai';
 
 declare global {
@@ -324,13 +325,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
                       {msg.role === 'model' ? (
                         <div className="legal-analysis prose prose-invert prose-lg">
                           <div dangerouslySetInnerHTML={{
-                            __html: msg.content
-                              ?.replace(/^([\d-]+\. )/gm, '<span class="text-blue-400 font-semibold">$1</span>')
-                              ?.replace(/\n\n/g, '</p><p class="mt-4">')
-                              ?.replace(/^- /gm, '<span class="inline-block w-2 h-2 bg-blue-400 rounded-full mr-2"></span>')
-                              ?.split('\n')
-                              ?.map(line => `<p class="mb-3">${line}</p>`)
-                              ?.join('\n') || (isLoading ? 'جاري التحليل...' : '')
+                            __html: formatStructuredLegalResponse(msg.content) || (isLoading ? 'جاري التحليل...' : '')
                           }} />
                         </div>
                       ) : (
@@ -357,13 +352,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
                 {msg.role === 'model' ? (
                   <div className="legal-analysis prose prose-invert prose-lg">
                     <div dangerouslySetInnerHTML={{
-                      __html: msg.content
-                        ?.replace(/^([\d-]+\. )/gm, '<span class="text-blue-400 font-semibold">$1</span>')
-                        ?.replace(/\n\n/g, '</p><p class="mt-4">')
-                        ?.replace(/^- /gm, '<span class="inline-block w-2 h-2 bg-blue-400 rounded-full mr-2"></span>')
-                        ?.split('\n')
-                        ?.map(line => `<p class="mb-3">${line}</p>`)
-                        ?.join('\n') || (isLoading ? 'جاري التحليل...' : '')
+                      __html: formatStructuredLegalResponse(msg.content) || (isLoading ? 'جاري التحليل...' : '')
                     }} />
                   </div>
                 ) : (
