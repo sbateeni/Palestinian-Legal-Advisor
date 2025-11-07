@@ -31,6 +31,8 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
 
   const [currentCase, setCurrentCase] = useState<Case | null>(null);
   const [userInput, setUserInput] = useState('');
+  const [userRole, setUserRole] = useState<'plaintiff' | 'defendant' | null>(null);
+  const [otherPartyName, setOtherPartyName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isInitialCase, setIsInitialCase] = useState(!caseId);
   const [isApiKeyReady, setIsApiKeyReady] = useState<boolean | null>(null);
@@ -107,13 +109,27 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
     let isNewCaseCreation = false;
 
     if (isInitialCase) {
+        if (!userRole || !otherPartyName.trim()) {
+          alert('يرجى تحديد صفتك في القضية وإدخال اسم الطرف الآخر');
+          setIsLoading(false);
+          return;
+        }
+        
         isNewCaseCreation = true;
+        const userName = 'أنا'; // يمكن استبدالها باسم المستخدم إذا كان متوفراً
+        const plaintiff = userRole === 'plaintiff' ? userName : otherPartyName;
+        const defendant = userRole === 'defendant' ? userName : otherPartyName;
+        
+        const fullMessage = `القضية بين المشتكي: ${plaintiff} والمشتكى عليه: ${defendant}\n\nصفتي في القضية: ${
+          userRole === 'plaintiff' ? 'مشتكي (مدعي)' : 'مشتكى عليه (مدعى عليه)'
+        }\n\nتفاصيل القضية:\n${message}`;
+        
         caseToProcess = {
             id: uuidv4(),
-            title: message.substring(0, 50) + '...',
+            title: `${plaintiff} ضد ${defendant}`,
             summary: message,
             createdAt: Date.now(),
-            chatHistory: [{ role: 'user', content: message }],
+            chatHistory: [{ role: 'user', content: fullMessage }],
         };
     } else if (currentCase) {
         caseToProcess = {
@@ -250,10 +266,53 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
         <h2 className="text-2xl font-bold mb-4 text-gray-200">ابدأ قضية جديدة</h2>
         <p className="text-gray-400 mb-6 max-w-2xl">أدخل وصفاً كاملاً للقضية القانونية التي تريد تحليلها. كلما كانت التفاصيل أكثر، كانت الإجابات أدق.</p>
         <div className="w-full max-w-3xl bg-gray-900 rounded-lg shadow-lg overflow-hidden">
+          <div className="space-y-6 p-4 border-b border-gray-700">
+            <div>
+              <label className="block text-right text-gray-300 text-lg font-medium mb-3">ما هي صفتك في القضية؟</label>
+              <div className="flex gap-4 justify-center">
+                <button
+                  onClick={() => setUserRole('plaintiff')}
+                  className={`flex-1 py-4 px-6 rounded-lg font-medium transition-colors ${
+                    userRole === 'plaintiff'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                  }`}
+                >
+                  مشتكي (مدعي)
+                </button>
+                <button
+                  onClick={() => setUserRole('defendant')}
+                  className={`flex-1 py-4 px-6 rounded-lg font-medium transition-colors ${
+                    userRole === 'defendant'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                  }`}
+                >
+                  مشتكى عليه (مدعى عليه)
+                </button>
+              </div>
+            </div>
+            {userRole && (
+              <div className="space-y-2">
+                <label className="block text-right text-gray-300 text-sm font-medium mb-1">
+                  {userRole === 'plaintiff' ? 'اسم المشتكى عليه' : 'اسم المشتكي'}
+                </label>
+                <input
+                  type="text"
+                  value={otherPartyName}
+                  onChange={(e) => setOtherPartyName(e.target.value)}
+                  className="w-full p-3 bg-gray-800 border border-gray-600 rounded-lg text-gray-200 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  placeholder={userRole === 'plaintiff' ? 'أدخل اسم المشتكى عليه' : 'أدخل اسم المشتكي'}
+                />
+              </div>
+            )}
+          </div>
+            </div>
+          </div>
           <textarea 
             value={userInput} 
             onChange={(e) => setUserInput(e.target.value)} 
-            className="w-full h-48 p-4 bg-gray-800 border border-gray-600 rounded-t-lg text-gray-200 focus:ring-2 focus:ring-blue-500 focus:outline-none" 
+            className="w-full h-48 p-4 bg-gray-800 border-t border-gray-700 text-gray-200 focus:ring-2 focus:ring-blue-500 focus:outline-none" 
             placeholder="اكتب تفاصيل قضيتك هنا..."
           />
           <div className="p-4 border-t border-gray-700">
@@ -275,9 +334,17 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
               {currentCase.chatHistory.length > 1 && (
                 <div className="mt-4 text-left">
                   <div className="inline-block max-w-2xl px-5 py-3 bg-gray-700 text-gray-200 rounded-2xl rounded-tl-none">
-                    <pre className="whitespace-pre-wrap font-sans text-base">
-                      {currentCase.chatHistory[1].content || (isLoading ? 'جاري التحليل...' : '')}
-                    </pre>
+                    <div className="legal-analysis prose prose-invert prose-lg">
+                      <div dangerouslySetInnerHTML={{
+                        __html: currentCase.chatHistory[1].content
+                          ?.replace(/^([\d-]+\. )/gm, '<span class="text-blue-400 font-semibold">$1</span>')
+                          ?.replace(/\n\n/g, '</p><p class="mt-4">')
+                          ?.replace(/^- /gm, '<span class="inline-block w-2 h-2 bg-blue-400 rounded-full mr-2"></span>')
+                          ?.split('\n')
+                          ?.map(line => `<p class="mb-3">${line}</p>`)
+                          ?.join('\n') || (isLoading ? 'جاري التحليل...' : '')
+                      }} />
+                    </div>
                   </div>
                 </div>
               )}
