@@ -1,7 +1,7 @@
 import { ChatMessage } from '../types';
 
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
-const MODEL_NAME = 'google/gemini-flash-1.5'; 
+const MODEL_NAME = 'qwen/qwen3-coder:free'; 
 
 const SYSTEM_INSTRUCTION = `أنت مساعد ذكاء اصطناعي خبير ومتخصص في القانون الفلسطيني.
 معرفتك تشمل جميع القوانين واللوائح والسوابق القضائية المعمول بها في فلسطين.
