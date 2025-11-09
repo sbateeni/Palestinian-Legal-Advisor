@@ -283,7 +283,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
           <div className="space-y-6 p-4 border-b border-gray-700">
             <div>
               <label className="block text-right text-gray-300 text-lg font-medium mb-3">ما هي صفتك في القضية؟</label>
-              <div className="flex gap-4 justify-center">
+              <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <button
                   onClick={() => setUserRole('plaintiff')}
                   className={`flex-1 py-4 px-6 rounded-lg font-medium transition-colors ${
@@ -356,7 +356,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
   }
 
   return (
-    <div className="w-full flex flex-col h-[calc(100vh-100px)] bg-gray-800 rounded-lg overflow-hidden shadow-xl">
+    <div className="w-full flex flex-col max-h-[calc(100vh-180px)] sm:max-h-[calc(100vh-200px)] bg-gray-800 rounded-lg overflow-hidden shadow-xl container mx-auto">
       <div ref={chatContainerRef} className="flex-grow p-6 overflow-y-auto">
         <div className="space-y-6">
           {currentCase?.chatHistory.map((msg, index) => (

@@ -23,7 +23,7 @@ const CasesListPage: React.FC = () => {
   }
 
   return (
-    <div className="w-full">
+    <div className="w-full container mx-auto">
       <h1 className="text-3xl font-bold mb-6 text-gray-100 border-b border-gray-700 pb-3">القضايا المحفوظة</h1>
       {sortedCases.length === 0 ? (
         <div className="text-center py-16">
