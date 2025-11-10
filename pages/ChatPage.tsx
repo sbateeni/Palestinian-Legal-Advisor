@@ -1,5 +1,3 @@
-
-
 // FIX: Fix TypeScript error by using a named interface for the global aistudio property.
 // Using a named interface `AIStudio` resolves potential type conflicts with other global declarations.
 declare global {
@@ -41,6 +39,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
   const [isApiKeyReady, setIsApiKeyReady] = useState<boolean | null>(null);
   const [apiSource, setApiSource] = useState<ApiSource>('gemini');
   const [openRouterApiKey, setOpenRouterApiKey] = useState<string>('');
+  const [openRouterModel, setOpenRouterModel] = useState<string>('google/gemini-flash-1.5:free');
   const [thinkingMode, setThinkingMode] = useState(false);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const [uploadedImage, setUploadedImage] = useState<{ dataUrl: string; mimeType: string } | null>(null);
@@ -62,6 +61,8 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
 
         if (storedApiSource === 'openrouter') {
           const storedApiKey = await dbService.getSetting<string>('openRouterApiKey');
+          const storedModel = await dbService.getSetting<string>('openRouterModel');
+          if (storedModel) setOpenRouterModel(storedModel);
           if (storedApiKey) {
             setOpenRouterApiKey(storedApiKey);
             setIsApiKeyReady(true);
@@ -216,7 +217,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
     try {
         let stream;
         if (apiSource === 'openrouter') {
-            stream = streamChatResponseFromOpenRouter(openRouterApiKey, currentChatHistory);
+            stream = streamChatResponseFromOpenRouter(openRouterApiKey, currentChatHistory, openRouterModel);
         } else {
             stream = streamChatResponseFromGemini(currentChatHistory, thinkingMode);
         }

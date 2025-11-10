@@ -1,10 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ApiSource, Case } from '../types';
 import * as dbService from '../services/dbService';
+import { OPENROUTER_FREE_MODELS } from '../constants';
 
 const SettingsPage: React.FC = () => {
   const [openRouterApiKey, setOpenRouterApiKey] = useState('');
   const [apiSource, setApiSource] = useState<ApiSource>('gemini');
+  const [openRouterModel, setOpenRouterModel] = useState<string>(OPENROUTER_FREE_MODELS[0].id);
   const [casesCount, setCasesCount] = useState(0);
   
   const [inputValue, setInputValue] = useState<string>('');
@@ -15,6 +17,7 @@ const SettingsPage: React.FC = () => {
     const loadSettings = async () => {
       const storedApiKey = await dbService.getSetting<string>('openRouterApiKey');
       const storedApiSource = await dbService.getSetting<ApiSource>('apiSource');
+      const storedModel = await dbService.getSetting<string>('openRouterModel');
       const allCases = await dbService.getAllCases();
 
       if (storedApiKey) {
@@ -24,13 +27,16 @@ const SettingsPage: React.FC = () => {
       if (storedApiSource) {
         setApiSource(storedApiSource);
       }
+      if (storedModel) {
+        setOpenRouterModel(storedModel);
+      }
       setCasesCount(allCases.length);
     };
     loadSettings();
   }, []);
 
 
-  const handleSave = async () => {
+  const handleSaveKey = async () => {
     await dbService.setSetting({ key: 'openRouterApiKey', value: inputValue });
     setOpenRouterApiKey(inputValue);
     setSaved(true);
@@ -41,6 +47,12 @@ const SettingsPage: React.FC = () => {
     const newSource = e.target.value as ApiSource;
     await dbService.setSetting({ key: 'apiSource', value: newSource });
     setApiSource(newSource);
+  };
+
+  const handleModelChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newModel = e.target.value;
+    setOpenRouterModel(newModel);
+    await dbService.setSetting({ key: 'openRouterModel', value: newModel });
   };
 
   const handleClearCases = async () => {
@@ -157,19 +169,38 @@ const SettingsPage: React.FC = () => {
                 placeholder="sk-or-..."
               />
             </div>
-            
-            <div className="flex items-center justify-end">
+
+            <div className="flex items-center justify-end mb-6">
               {saved && (
                 <span className="text-green-400 me-4 transition-opacity duration-300">
-                  تم الحفظ بنجاح!
+                  تم حفظ المفتاح!
                 </span>
               )}
               <button
-                onClick={handleSave}
+                onClick={handleSaveKey}
                 className="px-6 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 disabled:bg-gray-500 transition-colors"
               >
-                حفظ
+                حفظ المفتاح
               </button>
+            </div>
+            
+            <div className="mt-8 border-t border-gray-700 pt-6">
+                <label htmlFor="openrouter-model" className="block text-lg font-medium text-gray-200 mb-2">
+                    نموذج OpenRouter
+                </label>
+                <p className="text-sm text-gray-400 mb-3">
+                    اختر النموذج المجاني الذي ترغب باستخدامه. النماذج التي تدعم تحليل الصور محددة. يتم الحفظ تلقائياً عند الاختيار.
+                </p>
+                <select
+                    id="openrouter-model"
+                    value={openRouterModel}
+                    onChange={handleModelChange}
+                    className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                >
+                    {OPENROUTER_FREE_MODELS.map(model => (
+                    <option key={model.id} value={model.id}>{model.name}</option>
+                    ))}
+                </select>
             </div>
           </div>
         )}

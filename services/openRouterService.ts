@@ -1,7 +1,7 @@
 import { ChatMessage } from '../types';
 
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
-const MODEL_NAME = 'mistralai/mistral-7b-instruct:free'; 
+const DEFAULT_MODEL_NAME = 'google/gemini-flash-1.5:free'; 
 
 const SYSTEM_INSTRUCTION = `أنت مساعد ذكاء اصطناعي خبير ومتخصص في القانون الفلسطيني.
 معرفتك تشمل جميع القوانين واللوائح والسوابق القضائية المعمول بها في فلسطين.
@@ -12,16 +12,42 @@ const SYSTEM_INSTRUCTION = `أنت مساعد ذكاء اصطناعي خبير �
 
 export async function* streamChatResponseFromOpenRouter(
   apiKey: string,
-  history: ChatMessage[]
+  history: ChatMessage[],
+  modelName: string = DEFAULT_MODEL_NAME
 ): AsyncGenerator<{ text: string }> {
   
-  const messagesForApi = [
-    { role: 'system', content: SYSTEM_INSTRUCTION },
-    ...history.map(msg => ({
-        role: msg.role === 'model' ? 'assistant' : 'user',
+  const messagesForApi = history.map(msg => {
+    const role = msg.role === 'model' ? 'assistant' : 'user';
+
+    // For user messages with an image, format content as an array of parts
+    if (role === 'user' && msg.imageUrl) {
+      const content: any[] = [];
+      
+      // Add text part if it exists
+      if (msg.content) {
+        content.push({
+          type: 'text',
+          text: msg.content,
+        });
+      }
+      
+      // Add image part
+      content.push({
+        type: 'image_url',
+        image_url: {
+          url: msg.imageUrl,
+        },
+      });
+
+      return { role, content };
+    }
+    
+    // For text-only messages, content is a simple string
+    return {
+        role,
         content: msg.content
-    }))
-  ];
+    };
+  });
 
   const response = await fetch(OPENROUTER_API_URL, {
     method: 'POST',
@@ -32,8 +58,11 @@ export async function* streamChatResponseFromOpenRouter(
       'X-Title': encodeURIComponent('المستشار القانوني الفلسطيني'), // Recommended by OpenRouter
     },
     body: JSON.stringify({
-      model: MODEL_NAME,
-      messages: messagesForApi,
+      model: modelName,
+      messages: [ // System prompt is now part of the messages array
+        { role: 'system', content: SYSTEM_INSTRUCTION },
+        ...messagesForApi
+      ],
       stream: true,
     }),
   });
