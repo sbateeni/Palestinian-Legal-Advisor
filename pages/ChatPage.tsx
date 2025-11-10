@@ -1,4 +1,5 @@
 
+
 // FIX: Fix TypeScript error by using a named interface for the global aistudio property.
 // Using a named interface `AIStudio` resolves potential type conflicts with other global declarations.
 declare global {
@@ -18,7 +19,7 @@ import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import { Case, ChatMessage, ApiSource } from '../types';
 import * as dbService from '../services/dbService';
-import { streamChatResponseFromGemini } from './geminiService';
+import { streamChatResponseFromGemini, countTokensForGemini } from './geminiService';
 import { streamChatResponseFromOpenRouter } from '../services/openRouterService';
 import { SUGGESTED_PROMPTS } from '../constants';
 import * as pdfjsLib from 'pdfjs-dist';
@@ -44,10 +45,12 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const [uploadedImage, setUploadedImage] = useState<{ dataUrl: string; mimeType: string } | null>(null);
   const [isProcessingFile, setIsProcessingFile] = useState(false);
+  const [tokenCount, setTokenCount] = useState(0);
 
   const navigate = useNavigate();
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const isNewCase = !caseId;
 
   useEffect(() => {
@@ -80,12 +83,16 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
           if (loadedCase) {
             setCaseData(loadedCase);
             setChatHistory(loadedCase.chatHistory);
+            if (storedApiSource !== 'openrouter') {
+                countTokensForGemini(loadedCase.chatHistory).then(setTokenCount);
+            }
           } else {
             console.error("Case not found");
             navigate('/');
           }
         } else {
           setChatHistory([]);
+          setTokenCount(0);
         }
       } catch (error) {
         console.error("Failed to load initial data:", error);
@@ -195,6 +202,10 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
     
     setUserInput('');
     setUploadedImage(null);
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto'; // Reset textarea height
+    }
+
 
     const currentChatHistory = [...chatHistory, userMessage];
     setChatHistory(currentChatHistory);
@@ -212,6 +223,10 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
 
         const fullResponse = await processStream(stream, tempModelMessage.id);
         const finalHistory = [...currentChatHistory, { ...tempModelMessage, content: fullResponse }];
+
+        if (apiSource === 'gemini') {
+            countTokensForGemini(finalHistory).then(setTokenCount);
+        }
 
         if (isNewCase) {
             const newCase: Case = {
@@ -282,21 +297,30 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
   }
 
   return (
-    <div className="w-full flex flex-col flex-grow bg-gray-800 rounded-lg overflow-hidden shadow-xl">
+    <div className="w-full flex flex-col flex-grow bg-gray-800 overflow-hidden">
         <div className="p-3 border-b border-gray-700 bg-gray-800/50 flex justify-between items-center flex-wrap gap-2 sticky top-0 z-10">
             <h2 className="text-lg font-semibold text-gray-200 truncate">{caseData?.title || 'قضية جديدة'}</h2>
-            {apiSource === 'gemini' && (
-                <div className="flex items-center space-x-2 space-x-reverse">
-                    <label htmlFor="thinking-mode-toggle" className="text-sm font-medium text-gray-300 cursor-pointer">وضع التفكير العميق (Pro)</label>
-                    <button id="thinking-mode-toggle" role="switch" aria-checked={thinkingMode} onClick={() => setThinkingMode(!thinkingMode)}
-                        className={`${thinkingMode ? 'bg-blue-600' : 'bg-gray-600'} relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-800`}>
-                        <span className={`${thinkingMode ? 'translate-x-6' : 'translate-x-1'} inline-block h-4 w-4 transform rounded-full bg-white transition-transform`} />
-                    </button>
-                </div>
-            )}
+            <div className="flex items-center gap-x-4">
+                {apiSource === 'gemini' && tokenCount > 0 && (
+                  <div className="text-sm text-gray-400" title="إجمالي التوكن المستخدمة في هذه المحادثة">
+                    <span>الاستهلاك: </span>
+                    <span className="font-mono font-semibold text-gray-300">{tokenCount.toLocaleString('ar-EG')}</span>
+                    <span> توكن</span>
+                  </div>
+                )}
+                {apiSource === 'gemini' && (
+                    <div className="flex items-center space-x-2 space-x-reverse">
+                        <label htmlFor="thinking-mode-toggle" className="text-sm font-medium text-gray-300 cursor-pointer">وضع التفكير العميق (Pro)</label>
+                        <button id="thinking-mode-toggle" role="switch" aria-checked={thinkingMode} onClick={() => setThinkingMode(!thinkingMode)}
+                            className={`${thinkingMode ? 'bg-blue-600' : 'bg-gray-600'} relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-800`}>
+                            <span className={`${thinkingMode ? 'translate-x-6' : 'translate-x-1'} inline-block h-4 w-4 transform rounded-full bg-white transition-transform`} />
+                        </button>
+                    </div>
+                )}
+            </div>
         </div>
 
-        <div ref={chatContainerRef} className="flex-grow p-6 overflow-y-auto">
+        <div ref={chatContainerRef} className="flex-grow p-4 overflow-y-auto">
             {chatHistory.length === 0 && !isLoading ? (
                 <div className="text-center text-gray-400 flex flex-col items-center justify-center h-full">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mb-4 text-gray-500" viewBox="0 0 24 24" fill="currentColor">
@@ -381,7 +405,22 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
                 <button onClick={() => fileInputRef.current?.click()} disabled={isLoading || isProcessingFile} className="p-3 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 disabled:opacity-50 transition-colors" aria-label="إرفاق ملف">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>
                 </button>
-                <textarea value={userInput} onChange={(e) => setUserInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }} className="flex-grow p-3 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 focus:ring-2 focus:ring-blue-500 focus:outline-none resize-none" placeholder="اكتب رسالتك أو ارفق ملفاً..." rows={1} disabled={isLoading || isProcessingFile}/>
+                <textarea
+                  ref={textareaRef}
+                  value={userInput}
+                  onChange={(e) => {
+                    setUserInput(e.target.value);
+                    // Auto-resize logic
+                    e.target.style.height = 'auto';
+                    e.target.style.height = `${e.target.scrollHeight}px`;
+                  }}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }}
+                  className="flex-grow p-3 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 focus:ring-2 focus:ring-blue-500 focus:outline-none resize-none"
+                  placeholder="اكتب رسالتك أو ارفق ملفاً..."
+                  rows={1}
+                  style={{maxHeight: '10rem'}}
+                  disabled={isLoading || isProcessingFile}
+                />
                 <button onClick={() => handleSendMessage()} disabled={isLoading || isProcessingFile || (!userInput.trim() && !uploadedImage)} className="p-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors" aria-label="إرسال"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg></button>
             </div>
         </div>

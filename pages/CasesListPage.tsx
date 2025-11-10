@@ -280,7 +280,7 @@ const CasesListPage: React.FC = () => {
   }
 
   return (
-    <div className="w-full">
+    <div className="w-full p-4">
       <div className="flex flex-col md:flex-row justify-between items-center mb-4 border-b border-gray-700 pb-4 gap-4">
         <h1 className="text-3xl font-bold text-gray-100">القضايا المحفوظة</h1>
         <div className="flex items-center gap-2">

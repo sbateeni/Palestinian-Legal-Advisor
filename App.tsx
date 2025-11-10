@@ -8,9 +8,9 @@ import SettingsPage from './pages/SettingsPage';
 const App: React.FC = () => {
   return (
     <HashRouter>
-      <div className="min-h-screen flex flex-col bg-gray-900 text-gray-100">
+      <div className="h-full flex flex-col bg-gray-900 text-gray-100">
         <Header />
-        <main className="flex-grow container mx-auto p-4 flex flex-col">
+        <main className="flex-grow container mx-auto flex flex-col">
           <Routes>
             <Route path="/" element={<ChatPage key="new-case" />} />
             <Route path="/case" element={<Navigate to="/" replace />} />

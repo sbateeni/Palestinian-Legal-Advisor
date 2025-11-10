@@ -1,4 +1,4 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Content } from "@google/genai";
 import { ChatMessage } from '../types';
 
 const SYSTEM_INSTRUCTION_LEGAL = `أنت مساعد ذكاء اصطناعي خبير ومتخصص في القانون الفلسطيني.
@@ -15,15 +15,9 @@ function getGoogleGenAI() {
     return new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
 }
 
-export async function* streamChatResponseFromGemini(
-  history: ChatMessage[],
-  thinkingMode: boolean
-): AsyncGenerator<{ text: string }> {
-  try {
-    const ai = getGoogleGenAI();
-    const model = thinkingMode ? 'gemini-2.5-pro' : 'gemini-2.5-flash';
-    
-    const contents = history.map(msg => {
+// Helper to convert chat history for the API
+function chatHistoryToGeminiContents(history: ChatMessage[]): Content[] {
+    return history.map(msg => {
         const parts = [];
         if (msg.content) {
             parts.push({ text: msg.content });
@@ -39,6 +33,40 @@ export async function* streamChatResponseFromGemini(
         }
         return { role: msg.role, parts: parts };
     });
+}
+
+export async function countTokensForGemini(history: ChatMessage[]): Promise<number> {
+    if (!history || history.length === 0) {
+        return 0;
+    }
+    try {
+        const ai = getGoogleGenAI();
+        const model = 'gemini-2.5-flash'; // Flash is sufficient and faster for token counting
+        
+        const contents = chatHistoryToGeminiContents(history);
+
+        const response = await ai.models.countTokens({
+            model: model,
+            contents: contents,
+        });
+
+        return response.totalTokens;
+    } catch (error) {
+        console.error("Error counting tokens:", error);
+        // Don't throw, just return 0 so the app doesn't crash.
+        return 0;
+    }
+}
+
+export async function* streamChatResponseFromGemini(
+  history: ChatMessage[],
+  thinkingMode: boolean
+): AsyncGenerator<{ text: string }> {
+  try {
+    const ai = getGoogleGenAI();
+    const model = thinkingMode ? 'gemini-2.5-pro' : 'gemini-2.5-flash';
+    
+    const contents = chatHistoryToGeminiContents(history);
 
     const response = await ai.models.generateContentStream({
         model: model,
