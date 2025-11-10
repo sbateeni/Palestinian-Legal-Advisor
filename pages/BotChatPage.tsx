@@ -206,8 +206,8 @@ const BotChatPage: React.FC = () => {
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
                        )}
                     </button>
-                    {/* FIX: Use marked.parseSync for synchronous markdown parsing to prevent type errors. */}
-                    <div className="prose prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(marked.parseSync(msg.content || '...')) }}></div>
+                    {/* FIX: Replaced marked.parseSync with marked.parse as parseSync is not a valid method. */}
+                    <div className="prose prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(marked.parse(msg.content || '...')) }}></div>
                    </>
                  ) : (
                     <p className="whitespace-pre-wrap font-sans text-base">{msg.content || '...'}</p>

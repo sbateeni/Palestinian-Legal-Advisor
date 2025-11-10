@@ -312,7 +312,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
                                 {msg.imageUrl && (
                                     <img src={msg.imageUrl} alt="محتوى مرفق" className="rounded-lg mb-2 max-w-xs max-h-64 object-contain" />
                                 )}
-                                {/* FIX: Use marked.parseSync for synchronous markdown parsing to prevent type errors. */}
+                                {/* FIX: Replaced marked.parseSync with marked.parse as parseSync is not a valid method. */}
                                 <div className="prose prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(marked.parse(msg.content || '...', { breaks: true })) }}></div>
                             </div>
                         </div>
