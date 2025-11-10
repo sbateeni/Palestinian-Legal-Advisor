@@ -17,7 +17,7 @@ import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import { Case, ChatMessage, ApiSource } from '../types';
 import * as dbService from '../services/dbService';
-import { streamChatResponseFromGemini, countTokensForGemini } from './geminiService';
+import { streamChatResponseFromGemini, countTokensForGemini, proofreadTextWithGemini } from './geminiService';
 import { streamChatResponseFromOpenRouter } from '../services/openRouterService';
 import { SUGGESTED_PROMPTS, OPENROUTER_FREE_MODELS } from '../constants';
 import * as pdfjsLib from 'pdfjs-dist';
@@ -170,8 +170,17 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
                         }
                     }
                 }
-            ).then(({ data: { text } }) => {
-                setUserInput(prev => prev.trim() + (prev.trim() ? '\n\n' : '') + `--- نص مستخلص من صورة: ${file.name} ---\n` + text.trim());
+            ).then(async ({ data: { text } }) => {
+                if (!text.trim()) {
+                    setIsProcessingFile(false);
+                    setProcessingMessage('');
+                    return;
+                }
+                
+                setProcessingMessage('جاري تدقيق النص المستخلص لغوياً...');
+                const correctedText = await proofreadTextWithGemini(text);
+
+                setUserInput(prev => prev.trim() + (prev.trim() ? '\n\n' : '') + `--- نص مستخلص ومصحح من صورة: ${file.name} ---\n` + correctedText.trim());
             }).catch(ocrError => {
                 console.error("Error during OCR:", ocrError);
                 alert(`فشل في استخلاص النص من الصورة: ${ocrError instanceof Error ? ocrError.message : 'خطأ غير معروف'}`);
@@ -190,6 +199,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
                     const pdf = await pdfjsLib.getDocument(typedarray).promise;
                     let fullText = '';
                     for (let i = 1; i <= pdf.numPages; i++) {
+                        setProcessingMessage(`جاري معالجة الصفحة ${i} من ${pdf.numPages}...`);
                         const page = await pdf.getPage(i);
                         const textContent = await page.getTextContent();
                         const pageText = textContent.items.map(item => ('str' in item ? item.str : '')).join(' ');

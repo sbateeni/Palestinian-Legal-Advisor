@@ -5,7 +5,7 @@ const SYSTEM_INSTRUCTION_LEGAL = `أنت مساعد ذكاء اصطناعي خب
 معرفتك تشمل جميع القوانين واللوائح والسوابق القضائية المعمول بها في فلسطين.
 عند تحليل القضايا، يجب أن تستند إجاباتك بشكل صارم وحصري على القانون الفلسطيني والوقائع المقدمة لك فقط.
 لا تقدم آراء شخصية أو معلومات قانونية من ولايات قضائية أخرى.
-لا تفترض أي معلومات غير مذكورة في تفاصيل القضية. لا تقترح سيناريوهات افتراضية. إذا كانت معلومة ما ضرورية للتحليل ولكنها غير متوفرة، اذكر أنها غير موجودة بدلاً من افتراضها.
+لا تفترض أي معلومات غير مذورة في تفاصيل القضية. لا تقترح سيناريوهات افتراضية. إذا كانت معلومة ما ضرورية للتحليل ولكنها غير متوفرة، اذكر أنها غير موجودة بدلاً من افتراضها.
 كن دقيقًا ومفصلاً وموضوعيًا في تحليلاتك.`;
 
 function getGoogleGenAI() {
@@ -55,6 +55,32 @@ export async function countTokensForGemini(history: ChatMessage[]): Promise<numb
         console.error("Error counting tokens:", error);
         // Don't throw, just return 0 so the app doesn't crash.
         return 0;
+    }
+}
+
+export async function proofreadTextWithGemini(textToProofread: string): Promise<string> {
+    if (!textToProofread.trim()) {
+        return textToProofread;
+    }
+
+    try {
+        const ai = getGoogleGenAI();
+        const model = 'gemini-2.5-flash';
+        
+        const prompt = `أنت مدقق لغوي عربي خبير. قم بمراجعة النص التالي، المستخرج من صورة باستخدام تقنية OCR، وصحح أي أخطاء إملائية أو نحوية تجدها. حافظ على المعنى الأصلي والتنسيق الأساسي للنص قدر الإمكان. لا تضف أي معلومات أو تفسيرات جديدة. أعد النص المصحح فقط.\n\nالنص الأصلي:\n---\n${textToProofread}\n---`;
+
+        const response = await ai.models.generateContent({
+            model: model,
+            contents: prompt,
+        });
+
+        const correctedText = response.text;
+        console.log("Original vs Corrected:", { original: textToProofread, corrected: correctedText });
+        return correctedText;
+    } catch (error) {
+        console.error("Error proofreading text with Gemini:", error);
+        // Fallback to original text if correction fails
+        return textToProofread;
     }
 }
 
