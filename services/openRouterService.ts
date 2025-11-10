@@ -1,7 +1,8 @@
 import { ChatMessage } from '../types';
 
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
-const DEFAULT_MODEL_NAME = 'google/gemini-flash-1.5:free'; 
+const DEFAULT_MODEL_NAME = 'google/gemini-flash-1.5:free';
+const OCR_MODEL_NAME = 'qwen/qwen2-vl-7b-instruct:free'; // Model from user's request
 
 const SYSTEM_INSTRUCTION = `أنت مساعد ذكاء اصطناعي خبير ومتخصص في القانون الفلسطيني.
 معرفتك تشمل جميع القوانين واللوائح والسوابق القضائية المعمول بها في فلسطين.
@@ -9,6 +10,54 @@ const SYSTEM_INSTRUCTION = `أنت مساعد ذكاء اصطناعي خبير �
 لا تقدم آراء شخصية أو معلومات قانونية من ولايات قضائية أخرى.
 لا تفترض أي معلومات غير مذكورة في تفاصيل القضية. لا تقترح سيناريوهات افتراضية. إذا كانت معلومة ما ضرورية للتحليل ولكنها غير متوفرة، اذكر أنها غير موجودة بدلاً من افتراضها.
 كن دقيقًا ومفصلاً وموضوعيًا في تحليلاتك.`;
+
+export async function analyzeImageWithOpenRouter(
+  apiKey: string,
+  base64Image: string
+): Promise<string> {
+    const response = await fetch(OPENROUTER_API_URL, {
+      method: "POST",
+      headers: {
+          "Authorization": `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+          'HTTP-Referer': 'https://aistudio.google.com',
+          'X-Title': encodeURIComponent('المستشار القانوني الفلسطيني - تحليل صور'),
+      },
+      body: JSON.stringify({
+          model: OCR_MODEL_NAME,
+          messages: [
+              { role: "system", content: "You are an expert OCR and analysis tool. Extract any text from the provided image, format it cleanly, and provide a brief analysis or summary of the content. Respond in Arabic." },
+              {
+                  role: "user",
+                  content: [
+                      { type: "text", text: "الرجاء استخراج وتحليل النص الموجود في هذه الصورة." },
+                      { 
+                        type: "image_url", 
+                        image_url: {
+                          url: base64Image
+                        }
+                      }
+                  ]
+              }
+          ]
+      })
+    });
+
+    if (!response.ok) {
+        const errorBody = await response.json();
+        console.error('OpenRouter API Error:', errorBody);
+        throw new Error(errorBody.error?.message || `HTTP error! status: ${response.status}`);
+    }
+
+    const result = await response.json();
+
+    if (result.choices && result.choices.length > 0 && result.choices[0].message.content) {
+        return result.choices[0].message.content;
+    } else {
+        throw new Error("No valid response content received from the API.");
+    }
+}
+
 
 export async function* streamChatResponseFromOpenRouter(
   apiKey: string,
