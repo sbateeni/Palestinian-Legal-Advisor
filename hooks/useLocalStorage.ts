@@ -1,7 +1,6 @@
 
 import { useState } from 'react';
 
-// FIX: Update the return type to correctly reflect that the setter can take a function.
 function useLocalStorage<T,>(key: string, initialValue: T): [T, (value: T | ((val: T) => T)) => void] {
   const [storedValue, setStoredValue] = useState<T>(() => {
     try {
@@ -13,7 +12,6 @@ function useLocalStorage<T,>(key: string, initialValue: T): [T, (value: T | ((va
     }
   });
 
-  // FIX: Update the value parameter type to allow for a function updater.
   const setValue = (value: T | ((val: T) => T)) => {
     try {
       const valueToStore = value instanceof Function ? value(storedValue) : value;

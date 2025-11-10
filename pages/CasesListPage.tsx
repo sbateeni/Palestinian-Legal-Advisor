@@ -12,8 +12,10 @@ const STATUS_OPTIONS: { value: CaseStatus; label: string; color: string }[] = [
   { value: 'أخرى', label: 'أخرى', color: 'bg-indigo-500' },
 ];
 
-const STATUS_MAP: Record<CaseStatus, { label: string; color: string }> = 
-    Object.fromEntries(STATUS_OPTIONS.map(opt => [opt.value, { label: opt.label, color: opt.color }])) as any;
+const STATUS_MAP = STATUS_OPTIONS.reduce((acc, opt) => {
+  acc[opt.value] = { label: opt.label, color: opt.color };
+  return acc;
+}, {} as Record<CaseStatus, { label: string; color: string }>);
 
 
 const CasesListPage: React.FC = () => {
@@ -246,10 +248,9 @@ const CasesListPage: React.FC = () => {
                     value={caseItem.status}
                     onChange={(e) => handleStatusChange(caseItem.id, e.target.value as CaseStatus)}
                     onClick={(e) => e.stopPropagation()}
-                    className={`bg-gray-700 border-none rounded p-1 text-xs focus:ring-2 focus:ring-blue-500 ${STATUS_MAP[caseItem.status]?.color.includes('yellow') ? 'text-gray-900' : 'text-white'}`}
-                    style={{ backgroundColor: STATUS_MAP[caseItem.status]?.color.startsWith('bg-') ? '' : STATUS_MAP[caseItem.status]?.color }}
+                    className={`border-none rounded p-1 text-xs focus:ring-2 focus:ring-blue-500 ${STATUS_MAP[caseItem.status]?.color || 'bg-gray-700'} ${STATUS_MAP[caseItem.status]?.color.includes('yellow') ? 'text-gray-900' : 'text-white'}`}
                 >
-                    {STATUS_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                    {STATUS_OPTIONS.map(opt => <option key={opt.value} value={opt.value} className="bg-gray-700 text-white">{opt.label}</option>)}
                 </select>
 
                  <p className="text-xs text-gray-400 flex-shrink-0">

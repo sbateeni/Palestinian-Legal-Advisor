@@ -1,4 +1,3 @@
-// FIX: Create ChatPage component to handle legal case chat interface.
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { v4 as uuidv4 } from 'uuid';
@@ -233,7 +232,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
 
         setChatHistory(prev =>
             prev.map(msg =>
-                msg.id === tempModelMessage.id ? { ...msg, content: chatErrorMessage, isError: true } as any : msg
+                msg.id === tempModelMessage.id ? { ...msg, content: chatErrorMessage, isError: true } : msg
             )
         );
     } finally {
@@ -299,7 +298,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
                 <div className="space-y-6">
                     {chatHistory.map((msg) => (
                         <div key={msg.id} className={`flex group ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                            <div className={`max-w-xl lg:max-w-3xl px-5 py-3 rounded-2xl relative ${(msg as any).isError ? 'bg-red-500/30 text-red-200 rounded-bl-none' : msg.role === 'user' ? 'bg-blue-600 text-white rounded-br-none' : 'bg-gray-700 text-gray-200 rounded-bl-none'}`}>
+                            <div className={`max-w-xl lg:max-w-3xl px-5 py-3 rounded-2xl relative ${msg.isError ? 'bg-red-500/30 text-red-200 rounded-bl-none' : msg.role === 'user' ? 'bg-blue-600 text-white rounded-br-none' : 'bg-gray-700 text-gray-200 rounded-bl-none'}`}>
                                 {msg.role === 'model' && (
                                     <button onClick={() => handleCopy(msg.content, msg.id)} className="absolute top-2 left-2 p-1.5 bg-gray-600/50 rounded-full text-gray-300 hover:bg-gray-500/80 opacity-0 group-hover:opacity-100 transition-opacity" aria-label="نسخ">
                                        {copiedMessageId === msg.id ? (
@@ -312,7 +311,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
                                 {msg.imageUrl && (
                                     <img src={msg.imageUrl} alt="محتوى مرفق" className="rounded-lg mb-2 max-w-xs max-h-64 object-contain" />
                                 )}
-                                {/* FIX: Replaced marked.parseSync with marked.parse as parseSync is not a valid method. */}
+                                {/* FIX: Use `marked.parse()` for synchronous markdown parsing. `marked.parseSync()` is not a function in recent versions of marked. */}
                                 <div className="prose prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(marked.parse(msg.content || '...', { breaks: true })) }}></div>
                             </div>
                         </div>
