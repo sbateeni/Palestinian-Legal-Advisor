@@ -21,6 +21,7 @@ import { streamChatResponseFromGemini, countTokensForGemini } from './geminiServ
 import { streamChatResponseFromOpenRouter } from '../services/openRouterService';
 import { SUGGESTED_PROMPTS, OPENROUTER_FREE_MODELS } from '../constants';
 import * as pdfjsLib from 'pdfjs-dist';
+import Tesseract from 'tesseract.js';
 
 // Configure the worker for pdf.js
 // The '?url' import suffix for workers is a Vite-specific feature that does not work with
@@ -44,6 +45,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const [uploadedImage, setUploadedImage] = useState<{ dataUrl: string; mimeType: string } | null>(null);
   const [isProcessingFile, setIsProcessingFile] = useState(false);
+  const [processingMessage, setProcessingMessage] = useState('');
   const [tokenCount, setTokenCount] = useState(0);
 
   const navigate = useNavigate();
@@ -146,18 +148,41 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
         setUploadedImage(null);
 
         if (file.type.startsWith('image/')) {
-            if (!isImageUploadSupported) {
-                alert(`النموذج المحدد (${openRouterModel}) لا يدعم تحليل الصور. يرجى اختيار نموذج يدعم الصور من الإعدادات، أو إرفاق ملف PDF.`);
-                event.target.value = ''; // Clear file input
-                return;
-            }
+            // Keep the image for preview and potential model submission
             const reader = new FileReader();
             reader.onload = (e) => {
                 setUploadedImage({ dataUrl: e.target?.result as string, mimeType: file.type });
             };
             reader.readAsDataURL(file);
+
+            // Start OCR
+            setIsProcessingFile(true);
+            setProcessingMessage('جاري تهيئة محرك استخلاص النصوص...');
+
+            Tesseract.recognize(
+                file,
+                'ara', // Specify Arabic language
+                {
+                    logger: m => {
+                        console.log(m);
+                        if (m.status === 'recognizing text') {
+                            setProcessingMessage(`جاري استخلاص النص... ${Math.round(m.progress * 100)}%`);
+                        }
+                    }
+                }
+            ).then(({ data: { text } }) => {
+                setUserInput(prev => prev.trim() + (prev.trim() ? '\n\n' : '') + `--- نص مستخلص من صورة: ${file.name} ---\n` + text.trim());
+            }).catch(ocrError => {
+                console.error("Error during OCR:", ocrError);
+                alert(`فشل في استخلاص النص من الصورة: ${ocrError instanceof Error ? ocrError.message : 'خطأ غير معروف'}`);
+            }).finally(() => {
+                setIsProcessingFile(false);
+                setProcessingMessage('');
+            });
+
         } else if (file.type === 'application/pdf') {
             setIsProcessingFile(true);
+            setProcessingMessage('جاري معالجة ملف PDF...');
             const reader = new FileReader();
             reader.onload = async (e) => {
                 try {
@@ -176,6 +201,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
                     alert(`فشل في معالجة ملف PDF: ${pdfError instanceof Error ? pdfError.message : 'خطأ غير معروف'}`);
                 } finally {
                     setIsProcessingFile(false);
+                    setProcessingMessage('');
                 }
             };
             reader.readAsArrayBuffer(file);
@@ -416,7 +442,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
             {isProcessingFile && (
                 <div className="flex items-center text-gray-400 mb-2">
                     <svg className="animate-spin h-5 w-5 me-3 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                    <span>جاري معالجة ملف PDF...</span>
+                    <span>{processingMessage || 'جاري المعالجة...'}</span>
                 </div>
             )}
             <div className="flex items-center space-x-reverse space-x-3">
