@@ -7,9 +7,9 @@ export const SUGGESTED_PROMPTS = [
 ];
 
 export const OPENROUTER_FREE_MODELS = [
-  { id: 'google/gemini-flash-1.5:free', name: 'Google: Gemini Flash 1.5 (تحليل صور)' },
-  { id: 'meta-llama/llama-3-8b-instruct:free', name: 'Meta: Llama 3 8B Instruct' },
-  { id: 'mistralai/mistral-7b-instruct:free', name: 'Mistral 7B Instruct' },
-  { id: 'qwen/qwen3-coder:free', name: 'Qwen: Qwen3 Coder (للمهام البرمجية)' },
-  { id: 'nousresearch/nous-hermes-2-mistral-7b-dpo:free', name: 'Nous Hermes 2 Mistral 7B' }
+  { id: 'google/gemini-flash-1.5:free', name: 'Google: Gemini Flash 1.5', supportsImages: false },
+  { id: 'meta-llama/llama-3-8b-instruct:free', name: 'Meta: Llama 3 8B Instruct', supportsImages: false },
+  { id: 'mistralai/mistral-7b-instruct:free', name: 'Mistral 7B Instruct', supportsImages: false },
+  { id: 'qwen/qwen3-coder:free', name: 'Qwen: Qwen3 Coder (للمهام البرمجية)', supportsImages: false },
+  { id: 'nousresearch/nous-hermes-2-mistral-7b-dpo:free', name: 'Nous Hermes 2 Mistral 7B', supportsImages: false }
 ];

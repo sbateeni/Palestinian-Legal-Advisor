@@ -10,7 +10,7 @@ declare global {
   }
 }
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { v4 as uuidv4 } from 'uuid';
 import { marked } from 'marked';
@@ -19,7 +19,7 @@ import { Case, ChatMessage, ApiSource } from '../types';
 import * as dbService from '../services/dbService';
 import { streamChatResponseFromGemini, countTokensForGemini } from './geminiService';
 import { streamChatResponseFromOpenRouter } from '../services/openRouterService';
-import { SUGGESTED_PROMPTS } from '../constants';
+import { SUGGESTED_PROMPTS, OPENROUTER_FREE_MODELS } from '../constants';
 import * as pdfjsLib from 'pdfjs-dist';
 
 // Configure the worker for pdf.js
@@ -51,6 +51,17 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const isNewCase = !caseId;
+
+  const isImageUploadSupported = useMemo(() => {
+    if (apiSource === 'gemini') {
+      return true;
+    }
+    if (apiSource === 'openrouter') {
+      const model = OPENROUTER_FREE_MODELS.find(m => m.id === openRouterModel);
+      return model?.supportsImages ?? false;
+    }
+    return false;
+  }, [apiSource, openRouterModel]);
 
   useEffect(() => {
     const loadData = async () => {
@@ -135,6 +146,11 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
         setUploadedImage(null);
 
         if (file.type.startsWith('image/')) {
+            if (!isImageUploadSupported) {
+                alert('النماذج المجانية عبر OpenRouter لا تدعم تحليل الصور حاليًا. يرجى استخدام Gemini API لتحليل الصور، أو إرفاق ملف PDF بدلاً من ذلك.');
+                event.target.value = ''; // Clear file input
+                return;
+            }
             const reader = new FileReader();
             reader.onload = (e) => {
                 setUploadedImage({ dataUrl: e.target?.result as string, mimeType: file.type });
@@ -257,6 +273,8 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
         if (errorMessage.includes("API key") || errorMessage.includes("authentication") || errorMessage.includes("was not found")) {
             setIsApiKeyReady(false);
             chatErrorMessage = `مفتاح API غير صالح أو غير متوفر لـ ${apiSource}. الرجاء إعادة المحاولة بعد تحديد مفتاح صالح.`;
+        } else if (apiSource === 'openrouter' && userMessage.imageUrl && errorMessage.includes("No endpoints found")) {
+            chatErrorMessage = `حدث خطأ: النموذج المحدد (${openRouterModel}) لا يدعم تحليل الصور. يرجى تجربة نموذج آخر أو إرسال النص فقط.`;
         } else {
             chatErrorMessage = `حدث خطأ: ${error.message}`;
         }
@@ -424,6 +442,11 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
                 />
                 <button onClick={() => handleSendMessage()} disabled={isLoading || isProcessingFile || (!userInput.trim() && !uploadedImage)} className="p-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors" aria-label="إرسال"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg></button>
             </div>
+            {apiSource === 'openrouter' && (
+                <p className="text-xs text-yellow-400 mt-2 text-center">
+                    ملاحظة: النماذج المجانية المتوفرة عبر OpenRouter حاليًا لا تدعم تحليل الصور. لا يزال بإمكانك إرفاق ملفات PDF.
+                </p>
+            )}
         </div>
     </div>
   );
