@@ -1,397 +1,286 @@
-import React, { useState, useEffect, useRef } from 'react';
+// FIX: Create ChatPage component to handle legal case chat interface.
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { v4 as uuidv4 } from 'uuid';
-import useLocalStorage from '../hooks/useLocalStorage';
+import { marked } from 'marked';
+import DOMPurify from 'dompurify';
 import { Case, ChatMessage, ApiSource } from '../types';
-import { LOCAL_STORAGE_CASES_KEY, SUGGESTED_PROMPTS, LOCAL_STORAGE_API_SOURCE_KEY, LOCAL_STORAGE_OPENROUTER_API_KEY, LOCAL_STORAGE_GEMINI_API_KEY } from '../constants';
-import { startChat, streamChatResponse } from '../services/geminiService';
+import * as dbService from '../services/dbService';
+import { streamChatResponseFromGemini } from '../services/geminiService';
 import { streamChatResponseFromOpenRouter } from '../services/openRouterService';
-import { formatStructuredLegalResponse } from '../utils/formatLegalResponse';
-import { Chat } from '@google/genai';
-
-declare global {
-  interface AIStudio {
-    hasSelectedApiKey: () => Promise<boolean>;
-    openSelectKey: () => Promise<void>;
-  }
-  interface Window {
-    aistudio?: AIStudio;
-  }
-}
+import { SUGGESTED_PROMPTS } from '../constants';
 
 interface ChatPageProps {
   caseId?: string;
 }
 
 const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
-  const navigate = useNavigate();
-  
-  const [cases, setCases] = useLocalStorage<Case[]>(LOCAL_STORAGE_CASES_KEY, []);
-  const [apiSource] = useLocalStorage<ApiSource>(LOCAL_STORAGE_API_SOURCE_KEY, 'gemini');
-  const [openRouterApiKey] = useLocalStorage<string>(LOCAL_STORAGE_OPENROUTER_API_KEY, '');
-  const [geminiApiKey] = useLocalStorage<string>(LOCAL_STORAGE_GEMINI_API_KEY, '');
-
-  // Ensure cases are properly loaded
-  useEffect(() => {
-    // This will trigger a re-render if cases change in another tab
-  }, [cases]);
-
-  const [currentCase, setCurrentCase] = useState<Case | null>(null);
+  const [caseData, setCaseData] = useState<Case | null>(null);
+  const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [userInput, setUserInput] = useState('');
-  const [userRole, setUserRole] = useState<'plaintiff' | 'defendant' | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [isInitialCase, setIsInitialCase] = useState(!caseId);
   const [isApiKeyReady, setIsApiKeyReady] = useState<boolean | null>(null);
+  const [apiSource, setApiSource] = useState<ApiSource>('gemini');
+  const [openRouterApiKey, setOpenRouterApiKey] = useState<string>('');
+  const [thinkingMode, setThinkingMode] = useState(false);
+  const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
 
+  const navigate = useNavigate();
   const chatContainerRef = useRef<HTMLDivElement>(null);
-  const chatSessionRef = useRef<Chat | null>(null);
+  const isNewCase = !caseId;
 
   useEffect(() => {
-    if (apiSource === 'gemini') {
-        // If we have a stored API key, we're ready to go
-        if (geminiApiKey) {
+    const loadData = async () => {
+      setIsLoading(true);
+      try {
+        const storedApiSource = await dbService.getSetting<ApiSource>('apiSource');
+        if (storedApiSource) setApiSource(storedApiSource);
+
+        if (storedApiSource === 'openrouter') {
+          const storedApiKey = await dbService.getSetting<string>('openRouterApiKey');
+          if (storedApiKey) {
+            setOpenRouterApiKey(storedApiKey);
             setIsApiKeyReady(true);
-        } 
-        // Otherwise, check if the browser extension is available
-        else if (window.aistudio && typeof window.aistudio.hasSelectedApiKey === 'function') {
-            const checkApiKey = async () => {
-              const hasKey = await window.aistudio.hasSelectedApiKey();
-              setIsApiKeyReady(hasKey);
-            };
-            checkApiKey();
+          } else {
+            setIsApiKeyReady(false);
+          }
         } else {
-            console.warn('window.aistudio not found.');
-            setIsApiKeyReady(true); // Assume it's handled if aistudio is not present
+          // For Gemini
+          if (window.aistudio && typeof window.aistudio.hasSelectedApiKey === 'function') {
+            const hasKey = await window.aistudio.hasSelectedApiKey();
+            setIsApiKeyReady(hasKey);
+          } else {
+            setIsApiKeyReady(true); // Assume ready for local dev
+          }
         }
-    } else { // openrouter
-        setIsApiKeyReady(!!openRouterApiKey);
-    }
-  }, [apiSource, openRouterApiKey, geminiApiKey]);
 
-  useEffect(() => {
-    if (caseId) {
-      const foundCase = cases.find(c => c.id === caseId);
-      if (foundCase) {
-        setCurrentCase(foundCase);
-        setIsInitialCase(false);
-        chatSessionRef.current = null;
-      } else {
-        navigate('/');
+        if (!isNewCase) {
+          const loadedCase = await dbService.getCase(caseId);
+          if (loadedCase) {
+            setCaseData(loadedCase);
+            setChatHistory(loadedCase.chatHistory);
+          } else {
+            console.error("Case not found");
+            navigate('/');
+          }
+        } else {
+          setChatHistory([]);
+        }
+      } catch (error) {
+        console.error("Failed to load initial data:", error);
+      } finally {
+        setIsLoading(false);
       }
-    } else {
-      setCurrentCase(null);
-      setIsInitialCase(true);
-      chatSessionRef.current = null;
-    }
-  }, [caseId, cases, navigate]);
-  
+    };
+    loadData();
+  }, [caseId, isNewCase, navigate]);
+
   useEffect(() => {
     chatContainerRef.current?.scrollTo(0, chatContainerRef.current.scrollHeight);
-  }, [currentCase?.chatHistory]);
+  }, [chatHistory]);
 
   const handleSelectApiKey = async () => {
-    if (window.aistudio && typeof window.aistudio.openSelectKey === 'function') {
+    if (apiSource === 'gemini' && window.aistudio && typeof window.aistudio.openSelectKey === 'function') {
       try {
         await window.aistudio.openSelectKey();
         setIsApiKeyReady(true);
       } catch (error) {
-        console.error("Error opening API key selector:", error);
+        console.error("Error opening Gemini API key selector:", error);
       }
-    }
-  };
-
-  const initializeChatSession = (history: ChatMessage[]): boolean => {
-      chatSessionRef.current = startChat(history, geminiApiKey || undefined);
-      if (!chatSessionRef.current) {
-          alert("فشل في بدء المحادثة. تحقق من صلاحية مفتاح API الخاص بك.");
-          window.aistudio?.hasSelectedApiKey().then(hasKey => {
-              if (!hasKey) setIsApiKeyReady(false);
-          });
-          return false;
-      }
-      return true;
-  }
-
-  const handleSendMessage = async (message: string) => {
-    if (isLoading || !message.trim()) return;
-    setIsLoading(true);
-
-    let caseToProcess: Case;
-    let isNewCaseCreation = false;
-
-    if (isInitialCase) {
-        if (!userRole) {
-          alert('يرجى تحديد صفتك في القضية');
-          setIsLoading(false);
-          return;
-        }
-        
-        isNewCaseCreation = true;
-        const fullMessage = `صفتي في القضية: ${
-          userRole === 'plaintiff' ? 'مشتكي (مدعي)' : 'مشتكى عليه (مدعى عليه)'
-        }\n\nتفاصيل القضية:\n${message}`;
-        
-        caseToProcess = {
-            id: uuidv4(),
-            title: `قضية جديدة - ${new Date().toLocaleDateString('ar')}`,
-            summary: message,
-            createdAt: Date.now(),
-            chatHistory: [{ role: 'user', content: fullMessage }],
-        };
-    } else if (currentCase) {
-        caseToProcess = {
-            ...currentCase,
-            chatHistory: [...currentCase.chatHistory, { role: 'user', content: message }],
-        };
     } else {
-        setIsLoading(false);
-        return;
-    }
-
-    const tempModelMessage: ChatMessage = { role: 'model', content: '' };
-    setCurrentCase({ ...caseToProcess, chatHistory: [...caseToProcess.chatHistory, tempModelMessage] });
-
-    if (apiSource === 'gemini') {
-        await streamResponseGemini(caseToProcess, message, isNewCaseCreation);
-    } else {
-        await streamResponseOpenRouter(caseToProcess, message);
-    }
-
-    if (isNewCaseCreation) {
-        setIsInitialCase(false);
-        navigate(`/case/${caseToProcess.id}`, { replace: true });
+      navigate('/settings');
     }
   };
   
-  const streamResponseGemini = async (caseWithUserMsg: Case, message: string, isNewCase: boolean) => {
-    let fullResponse = '';
-    
-    try {
-        if (isNewCase || !chatSessionRef.current) {
-          if (!initializeChatSession(caseWithUserMsg.chatHistory)) {
-             throw new Error("Failed to initialize chat session.");
-          }
-        }
-        if (!chatSessionRef.current) throw new Error("Chat session not initialized.");
-        const stream = await streamChatResponse(chatSessionRef.current, message);
-        
-        for await (const chunk of stream) {
-            const text = chunk.text;
-            fullResponse += text;
-            setCurrentCase(prev => {
-                if (!prev) return null;
-                const newHistory = [...prev.chatHistory];
-                newHistory[newHistory.length - 1] = { role: 'model', content: fullResponse };
-                return { ...prev, chatHistory: newHistory };
-            });
-        }
-
-        const finalCase: Case = { ...caseWithUserMsg, chatHistory: [...caseWithUserMsg.chatHistory, { role: 'model', content: fullResponse }] };
-        setCases(prev => prev.find(c => c.id === finalCase.id) ? prev.map(c => c.id === finalCase.id ? finalCase : c) : [...prev, finalCase]);
-
-    } catch (error: any) {
-        console.error('Error during Gemini streaming chat:', error);
-        let chatErrorMessage = 'حدث خطأ أثناء معالجة الطلب.';
-        if (error.message.includes('API key')) setIsApiKeyReady(false);
-        if (error.toString().includes('429') || error.toString().includes('Quota')) chatErrorMessage = 'لقد تجاوزت حد الطلبات. يرجى الانتظار والمحاولة مرة أخرى.';
-        
-        setCurrentCase(prev => {
-            if (!prev) return null;
-            const newHistory = [...prev.chatHistory];
-            newHistory[newHistory.length - 1] = { role: 'model', content: chatErrorMessage };
-            return { ...prev, chatHistory: newHistory };
-        });
-    } finally {
-        setIsLoading(false);
-        setUserInput('');
-    }
+  const handleCopy = (content: string, id: string) => {
+    navigator.clipboard.writeText(content).then(() => {
+        setCopiedMessageId(id);
+        setTimeout(() => setCopiedMessageId(null), 2000);
+    });
   };
 
-  const streamResponseOpenRouter = async (caseWithUserMsg: Case, message: string) => {
-    let fullResponse = '';
-    try {
-        if (!openRouterApiKey) throw new Error("مفتاح OpenRouter API غير موجود.");
-        const historyForApi = caseWithUserMsg.chatHistory.slice(0, -1);
-        const stream = streamChatResponseFromOpenRouter(openRouterApiKey, historyForApi, message);
-        
-        for await (const textChunk of stream) {
-            fullResponse += textChunk;
-            setCurrentCase(prev => {
-                if (!prev) return null;
-                const newHistory = [...prev.chatHistory];
-                newHistory[newHistory.length - 1] = { role: 'model', content: fullResponse };
-                return { ...prev, chatHistory: newHistory };
-            });
-        }
-        
-        const finalCase: Case = { ...caseWithUserMsg, chatHistory: [...caseWithUserMsg.chatHistory, { role: 'model', content: fullResponse }] };
-        setCases(prev => prev.find(c => c.id === finalCase.id) ? prev.map(c => c.id === finalCase.id ? finalCase : c) : [...prev, finalCase]);
+  const processStream = useCallback(async (
+      stream: AsyncGenerator<{ text: string }>,
+      tempModelMessageId: string
+  ) => {
+      let fullResponse = '';
+      for await (const chunk of stream) {
+          if (chunk.text) {
+              fullResponse += chunk.text;
+              setChatHistory(prev =>
+                  prev.map(msg =>
+                      msg.id === tempModelMessageId ? { ...msg, content: fullResponse } : msg
+                  )
+              );
+          }
+      }
+      return fullResponse;
+  }, []);
 
+  const handleSendMessage = async (prompt?: string) => {
+    const messageContent = (prompt || userInput).trim();
+    if (!messageContent || isLoading) return;
+
+    setIsLoading(true);
+    setUserInput('');
+
+    const userMessage: ChatMessage = {
+      id: uuidv4(),
+      role: 'user',
+      content: messageContent,
+    };
+    const currentChatHistory = [...chatHistory, userMessage];
+    setChatHistory(currentChatHistory);
+
+    const tempModelMessage: ChatMessage = { role: 'model', content: '', id: uuidv4() };
+    setChatHistory(prev => [...prev, tempModelMessage]);
+
+    try {
+        let stream;
+        if (apiSource === 'openrouter') {
+            stream = streamChatResponseFromOpenRouter(openRouterApiKey, currentChatHistory);
+        } else {
+            stream = streamChatResponseFromGemini(currentChatHistory, thinkingMode);
+        }
+
+        const fullResponse = await processStream(stream, tempModelMessage.id);
+        const finalHistory = [...currentChatHistory, { ...tempModelMessage, content: fullResponse }];
+
+        if (isNewCase) {
+            const newCase: Case = {
+                id: uuidv4(),
+                title: messageContent.substring(0, 50) + (messageContent.length > 50 ? '...' : ''),
+                summary: fullResponse.substring(0, 150) + (fullResponse.length > 150 ? '...' : ''),
+                chatHistory: finalHistory,
+                createdAt: Date.now(),
+                status: 'جديدة',
+            };
+            await dbService.addCase(newCase);
+            navigate(`/case/${newCase.id}`, { replace: true });
+        } else if (caseData) {
+            const updatedCase = {
+                ...caseData,
+                summary: fullResponse.substring(0, 150) + (fullResponse.length > 150 ? '...' : ''),
+                chatHistory: finalHistory
+            };
+            await dbService.updateCase(updatedCase);
+            setCaseData(updatedCase);
+        }
     } catch (error: any) {
-        console.error('Error during OpenRouter streaming chat:', error);
-        const chatErrorMessage = `حدث خطأ: ${error.message}`;
-        setCurrentCase(prev => {
-            if (!prev) return null;
-            const newHistory = [...prev.chatHistory];
-            newHistory[newHistory.length - 1] = { role: 'model', content: chatErrorMessage };
-            return { ...prev, chatHistory: newHistory };
-        });
+        console.error(`Error during ${apiSource} streaming:`, error);
+        let chatErrorMessage = 'حدث خطأ أثناء معالجة الطلب.';
+        const errorMessage = error.toString();
+        
+        if (errorMessage.includes("API key") || errorMessage.includes("authentication") || errorMessage.includes("was not found")) {
+            setIsApiKeyReady(false);
+            chatErrorMessage = `مفتاح API غير صالح أو غير متوفر لـ ${apiSource}. الرجاء إعادة المحاولة بعد تحديد مفتاح صالح.`;
+        } else {
+            chatErrorMessage = `حدث خطأ: ${error.message}`;
+        }
+
+        setChatHistory(prev =>
+            prev.map(msg =>
+                msg.id === tempModelMessage.id ? { ...msg, content: chatErrorMessage, isError: true } as any : msg
+            )
+        );
     } finally {
         setIsLoading(false);
-        setUserInput('');
     }
   };
 
   if (isApiKeyReady === null) {
       return (
-        <div className="w-full flex items-center justify-center p-8 text-lg">
+        <div className="w-full flex-grow flex items-center justify-center p-8 text-lg">
           <svg className="animate-spin h-6 w-6 text-white me-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-          <span>جاري التحقق من إعدادات API...</span>
+          <span>جاري التحقق من الإعدادات...</span>
         </div>
       );
   }
 
   if (!isApiKeyReady) {
-      return apiSource === 'gemini' ? (
-        <div className="w-full flex flex-col items-center justify-center text-center p-4">
-            <h2 className="text-2xl font-bold mb-4 text-gray-200">مطلوب مفتاح Google AI API</h2>
-            <p className="text-gray-400 mb-6 max-w-2xl">لاستخدام المستشار القانوني مع Google Gemini، يمكنك إما:</p>
-            <ul className="text-gray-400 mb-6 max-w-2xl text-right list-disc list-inside space-y-2">
-                <li>تحديد مفتاح Google AI API من خلال نافذة Google AI Studio المنبثقة</li>
-                <li>أو إدخال مفتاح API الخاص بك في صفحة الإعدادات</li>
-            </ul>
-            <div className="flex gap-4">
-                <button onClick={handleSelectApiKey} className="mt-6 px-8 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700">تحديد مفتاح API</button>
-                <button onClick={() => navigate('/settings')} className="mt-6 px-8 py-3 bg-gray-600 text-white font-semibold rounded-lg hover:bg-gray-700">الانتقال إلى الإعدادات</button>
-            </div>
-        </div>
-      ) : (
-        <div className="w-full flex flex-col items-center justify-center text-center p-4">
-            <h2 className="text-2xl font-bold mb-4 text-gray-200">مطلوب مفتاح OpenRouter API</h2>
-            <p className="text-gray-400 mb-6 max-w-2xl">يرجى إدخال مفتاح OpenRouter API الخاص بك في صفحة الإعدادات للمتابعة.</p>
-            <button onClick={() => navigate('/settings')} className="mt-6 px-8 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700">الانتقال إلى الإعدادات</button>
+      return (
+        <div className="w-full flex-grow flex flex-col items-center justify-center text-center p-4">
+            <h2 className="text-2xl font-bold mb-4 text-gray-200">مطلوب مفتاح API</h2>
+            <p className="text-gray-400 mb-6 max-w-2xl">
+              {apiSource === 'openrouter' 
+                ? 'لاستخدام المستشار القانوني مع OpenRouter، يرجى إدخال مفتاح API الخاص بك في صفحة الإعدادات.'
+                : 'لاستخدام المستشار القانوني مع Gemini، يرجى تحديد مفتاح Google AI API الخاص بك.'
+              }
+            </p>
+            <button onClick={handleSelectApiKey} className="mt-6 px-8 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700">
+              {apiSource === 'openrouter' ? 'الانتقال إلى الإعدادات' : 'تحديد مفتاح API'}
+            </button>
         </div>
       );
   }
 
-  if (isInitialCase) {
-    return (
-      <div className="w-full flex flex-col items-center justify-center text-center p-4">
-        <h2 className="text-2xl font-bold mb-4 text-gray-200">ابدأ قضية جديدة</h2>
-        <p className="text-gray-400 mb-6 max-w-2xl">أدخل وصفاً كاملاً للقضية القانونية التي تريد تحليلها. كلما كانت التفاصيل أكثر، كانت الإجابات أدق.</p>
-        <div className="w-full max-w-3xl bg-gray-900 rounded-lg shadow-lg overflow-hidden">
-          <div className="space-y-6 p-4 border-b border-gray-700">
-            <div>
-              <label className="block text-right text-gray-300 text-lg font-medium mb-3">ما هي صفتك في القضية؟</label>
-              <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <button
-                  onClick={() => setUserRole('plaintiff')}
-                  className={`flex-1 py-4 px-6 rounded-lg font-medium transition-colors ${
-                    userRole === 'plaintiff'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                  }`}
-                >
-                  مشتكي (مدعي)
-                </button>
-                <button
-                  onClick={() => setUserRole('defendant')}
-                  className={`flex-1 py-4 px-6 rounded-lg font-medium transition-colors ${
-                    userRole === 'defendant'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                  }`}
-                >
-                  مشتكى عليه (مدعى عليه)
-                </button>
-              </div>
-            </div>
-
-          </div>
-          <div className="p-4">
-            <textarea 
-              value={userInput} 
-              onChange={(e) => setUserInput(e.target.value)} 
-              className="w-full h-48 p-4 bg-gray-800 border border-gray-600 rounded-lg text-gray-200 focus:ring-2 focus:ring-blue-500 focus:outline-none" 
-              placeholder="اكتب تفاصيل قضيتك هنا..."
-            />
-          </div>
-          <div className="p-4 border-t border-gray-700">
-            <button 
-              onClick={() => handleSendMessage(userInput)} 
-              disabled={isLoading || !userInput.trim() || !userRole} 
-              className="w-full px-8 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors"
-            >
-              {isLoading ? '...جار التحليل' : 'بدء التحليل'}
-            </button>
-          </div>
-          {currentCase && currentCase.chatHistory.length > 0 && (
-            <div className="p-6 border-t border-gray-700">
-              <div className="space-y-4">
-                {currentCase.chatHistory.map((msg, index) => (
-                  <div key={index} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-2xl px-5 py-3 rounded-2xl ${
-                      msg.role === 'user' 
-                        ? 'bg-blue-600 text-white rounded-br-none' 
-                        : 'bg-gray-700 text-gray-200 rounded-bl-none'
-                    }`}>
-                      {msg.role === 'model' ? (
-                        <div className="legal-analysis prose prose-invert prose-lg">
-                          <div dangerouslySetInnerHTML={{
-                            __html: formatStructuredLegalResponse(msg.content) || (isLoading ? 'جاري التحليل...' : '')
-                          }} />
-                        </div>
-                      ) : (
-                        <pre className="whitespace-pre-wrap font-sans text-base">{msg.content}</pre>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="w-full flex flex-col max-h-[calc(100vh-180px)] sm:max-h-[calc(100vh-200px)] bg-gray-800 rounded-lg overflow-hidden shadow-xl container mx-auto">
-      <div ref={chatContainerRef} className="flex-grow p-6 overflow-y-auto">
-        <div className="space-y-6">
-          {currentCase?.chatHistory.map((msg, index) => (
-            <div key={index} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <div className={`max-w-xl lg:max-w-2xl px-5 py-3 rounded-2xl ${msg.role === 'user' ? 'bg-blue-600 text-white rounded-br-none' : 'bg-gray-700 text-gray-200 rounded-bl-none'}`}>
-                {msg.role === 'model' ? (
-                  <div className="legal-analysis prose prose-invert prose-lg">
-                    <div dangerouslySetInnerHTML={{
-                      __html: formatStructuredLegalResponse(msg.content) || (isLoading ? 'جاري التحليل...' : '')
-                    }} />
-                  </div>
-                ) : (
-                  <pre className="whitespace-pre-wrap font-sans text-base">{msg.content || '...'}</pre>
-                )}
-              </div>
+    <div className="w-full flex flex-col flex-grow bg-gray-800 rounded-lg overflow-hidden shadow-xl">
+        <div className="p-3 border-b border-gray-700 bg-gray-800/50 flex justify-between items-center flex-wrap gap-2 sticky top-0 z-10">
+            <h2 className="text-lg font-semibold text-gray-200 truncate">{caseData?.title || 'قضية جديدة'}</h2>
+            {apiSource === 'gemini' && (
+                <div className="flex items-center space-x-2 space-x-reverse">
+                    <label htmlFor="thinking-mode-toggle" className="text-sm font-medium text-gray-300 cursor-pointer">وضع التفكير العميق (Pro)</label>
+                    <button id="thinking-mode-toggle" role="switch" aria-checked={thinkingMode} onClick={() => setThinkingMode(!thinkingMode)}
+                        className={`${thinkingMode ? 'bg-blue-600' : 'bg-gray-600'} relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-800`}>
+                        <span className={`${thinkingMode ? 'translate-x-6' : 'translate-x-1'} inline-block h-4 w-4 transform rounded-full bg-white transition-transform`} />
+                    </button>
+                </div>
+            )}
+        </div>
+
+        <div ref={chatContainerRef} className="flex-grow p-6 overflow-y-auto">
+            {chatHistory.length === 0 && !isLoading ? (
+                <div className="text-center text-gray-400">
+                    <h2 className="text-2xl font-bold mb-4 text-gray-200">المستشار القانوني الفلسطيني</h2>
+                    <p className="mb-8">ابدأ بوصف وقائع القضية أو اطرح سؤالاً قانونياً محدداً.</p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-3xl mx-auto">
+                        {SUGGESTED_PROMPTS.map((prompt, index) => (
+                            <button key={index} onClick={() => handleSendMessage(prompt)} className="p-4 bg-gray-700/50 rounded-lg hover:bg-gray-700 text-right transition-colors text-gray-300">
+                                {prompt}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            ) : (
+                <div className="space-y-6">
+                    {chatHistory.map((msg) => (
+                        <div key={msg.id} className={`flex group ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                            <div className={`max-w-xl lg:max-w-3xl px-5 py-3 rounded-2xl relative ${(msg as any).isError ? 'bg-red-500/30 text-red-200 rounded-bl-none' : msg.role === 'user' ? 'bg-blue-600 text-white rounded-br-none' : 'bg-gray-700 text-gray-200 rounded-bl-none'}`}>
+                                {msg.role === 'model' && (
+                                    <button onClick={() => handleCopy(msg.content, msg.id)} className="absolute top-2 left-2 p-1.5 bg-gray-600/50 rounded-full text-gray-300 hover:bg-gray-500/80 opacity-0 group-hover:opacity-100 transition-opacity" aria-label="نسخ">
+                                       {copiedMessageId === msg.id ? (
+                                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                                       ) : (
+                                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                                       )}
+                                    </button>
+                                )}
+                                <div className="prose prose-invert max-w-none prose-p:my-2 prose-headings:my-3 prose-ul:my-2 prose-ol:my-2" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(marked.parse(msg.content || '...')) }}></div>
+                            </div>
+                        </div>
+                    ))}
+                    {isLoading && chatHistory.length > 0 && chatHistory[chatHistory.length - 1].role !== 'model' && (
+                        <div className="flex justify-start">
+                            <div className="max-w-xl lg:max-w-2xl px-5 py-3 rounded-2xl bg-gray-700 text-gray-200 rounded-bl-none">
+                                <div className="animate-pulse flex items-center space-x-2 space-x-reverse">
+                                    <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+                                    <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+                                    <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></span>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
+        </div>
+
+        <div className="p-4 border-t border-gray-700 bg-gray-800">
+            <div className="flex items-center space-x-reverse space-x-3">
+                <textarea value={userInput} onChange={(e) => setUserInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }} className="flex-grow p-3 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 focus:ring-2 focus:ring-blue-500 focus:outline-none resize-none" placeholder="اكتب رسالتك..." rows={1} disabled={isLoading}/>
+                <button onClick={() => handleSendMessage()} disabled={isLoading || !userInput.trim()} className="p-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors" aria-label="إرسال"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg></button>
             </div>
-          ))}
-          {isLoading && currentCase?.chatHistory.length > 0 && currentCase?.chatHistory[currentCase?.chatHistory.length - 1].role === 'model' && (
-             <div className="flex justify-start">
-               <div className="max-w-xl lg:max-w-2xl px-5 py-3 rounded-2xl bg-gray-700 text-gray-200 rounded-bl-none">
-                 <div className="animate-pulse">...يفكر</div>
-               </div>
-             </div>
-          )}
         </div>
-      </div>
-      <div className="p-4 border-t border-gray-700 bg-gray-800">
-        <div className="mb-3 flex flex-wrap gap-2">
-            {SUGGESTED_PROMPTS.map(prompt => (<button key={prompt} onClick={() => handleSendMessage(prompt)} disabled={isLoading} className="px-3 py-1.5 text-sm bg-gray-700 text-gray-300 rounded-full hover:bg-gray-600 disabled:opacity-50 transition-colors">{prompt}</button>))}
-        </div>
-        <div className="flex items-center space-x-reverse space-x-3">
-          <textarea value={userInput} onChange={(e) => setUserInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(userInput); } }} className="flex-grow p-3 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 focus:ring-2 focus:ring-blue-500 focus:outline-none resize-none" placeholder="اكتب رسالتك هنا..." rows={1} disabled={isLoading}/>
-          <button onClick={() => handleSendMessage(userInput)} disabled={isLoading || !userInput.trim()} className="px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" /></svg></button>
-        </div>
-      </div>
     </div>
   );
 };

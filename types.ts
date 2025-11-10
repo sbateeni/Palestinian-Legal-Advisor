@@ -1,14 +1,23 @@
-export type ApiSource = 'gemini' | 'openrouter';
+// FIX: Define shared types for the application.
+export type Role = 'user' | 'model';
 
 export interface ChatMessage {
-  role: 'user' | 'model';
+  id: string;
+  role: Role;
   content: string;
+  imageUrl?: string;
+  imageMimeType?: string;
 }
+
+export type CaseStatus = 'جديدة' | 'قيد النظر' | 'مؤجلة' | 'مغلقة' | 'استئناف' | 'أخرى';
 
 export interface Case {
   id: string;
   title: string;
   summary: string;
-  createdAt: number;
   chatHistory: ChatMessage[];
+  createdAt: number;
+  status: CaseStatus;
 }
+
+export type ApiSource = 'gemini' | 'openrouter';

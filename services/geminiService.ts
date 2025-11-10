@@ -1,58 +1,99 @@
-
-import { GoogleGenAI, Chat, GenerateContentResponse, Content } from "@google/genai";
+// FIX: Implement Gemini API service for streaming chat responses.
+import { GoogleGenAI } from "@google/genai";
 import { ChatMessage } from '../types';
 
-const getAiClient = (apiKey?: string): GoogleGenAI | null => {
-  try {
-    const ai = new GoogleGenAI({ apiKey: apiKey || 'default' });
-    return ai;
-  } catch (error) {
-    console.error("Failed to initialize Google AI client:", error);
-    return null;
-  }
-};
-
-const SYSTEM_INSTRUCTION = `أنت مساعد ذكاء اصطناعي خبير ومتخصص في القانون الفلسطيني.
+const SYSTEM_INSTRUCTION_LEGAL = `أنت مساعد ذكاء اصطناعي خبير ومتخصص في القانون الفلسطيني.
 معرفتك تشمل جميع القوانين واللوائح والسوابق القضائية المعمول بها في فلسطين.
-عند تحليل القضايا، يجب أن تستند إجاباتك بشكل صارم وحصري على القانون الفلسطيني.
+عند تحليل القضايا، يجب أن تستند إجاباتك بشكل صارم وحصري على القانون الفلسطيني والوقائع المقدمة لك فقط.
 لا تقدم آراء شخصية أو معلومات قانونية من ولايات قضائية أخرى.
-كن دقيقًا ومفصلاً وموضوعيًا في تحليلاتك.
+لا تفترض أي معلومات غير مذكورة في تفاصيل القضية. لا تقترح سيناريوهات افتراضية. إذا كانت معلومة ما ضرورية للتحليل ولكنها غير متوفرة، اذكر أنها غير موجودة بدلاً من افتراضها.
+كن دقيقًا ومفصلاً وموضوعيًا في تحليلاتك.`;
 
-非常重要: لا تستخدم أي أحرف صينية أو رموز غير عربية في إجاباتك.
+const SYSTEM_INSTRUCTION_BOT = `أنت مساعد ذكاء اصطناعي عام ومفيد. أجب على أسئلة المستخدم وساعدهم في مهامهم. كن ودودًا ومتعاونًا. يمكنك تحليل الصور والنصوص.`;
 
-قم بتنظيم إجابتك بالشكل التالي:
-1. نوع القضية وتصنيفها القانوني
-2. تحليل موقف [المشتكي/المشتكى عليه] في القضية
-3. الأسس القانونية والمواد ذات الصلة
-4. الإجراءات القانونية المقترحة
-5. احتمالية نجاح القضية ونصائح إضافية
+function getGoogleGenAI() {
+    // This function ensures a new instance is created for each request,
+    // which is important for environments where the API key can change (like using aistudio).
+    return new GoogleGenAI({ apiKey: process.env.API_KEY });
+}
 
-استخدم التنسيق المناسب مع ترقيم النقاط والفقرات بشكل واضح.
-استخدم العناوين الرئيسية ## والعناوين الفرعية ### للتنظيم.
-استخدم > للنصوص المقتبسة من القوانين.
-لا تستخدم أي رموز أو أحرف صينية في الإجابات.`;
-
-export const startChat = (history: ChatMessage[], apiKey?: string): Chat | null => {
-    const ai = getAiClient(apiKey);
-    if (!ai) return null;
-
-    // FIX: The type for formattedHistory should be Content[], not Part[].
-    // This fixes the type error on this line and the subsequent usage.
-    const formattedHistory: Content[] = history.map(msg => ({
+export async function* streamChatResponseFromGemini(
+  history: ChatMessage[],
+  thinkingMode: boolean
+): AsyncGenerator<{ text: string }> {
+  try {
+    const ai = getGoogleGenAI();
+    const model = thinkingMode ? 'gemini-2.5-pro' : 'gemini-2.5-flash';
+    
+    const contents = history.map(msg => ({
         role: msg.role,
-        parts: [{ text: msg.content }]
+        parts: [{text: msg.content}]
     }));
 
-    return ai.chats.create({
-        model: 'gemini-2.5-flash',
+    const responseStream = await ai.models.generateContentStream({
+        model: model,
+        contents: contents,
         config: {
-            systemInstruction: SYSTEM_INSTRUCTION,
-        },
-        history: formattedHistory
+            systemInstruction: SYSTEM_INSTRUCTION_LEGAL,
+        }
     });
-};
 
-export const streamChatResponse = async (chat: Chat, message: string): Promise<AsyncGenerator<GenerateContentResponse>> => {
-    const result = await chat.sendMessageStream({ message });
-    return result;
-};
+    for await (const chunk of responseStream) {
+        // According to guidelines, use chunk.text directly.
+        const text = chunk.text;
+        if (text) {
+            yield { text };
+        }
+    }
+  } catch (error) {
+    console.error("Error in Gemini chat stream:", error);
+    // Re-throw the error to be handled by the calling component
+    throw error;
+  }
+}
+
+export async function* streamBotChatResponseFromGemini(
+  history: ChatMessage[],
+  thinkingMode: boolean
+): AsyncGenerator<{ text: string }> {
+    try {
+        const ai = getGoogleGenAI();
+        const modelName = thinkingMode ? 'gemini-2.5-pro' : 'gemini-2.5-flash';
+
+        // The API expects alternating user/model roles. The history from the app should already be in this format.
+        const contents = history.map(msg => {
+            const parts = [];
+            if (msg.content) {
+                parts.push({ text: msg.content });
+            }
+            if (msg.imageUrl && msg.imageMimeType) {
+                const base64Data = msg.imageUrl.split(',')[1];
+                parts.push({
+                    inlineData: {
+                        data: base64Data,
+                        mimeType: msg.imageMimeType
+                    }
+                });
+            }
+            return { role: msg.role, parts: parts };
+        });
+
+        const responseStream = await ai.models.generateContentStream({
+            model: modelName,
+            contents: contents,
+            config: {
+                systemInstruction: SYSTEM_INSTRUCTION_BOT,
+            }
+        });
+
+        for await (const chunk of responseStream) {
+            const text = chunk.text;
+            if (text) {
+                yield { text };
+            }
+        }
+    } catch (error) {
+        console.error("Error in Gemini bot stream:", error);
+        throw error;
+    }
+}

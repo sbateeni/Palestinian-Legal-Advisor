@@ -11,8 +11,7 @@
     ],
     "skipLibCheck": true,
     "types": [
-      "node",
-      "jest"
+      "node"
     ],
     "moduleResolution": "bundler",
     "isolatedModules": true,

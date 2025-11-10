@@ -1,41 +1,26 @@
 import { ChatMessage } from '../types';
 
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
-const MODEL_NAME = 'qwen/qwen3-coder:free'; 
+const MODEL_NAME = 'mistralai/mistral-7b-instruct:free'; 
 
 const SYSTEM_INSTRUCTION = `أنت مساعد ذكاء اصطناعي خبير ومتخصص في القانون الفلسطيني.
 معرفتك تشمل جميع القوانين واللوائح والسوابق القضائية المعمول بها في فلسطين.
-عند تحليل القضايا، يجب أن تستند إجاباتك بشكل صارم وحصري على القانون الفلسطيني.
+عند تحليل القضايا، يجب أن تستند إجاباتك بشكل صارم وحصري على القانون الفلسطيني والوقائع المقدمة لك فقط.
 لا تقدم آراء شخصية أو معلومات قانونية من ولايات قضائية أخرى.
-كن دقيقًا ومفصلاً وموضوعيًا في تحليلاتك.
-
-非常重要: لا تستخدم أي أحرف صينية أو رموز غير عربية في إجاباتك.
-
-قم بتنظيم إجابتك بالشكل التالي:
-1. نوع القضية وتصنيفها القانوني
-2. تحليل موقف [المشتكي/المشتكى عليه] في القضية
-3. الأسس القانونية والمواد ذات الصلة
-4. الإجراءات القانونية المقترحة
-5. احتمالية نجاح القضية ونصائح إضافية
-
-استخدم التنسيق المناسب مع ترقيم النقاط والفقرات بشكل واضح.
-استخدم العناوين الرئيسية ## والعناوين الفرعية ### للتنظيم.
-استخدم > للنصوص المقتبسة من القوانين.
-لا تستخدم أي رموز أو أحرف صينية في الإجابات.`;
+لا تفترض أي معلومات غير مذكورة في تفاصيل القضية. لا تقترح سيناريوهات افتراضية. إذا كانت معلومة ما ضرورية للتحليل ولكنها غير متوفرة، اذكر أنها غير موجودة بدلاً من افتراضها.
+كن دقيقًا ومفصلاً وموضوعيًا في تحليلاتك.`;
 
 export async function* streamChatResponseFromOpenRouter(
   apiKey: string,
-  history: ChatMessage[],
-  newMessage: string
-): AsyncGenerator<string> {
+  history: ChatMessage[]
+): AsyncGenerator<{ text: string }> {
   
   const messagesForApi = [
     { role: 'system', content: SYSTEM_INSTRUCTION },
     ...history.map(msg => ({
         role: msg.role === 'model' ? 'assistant' : 'user',
         content: msg.content
-    })),
-    { role: 'user', content: newMessage }
+    }))
   ];
 
   const response = await fetch(OPENROUTER_API_URL, {
@@ -87,7 +72,7 @@ export async function* streamChatResponseFromOpenRouter(
           const parsed = JSON.parse(data);
           const content = parsed.choices[0]?.delta?.content;
           if (content) {
-            yield content;
+            yield { text: content };
           }
         } catch (e) {
           console.error('Error parsing stream data chunk:', data, e);
