@@ -23,7 +23,9 @@ import { SUGGESTED_PROMPTS } from '../constants';
 import * as pdfjsLib from 'pdfjs-dist';
 
 // Configure the worker for pdf.js
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.175/build/pdf.worker.mjs`;
+// The '?url' import suffix for workers is a Vite-specific feature that does not work with
+// browser-native import maps that load from a CDN. We provide the full URL to the worker script.
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://aistudiocdn.com/pdfjs-dist@5.4.394/build/pdf.worker.js';
 
 interface ChatPageProps {
   caseId?: string;
