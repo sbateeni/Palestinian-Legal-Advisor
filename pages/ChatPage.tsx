@@ -1,3 +1,5 @@
+/// <reference path="../types/aistudio.d.ts" />
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { v4 as uuidv4 } from 'uuid';
@@ -8,7 +10,7 @@ import * as dbService from '../services/dbService';
 import { streamChatResponseFromGemini } from '../services/geminiService';
 import { streamChatResponseFromOpenRouter } from '../services/openRouterService';
 import { SUGGESTED_PROMPTS } from '../constants';
-import * as pdfjsLib from 'pdf-js-dist';
+import * as pdfjsLib from 'pdfjs-dist';
 
 // Configure the worker for pdf.js
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.175/build/pdf.worker.mjs`;

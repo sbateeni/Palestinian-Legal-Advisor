@@ -1,4 +1,4 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { ChatMessage } from '../types';
 
 const SYSTEM_INSTRUCTION_LEGAL = `أنت مساعد ذكاء اصطناعي خبير ومتخصص في القانون الفلسطيني.
@@ -8,10 +8,10 @@ const SYSTEM_INSTRUCTION_LEGAL = `أنت مساعد ذكاء اصطناعي خب
 لا تفترض أي معلومات غير مذكورة في تفاصيل القضية. لا تقترح سيناريوهات افتراضية. إذا كانت معلومة ما ضرورية للتحليل ولكنها غير متوفرة، اذكر أنها غير موجودة بدلاً من افتراضها.
 كن دقيقًا ومفصلاً وموضوعيًا في تحليلاتك.`;
 
-function getGoogleGenAI() {
+function getGoogleGenerativeAI() {
     // This function ensures a new instance is created for each request,
     // which is important for environments where the API key can change (like using aistudio).
-    return new GoogleGenAI({ apiKey: process.env.API_KEY });
+    return new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 }
 
 export async function* streamChatResponseFromGemini(
@@ -19,11 +19,11 @@ export async function* streamChatResponseFromGemini(
   thinkingMode: boolean
 ): AsyncGenerator<{ text: string }> {
   try {
-    const ai = getGoogleGenAI();
+    const ai = getGoogleGenerativeAI();
     const model = thinkingMode ? 'gemini-2.5-pro' : 'gemini-2.5-flash';
     
     const contents = history.map(msg => {
-        const parts = [];
+        const parts: Array<{text: string} | {inlineData: {data: string, mimeType: string}}> = [];
         if (msg.content) {
             parts.push({ text: msg.content });
         }
@@ -39,19 +39,25 @@ export async function* streamChatResponseFromGemini(
         return { role: msg.role, parts: parts };
     });
 
-    const responseStream = await ai.models.generateContentStream({
-        model: model,
-        contents: contents,
-        config: {
-            systemInstruction: SYSTEM_INSTRUCTION_LEGAL,
-        }
+    const generativeModel = ai.getGenerativeModel({ model: model, systemInstruction: SYSTEM_INSTRUCTION_LEGAL });
+    const chat = generativeModel.startChat({
+        history: contents.slice(0, -1).map(msg => ({
+            role: msg.role,
+            parts: msg.parts
+        }))
     });
+    const result = await chat.sendMessageStream(contents[contents.length - 1].parts);
 
-    for await (const chunk of responseStream) {
-        // According to guidelines, use chunk.text directly.
-        const text = chunk.text;
-        if (text) {
-            yield { text };
+    for await (const chunk of result.stream) {
+        // According to guidelines, use chunk.text() function.
+        try {
+            const text = chunk.text();
+            if (text) {
+                yield { text };
+            }
+        } catch (e) {
+            // Handle cases where text() might throw due to blocked content
+            console.warn('Could not extract text from chunk:', e);
         }
     }
   } catch (error) {
