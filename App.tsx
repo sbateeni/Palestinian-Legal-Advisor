@@ -4,7 +4,6 @@ import Header from './components/Header';
 import ChatPage from './pages/ChatPage';
 import CasesListPage from './pages/CasesListPage';
 import SettingsPage from './pages/SettingsPage';
-import BotChatPage from './pages/BotChatPage';
 
 const App: React.FC = () => {
   return (
@@ -17,7 +16,6 @@ const App: React.FC = () => {
             <Route path="/case" element={<Navigate to="/" replace />} />
             <Route path="/case/:caseId" element={<ChatPageWrapper />} />
             <Route path="/cases" element={<CasesListPage />} />
-            <Route path="/bot" element={<BotChatPage />} />
             <Route path="/settings" element={<SettingsPage />} />
           </Routes>
         </main>

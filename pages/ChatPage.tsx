@@ -9,6 +9,10 @@ import * as dbService from '../services/dbService';
 import { streamChatResponseFromGemini } from '../services/geminiService';
 import { streamChatResponseFromOpenRouter } from '../services/openRouterService';
 import { SUGGESTED_PROMPTS } from '../constants';
+import * as pdfjsLib from 'pdf-js-dist';
+
+// Configure the worker for pdf.js
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://aistudiocdn.com/pdf-js-dist@^4.4.175/build/pdf.worker.mjs`;
 
 interface ChatPageProps {
   caseId?: string;
@@ -24,9 +28,12 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
   const [openRouterApiKey, setOpenRouterApiKey] = useState<string>('');
   const [thinkingMode, setThinkingMode] = useState(false);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
+  const [uploadedImage, setUploadedImage] = useState<{ dataUrl: string; mimeType: string } | null>(null);
+  const [isProcessingFile, setIsProcessingFile] = useState(false);
 
   const navigate = useNavigate();
   const chatContainerRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const isNewCase = !caseId;
 
   useEffect(() => {
@@ -99,6 +106,47 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
     });
   };
 
+    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        setUploadedImage(null);
+
+        if (file.type.startsWith('image/')) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                setUploadedImage({ dataUrl: e.target?.result as string, mimeType: file.type });
+            };
+            reader.readAsDataURL(file);
+        } else if (file.type === 'application/pdf') {
+            setIsProcessingFile(true);
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                try {
+                    const typedarray = new Uint8Array(e.target!.result as ArrayBuffer);
+                    const pdf = await pdfjsLib.getDocument(typedarray).promise;
+                    let fullText = '';
+                    for (let i = 1; i <= pdf.numPages; i++) {
+                        const page = await pdf.getPage(i);
+                        const textContent = await page.getTextContent();
+                        const pageText = textContent.items.map(item => ('str' in item ? item.str : '')).join(' ');
+                        fullText += pageText + '\n\n';
+                    }
+                    setUserInput(prev => prev.trim() + (prev.trim() ? '\n\n' : '') + `--- محتوى من ملف PDF: ${file.name} ---\n` + fullText.trim());
+                } catch (pdfError) {
+                    console.error("Error processing PDF:", pdfError);
+                    alert(`فشل في معالجة ملف PDF: ${pdfError instanceof Error ? pdfError.message : 'خطأ غير معروف'}`);
+                } finally {
+                    setIsProcessingFile(false);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        } else {
+            alert('نوع الملف غير مدعوم. يرجى تحميل صورة أو ملف PDF.');
+        }
+        event.target.value = ''; // Allow re-uploading same file
+    };
+
   const processStream = useCallback(async (
       stream: AsyncGenerator<{ text: string }>,
       tempModelMessageId: string
@@ -119,16 +167,21 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
 
   const handleSendMessage = async (prompt?: string) => {
     const messageContent = (prompt || userInput).trim();
-    if (!messageContent || isLoading) return;
+    if (isLoading || isProcessingFile || (!messageContent && !uploadedImage)) return;
 
     setIsLoading(true);
-    setUserInput('');
 
     const userMessage: ChatMessage = {
       id: uuidv4(),
       role: 'user',
-      content: messageContent,
+      content: messageContent || 'حلل المرفق.',
+      imageUrl: uploadedImage?.dataUrl,
+      imageMimeType: uploadedImage?.mimeType
     };
+    
+    setUserInput('');
+    setUploadedImage(null);
+
     const currentChatHistory = [...chatHistory, userMessage];
     setChatHistory(currentChatHistory);
 
@@ -233,7 +286,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
             {chatHistory.length === 0 && !isLoading ? (
                 <div className="text-center text-gray-400">
                     <h2 className="text-2xl font-bold mb-4 text-gray-200">المستشار القانوني الفلسطيني</h2>
-                    <p className="mb-8">ابدأ بوصف وقائع القضية أو اطرح سؤالاً قانونياً محدداً.</p>
+                    <p className="mb-8">ابدأ بوصف وقائع القضية، اطرح سؤالاً، أو ارفق مستنداً لتحليله.</p>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-3xl mx-auto">
                         {SUGGESTED_PROMPTS.map((prompt, index) => (
                             <button key={index} onClick={() => handleSendMessage(prompt)} className="p-4 bg-gray-700/50 rounded-lg hover:bg-gray-700 text-right transition-colors text-gray-300">
@@ -256,7 +309,11 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
                                        )}
                                     </button>
                                 )}
-                                <div className="prose prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(marked.parse(msg.content || '...')) }}></div>
+                                {msg.imageUrl && (
+                                    <img src={msg.imageUrl} alt="محتوى مرفق" className="rounded-lg mb-2 max-w-xs max-h-64 object-contain" />
+                                )}
+                                {/* FIX: Use marked.parseSync for synchronous markdown parsing to prevent type errors. */}
+                                <div className="prose prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(marked.parse(msg.content || '...', { breaks: true })) }}></div>
                             </div>
                         </div>
                     ))}
@@ -276,9 +333,31 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
         </div>
 
         <div className="p-4 border-t border-gray-700 bg-gray-800">
+            {uploadedImage && (
+                <div className="relative inline-block mb-2">
+                    <img src={uploadedImage.dataUrl} alt="Preview" className="h-24 w-auto rounded-lg object-contain border border-gray-600" />
+                    <button 
+                        onClick={() => setUploadedImage(null)}
+                        className="absolute -top-2 -right-2 bg-red-600 text-white rounded-full p-1 leading-none shadow-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
+                        aria-label="Remove image"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                </div>
+            )}
+            {isProcessingFile && (
+                <div className="flex items-center text-gray-400 mb-2">
+                    <svg className="animate-spin h-5 w-5 me-3 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                    <span>جاري معالجة ملف PDF...</span>
+                </div>
+            )}
             <div className="flex items-center space-x-reverse space-x-3">
-                <textarea value={userInput} onChange={(e) => setUserInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }} className="flex-grow p-3 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 focus:ring-2 focus:ring-blue-500 focus:outline-none resize-none" placeholder="اكتب رسالتك..." rows={1} disabled={isLoading}/>
-                <button onClick={() => handleSendMessage()} disabled={isLoading || !userInput.trim()} className="p-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors" aria-label="إرسال"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg></button>
+                <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*,application/pdf" className="hidden" />
+                <button onClick={() => fileInputRef.current?.click()} disabled={isLoading || isProcessingFile} className="p-3 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 disabled:opacity-50 transition-colors" aria-label="إرفاق ملف">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>
+                </button>
+                <textarea value={userInput} onChange={(e) => setUserInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }} className="flex-grow p-3 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 focus:ring-2 focus:ring-blue-500 focus:outline-none resize-none" placeholder="اكتب رسالتك أو ارفق ملفاً..." rows={1} disabled={isLoading || isProcessingFile}/>
+                <button onClick={() => handleSendMessage()} disabled={isLoading || isProcessingFile || (!userInput.trim() && !uploadedImage)} className="p-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors" aria-label="إرسال"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg></button>
             </div>
         </div>
     </div>

@@ -24,7 +24,6 @@ const Header: React.FC = () => {
           <div className="hidden md:flex items-center space-x-reverse space-x-2">
             <NavLink to="/" className={({ isActive }) => `${isActive ? activeLinkClass : inactiveLinkClass} ${linkClasses}`}>قضية جديدة</NavLink>
             <NavLink to="/cases" className={({ isActive }) => `${isActive ? activeLinkClass : inactiveLinkClass} ${linkClasses}`}>القضايا المحفوظة</NavLink>
-            <NavLink to="/bot" className={({ isActive }) => `${isActive ? activeLinkClass : inactiveLinkClass} ${linkClasses}`}>المساعد الذكي</NavLink>
             <NavLink to="/settings" className={({ isActive }) => `${isActive ? activeLinkClass : inactiveLinkClass} ${linkClasses}`}>الإعدادات</NavLink>
           </div>
 
@@ -46,7 +45,6 @@ const Header: React.FC = () => {
           <div className="md:hidden pb-3" onClick={() => setIsMenuOpen(false)}>
             <NavLink to="/" className={({ isActive }) => `${isActive ? activeLinkClass : inactiveLinkClass} block ${linkClasses}`}>قضية جديدة</NavLink>
             <NavLink to="/cases" className={({ isActive }) => `${isActive ? activeLinkClass : inactiveLinkClass} block mt-1 ${linkClasses}`}>القضايا المحفوظة</NavLink>
-            <NavLink to="/bot" className={({ isActive }) => `${isActive ? activeLinkClass : inactiveLinkClass} block mt-1 ${linkClasses}`}>المساعد الذكي</NavLink>
             <NavLink to="/settings" className={({ isActive }) => `${isActive ? activeLinkClass : inactiveLinkClass} block mt-1 ${linkClasses}`}>الإعدادات</NavLink>
           </div>
         )}

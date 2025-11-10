@@ -9,8 +9,6 @@ const SYSTEM_INSTRUCTION_LEGAL = `أنت مساعد ذكاء اصطناعي خب
 لا تفترض أي معلومات غير مذكورة في تفاصيل القضية. لا تقترح سيناريوهات افتراضية. إذا كانت معلومة ما ضرورية للتحليل ولكنها غير متوفرة، اذكر أنها غير موجودة بدلاً من افتراضها.
 كن دقيقًا ومفصلاً وموضوعيًا في تحليلاتك.`;
 
-const SYSTEM_INSTRUCTION_BOT = `أنت مساعد ذكاء اصطناعي عام ومفيد. أجب على أسئلة المستخدم وساعدهم في مهامهم. كن ودودًا ومتعاونًا. يمكنك تحليل الصور والنصوص.`;
-
 function getGoogleGenAI() {
     // This function ensures a new instance is created for each request,
     // which is important for environments where the API key can change (like using aistudio).
@@ -25,10 +23,22 @@ export async function* streamChatResponseFromGemini(
     const ai = getGoogleGenAI();
     const model = thinkingMode ? 'gemini-2.5-pro' : 'gemini-2.5-flash';
     
-    const contents = history.map(msg => ({
-        role: msg.role,
-        parts: [{text: msg.content}]
-    }));
+    const contents = history.map(msg => {
+        const parts = [];
+        if (msg.content) {
+            parts.push({ text: msg.content });
+        }
+        if (msg.imageUrl && msg.imageMimeType) {
+            const base64Data = msg.imageUrl.split(',')[1];
+            parts.push({
+                inlineData: {
+                    data: base64Data,
+                    mimeType: msg.imageMimeType
+                }
+            });
+        }
+        return { role: msg.role, parts: parts };
+    });
 
     const responseStream = await ai.models.generateContentStream({
         model: model,
@@ -50,50 +60,4 @@ export async function* streamChatResponseFromGemini(
     // Re-throw the error to be handled by the calling component
     throw error;
   }
-}
-
-export async function* streamBotChatResponseFromGemini(
-  history: ChatMessage[],
-  thinkingMode: boolean
-): AsyncGenerator<{ text: string }> {
-    try {
-        const ai = getGoogleGenAI();
-        const modelName = thinkingMode ? 'gemini-2.5-pro' : 'gemini-2.5-flash';
-
-        // The API expects alternating user/model roles. The history from the app should already be in this format.
-        const contents = history.map(msg => {
-            const parts = [];
-            if (msg.content) {
-                parts.push({ text: msg.content });
-            }
-            if (msg.imageUrl && msg.imageMimeType) {
-                const base64Data = msg.imageUrl.split(',')[1];
-                parts.push({
-                    inlineData: {
-                        data: base64Data,
-                        mimeType: msg.imageMimeType
-                    }
-                });
-            }
-            return { role: msg.role, parts: parts };
-        });
-
-        const responseStream = await ai.models.generateContentStream({
-            model: modelName,
-            contents: contents,
-            config: {
-                systemInstruction: SYSTEM_INSTRUCTION_BOT,
-            }
-        });
-
-        for await (const chunk of responseStream) {
-            const text = chunk.text;
-            if (text) {
-                yield { text };
-            }
-        }
-    } catch (error) {
-        console.error("Error in Gemini bot stream:", error);
-        throw error;
-    }
 }
