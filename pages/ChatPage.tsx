@@ -147,7 +147,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
 
         if (file.type.startsWith('image/')) {
             if (!isImageUploadSupported) {
-                alert('النماذج المجانية عبر OpenRouter لا تدعم تحليل الصور حاليًا. يرجى استخدام Gemini API لتحليل الصور، أو إرفاق ملف PDF بدلاً من ذلك.');
+                alert(`النموذج المحدد (${openRouterModel}) لا يدعم تحليل الصور. يرجى اختيار نموذج يدعم الصور من الإعدادات، أو إرفاق ملف PDF.`);
                 event.target.value = ''; // Clear file input
                 return;
             }
@@ -442,9 +442,9 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
                 />
                 <button onClick={() => handleSendMessage()} disabled={isLoading || isProcessingFile || (!userInput.trim() && !uploadedImage)} className="p-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors" aria-label="إرسال"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg></button>
             </div>
-            {apiSource === 'openrouter' && (
+            {apiSource === 'openrouter' && !isImageUploadSupported && (
                 <p className="text-xs text-yellow-400 mt-2 text-center">
-                    ملاحظة: النماذج المجانية المتوفرة عبر OpenRouter حاليًا لا تدعم تحليل الصور. لا يزال بإمكانك إرفاق ملفات PDF.
+                    ملاحظة: النموذج المحدد حاليًا لا يدعم تحليل الصور. لا يزال بإمكانك إرفاق ملفات PDF.
                 </p>
             )}
         </div>
