@@ -1,4 +1,14 @@
-/// <reference path="../types/aistudio.d.ts" />
+// FIX: Fix TypeScript error by using a named interface for the global aistudio property.
+// Using a named interface `AIStudio` resolves potential type conflicts with other global declarations.
+declare global {
+  interface AIStudio {
+    hasSelectedApiKey: () => Promise<boolean>;
+    openSelectKey: () => Promise<void>;
+  }
+  interface Window {
+    aistudio?: AIStudio;
+  }
+}
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -7,7 +17,7 @@ import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import { Case, ChatMessage, ApiSource } from '../types';
 import * as dbService from '../services/dbService';
-import { streamChatResponseFromGemini } from '../services/geminiService';
+import { streamChatResponseFromGemini } from './geminiService';
 import { streamChatResponseFromOpenRouter } from '../services/openRouterService';
 import { SUGGESTED_PROMPTS } from '../constants';
 import * as pdfjsLib from 'pdfjs-dist';

@@ -1,3 +1,4 @@
+// FIX: Define shared types for the application.
 export type Role = 'user' | 'model';
 
 export interface ChatMessage {
@@ -6,6 +7,7 @@ export interface ChatMessage {
   content: string;
   imageUrl?: string;
   imageMimeType?: string;
+  // FIX: Add isError property to handle chat error messages.
   isError?: boolean;
 }
 
