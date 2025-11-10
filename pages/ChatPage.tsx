@@ -11,7 +11,7 @@ import { SUGGESTED_PROMPTS } from '../constants';
 import * as pdfjsLib from 'pdf-js-dist';
 
 // Configure the worker for pdf.js
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://aistudiocdn.com/pdf-js-dist@^4.4.175/build/pdf.worker.mjs`;
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.175/build/pdf.worker.mjs`;
 
 interface ChatPageProps {
   caseId?: string;
@@ -311,7 +311,6 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
                                 {msg.imageUrl && (
                                     <img src={msg.imageUrl} alt="محتوى مرفق" className="rounded-lg mb-2 max-w-xs max-h-64 object-contain" />
                                 )}
-                                {/* FIX: Use marked.parse() as parseSync is deprecated, and cast to string to handle potential async return type. */}
                                 <div className="prose prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(marked.parse(msg.content || '...', { breaks: true }) as string) }}></div>
                             </div>
                         </div>
