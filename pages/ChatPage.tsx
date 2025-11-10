@@ -1,3 +1,4 @@
+
 // FIX: Fix TypeScript error by using a named interface for the global aistudio property.
 // Using a named interface `AIStudio` resolves potential type conflicts with other global declarations.
 declare global {
@@ -297,16 +298,12 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
 
         <div ref={chatContainerRef} className="flex-grow p-6 overflow-y-auto">
             {chatHistory.length === 0 && !isLoading ? (
-                <div className="text-center text-gray-400">
+                <div className="text-center text-gray-400 flex flex-col items-center justify-center h-full">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mb-4 text-gray-500" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 3c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm-1.5 8.5c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm3 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zM9 13.5c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm6 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zM12 1c-3.86 0-7 3.14-7 7 0 1.95.8 3.72 2.05 4.95-.02.02-.05.04-.05.05 0 .83.67 1.5 1.5 1.5s1.5-.67 1.5-1.5c0-1.38 1.12-2.5 2.5-2.5s2.5 1.12 2.5 2.5c0 .83.67 1.5 1.5 1.5s1.5-.67 1.5-1.5c0-.01-.03-.03-.05-.05C18.2 11.72 19 9.95 19 8c0-3.86-3.14-7-7-7z"></path>
+                    </svg>
                     <h2 className="text-2xl font-bold mb-4 text-gray-200">المستشار القانوني الفلسطيني</h2>
-                    <p className="mb-8">ابدأ بوصف وقائع القضية، اطرح سؤالاً، أو ارفق مستنداً لتحليله.</p>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-3xl mx-auto">
-                        {SUGGESTED_PROMPTS.map((prompt, index) => (
-                            <button key={index} onClick={() => handleSendMessage(prompt)} className="p-4 bg-gray-700/50 rounded-lg hover:bg-gray-700 text-right transition-colors text-gray-300">
-                                {prompt}
-                            </button>
-                        ))}
-                    </div>
+                    <p className="mb-8 max-w-xl">ابدأ بوصف وقائع القضية، اطرح سؤالاً، أو ارفق مستنداً لتحليله. سأقوم بالمساعدة في تحليل الموقف القانوني بناءً على القوانين الفلسطينية.</p>
                 </div>
             ) : (
                 <div className="space-y-6">
@@ -345,6 +342,22 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
         </div>
 
         <div className="p-4 border-t border-gray-700 bg-gray-800">
+            {chatHistory.length > 0 && !isLoading && (
+                <div className="mb-3">
+                    <div className="flex items-center gap-2 overflow-x-auto pb-2">
+                         <span className="text-sm text-gray-400 font-medium whitespace-nowrap">اقتراحات:</span>
+                         {SUGGESTED_PROMPTS.map((prompt, index) => (
+                             <button
+                                 key={index}
+                                 onClick={() => handleSendMessage(prompt)}
+                                 className="px-3 py-1.5 bg-gray-700/80 text-gray-200 rounded-full text-sm whitespace-nowrap hover:bg-gray-600/80 transition-colors"
+                             >
+                                 {prompt}
+                             </button>
+                         ))}
+                    </div>
+                </div>
+            )}
             {uploadedImage && (
                 <div className="relative inline-block mb-2">
                     <img src={uploadedImage.dataUrl} alt="Preview" className="h-24 w-auto rounded-lg object-contain border border-gray-600" />
