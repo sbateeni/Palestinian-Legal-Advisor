@@ -311,8 +311,8 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
                                 {msg.imageUrl && (
                                     <img src={msg.imageUrl} alt="محتوى مرفق" className="rounded-lg mb-2 max-w-xs max-h-64 object-contain" />
                                 )}
-                                {/* FIX: Use `marked.parse()` for synchronous markdown parsing. `marked.parseSync()` is not a function in recent versions of marked. */}
-                                <div className="prose prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(marked.parse(msg.content || '...', { breaks: true })) }}></div>
+                                {/* FIX: Use marked.parse() as parseSync is deprecated, and cast to string to handle potential async return type. */}
+                                <div className="prose prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(marked.parse(msg.content || '...', { breaks: true }) as string) }}></div>
                             </div>
                         </div>
                     ))}
