@@ -10,7 +10,7 @@ const App: React.FC = () => {
     <HashRouter>
       <div className="h-full flex flex-col bg-gray-900 text-gray-100">
         <Header />
-        <main className="flex-grow container mx-auto flex flex-col">
+        <main className="flex-grow container mx-auto flex flex-col overflow-y-auto">
           <Routes>
             <Route path="/" element={<ChatPage key="new-case" />} />
             <Route path="/case" element={<Navigate to="/" replace />} />
