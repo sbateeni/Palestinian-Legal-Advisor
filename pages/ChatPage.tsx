@@ -256,7 +256,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
                                        )}
                                     </button>
                                 )}
-                                <div className="prose prose-invert max-w-none prose-p:my-2 prose-headings:my-3 prose-ul:my-2 prose-ol:my-2" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(marked.parse(msg.content || '...')) }}></div>
+                                <div className="prose prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(marked.parse(msg.content || '...')) }}></div>
                             </div>
                         </div>
                     ))}

@@ -1,15 +1,49 @@
-<script type="importmap">
-{
-  "imports": {
-    "uuid": "https://aistudiocdn.com/uuid@^13.0.0",
-    "react-router-dom": "https://aistudiocdn.com/react-router-dom@^7.9.5",
-    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.29.0",
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
-    "react/": "https://aistudiocdn.com/react@^19.2.0/",
-    "react": "https://aistudiocdn.com/react@^19.2.0",
-    "marked": "https://aistudiocdn.com/marked@^17.0.0",
-    "dompurify": "https://aistudiocdn.com/dompurify@^3.3.0"
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>المستشار القانوني الفلسطيني</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <style>
+    /* Basic styles for Tailwind prose on dark background without the typography plugin */
+    .prose-invert {
+        color: #d1d5db; /* gray-300 */
+    }
+    .prose-invert h1, .prose-invert h2, .prose-invert h3, .prose-invert h4, .prose-invert strong {
+        color: #f9fafb; /* gray-50 */
+    }
+    .prose-invert a {
+        color: #60a5fa; /* blue-400 */
+    }
+    .prose-invert a:hover {
+        color: #93c5fd; /* blue-300 */
+    }
+    .prose-invert code {
+      color: #f9a8d4; /* pink-300 */
+    }
+    .prose-invert blockquote {
+        border-right-color: #4b5563; /* gray-600 */
+        color: #9ca3af; /* gray-400 */
+    }
+  </style>
+  <script type="importmap">
+  {
+    "imports": {
+      "uuid": "https://aistudiocdn.com/uuid@^13.0.0",
+      "react-router-dom": "https://aistudiocdn.com/react-router-dom@^7.9.5",
+      "@google/genai": "https://aistudiocdn.com/@google/genai@^1.29.0",
+      "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+      "react/": "https://aistudiocdn.com/react@^19.2.0/",
+      "react": "https://aistudiocdn.com/react@^19.2.0",
+      "marked": "https://aistudiocdn.com/marked@^17.0.0",
+      "dompurify": "https://aistudiocdn.com/dompurify@^3.3.0"
+    }
   }
-}
-</script>
-full contents of index.html
+  </script>
+  <script type="module" src="/index.tsx"></script>
+</head>
+<body class="bg-gray-900">
+  <div id="root"></div>
+</body>
+</html>
