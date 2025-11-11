@@ -13,7 +13,9 @@ const OcrPage: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [isApiKeyReady, setIsApiKeyReady] = useState<boolean | null>(null);
     const [openRouterApiKey, setOpenRouterApiKey] = useState<string>('');
-    const [selectedModel, setSelectedModel] = useState<string>('meta-llama/llama-3.2-11b-vision-instruct:free');
+    const [selectedModel, setSelectedModel] = useState<string>('google/gemini-flash-1.5:free');
+    const [prompt, setPrompt] = useState<string>('ما الذي تراه في هذه الصورة؟ اشرح بالتفصيل.');
+
 
     const fileInputRef = useRef<HTMLInputElement>(null);
     const navigate = useNavigate();
@@ -68,7 +70,7 @@ const OcrPage: React.FC = () => {
         setAnalysisResult(null);
 
         try {
-            const result = await analyzeImageWithOpenRouter(openRouterApiKey, selectedImage.dataUrl, selectedModel);
+            const result = await analyzeImageWithOpenRouter(openRouterApiKey, selectedImage.dataUrl, selectedModel, prompt);
             setAnalysisResult(result);
         } catch (err: any) {
             console.error("Analysis Error:", err);
@@ -167,6 +169,19 @@ const OcrPage: React.FC = () => {
                     ))}
                 </select>
             </div>
+            
+            <div className="bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
+                <h2 className="text-xl font-semibold text-gray-200 mb-4">3. أدخل الطلب (اختياري)</h2>
+                 <textarea
+                    id="prompt-text"
+                    value={prompt}
+                    onChange={(e) => setPrompt(e.target.value)}
+                    className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                    rows={3}
+                    placeholder="صف ما تريد تحليله في الصورة..."
+                    disabled={isLoading}
+                />
+            </div>
 
             <div className="text-center mb-6">
                 <button 
@@ -174,7 +189,7 @@ const OcrPage: React.FC = () => {
                     onClick={handleAnalyze} 
                     disabled={!selectedImage || isLoading}
                 >
-                    {isLoading ? "جاري التحليل..." : "3. ابدأ التحليل"}
+                    {isLoading ? "جاري التحليل..." : "4. ابدأ التحليل"}
                 </button>
             </div>
 

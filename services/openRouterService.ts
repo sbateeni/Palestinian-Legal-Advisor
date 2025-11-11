@@ -13,7 +13,8 @@ const SYSTEM_INSTRUCTION = `أنت مساعد ذكاء اصطناعي خبير �
 export async function analyzeImageWithOpenRouter(
   apiKey: string,
   base64Image: string,
-  modelName: string
+  modelName: string,
+  prompt: string
 ): Promise<string> {
     const response = await fetch(OPENROUTER_API_URL, {
       method: "POST",
@@ -30,7 +31,7 @@ export async function analyzeImageWithOpenRouter(
               {
                   role: "user",
                   content: [
-                      { type: "text", text: "الرجاء استخراج وتحليل النص الموجود في هذه الصورة." },
+                      { type: "text", text: prompt },
                       { 
                         type: "image_url", 
                         image_url: {
@@ -39,7 +40,8 @@ export async function analyzeImageWithOpenRouter(
                       }
                   ]
               }
-          ]
+          ],
+          max_tokens: 2048,
       })
     });
 
