@@ -27,7 +27,6 @@ export async function analyzeImageWithOpenRouter(
       body: JSON.stringify({
           model: modelName,
           messages: [
-              { role: "system", content: "You are an expert OCR and analysis tool. Extract any text from the provided image, format it cleanly, and provide a brief analysis or summary of the content. Respond in Arabic." },
               {
                   role: "user",
                   content: [
