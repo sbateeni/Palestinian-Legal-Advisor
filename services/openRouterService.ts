@@ -2,7 +2,6 @@ import { ChatMessage } from '../types';
 
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 const DEFAULT_MODEL_NAME = 'google/gemini-flash-1.5:free';
-const OCR_MODEL_NAME = 'meta-llama/llama-3.2-11b-vision-instruct:free'; // Model from user's request
 
 const SYSTEM_INSTRUCTION = `أنت مساعد ذكاء اصطناعي خبير ومتخصص في القانون الفلسطيني.
 معرفتك تشمل جميع القوانين واللوائح والسوابق القضائية المعمول بها في فلسطين.
@@ -13,7 +12,8 @@ const SYSTEM_INSTRUCTION = `أنت مساعد ذكاء اصطناعي خبير �
 
 export async function analyzeImageWithOpenRouter(
   apiKey: string,
-  base64Image: string
+  base64Image: string,
+  modelName: string
 ): Promise<string> {
     const response = await fetch(OPENROUTER_API_URL, {
       method: "POST",
@@ -24,7 +24,7 @@ export async function analyzeImageWithOpenRouter(
           'X-Title': encodeURIComponent('المستشار القانوني الفلسطيني - تحليل صور'),
       },
       body: JSON.stringify({
-          model: OCR_MODEL_NAME,
+          model: modelName,
           messages: [
               { role: "system", content: "You are an expert OCR and analysis tool. Extract any text from the provided image, format it cleanly, and provide a brief analysis or summary of the content. Respond in Arabic." },
               {

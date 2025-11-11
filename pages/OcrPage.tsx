@@ -4,6 +4,7 @@ import * as dbService from '../services/dbService';
 import { analyzeImageWithOpenRouter } from '../services/openRouterService';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
+import { OPENROUTER_FREE_MODELS } from '../constants';
 
 const OcrPage: React.FC = () => {
     const [selectedImage, setSelectedImage] = useState<{ file: File; dataUrl: string } | null>(null);
@@ -12,9 +13,12 @@ const OcrPage: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [isApiKeyReady, setIsApiKeyReady] = useState<boolean | null>(null);
     const [openRouterApiKey, setOpenRouterApiKey] = useState<string>('');
-    
+    const [selectedModel, setSelectedModel] = useState<string>('meta-llama/llama-3.2-11b-vision-instruct:free');
+
     const fileInputRef = useRef<HTMLInputElement>(null);
     const navigate = useNavigate();
+
+    const imageModels = OPENROUTER_FREE_MODELS.filter(m => m.supportsImages);
 
     useEffect(() => {
         const loadApiKey = async () => {
@@ -64,7 +68,7 @@ const OcrPage: React.FC = () => {
         setAnalysisResult(null);
 
         try {
-            const result = await analyzeImageWithOpenRouter(openRouterApiKey, selectedImage.dataUrl);
+            const result = await analyzeImageWithOpenRouter(openRouterApiKey, selectedImage.dataUrl, selectedModel);
             setAnalysisResult(result);
         } catch (err: any) {
             console.error("Analysis Error:", err);
@@ -149,13 +153,28 @@ const OcrPage: React.FC = () => {
                 </div>
             </div>
 
+            <div className="bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
+                <h2 className="text-xl font-semibold text-gray-200 mb-4">2. اختر نموذج التحليل</h2>
+                <select
+                    id="model-select"
+                    value={selectedModel}
+                    onChange={(e) => setSelectedModel(e.target.value)}
+                    className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                    disabled={isLoading}
+                >
+                    {imageModels.map(model => (
+                        <option key={model.id} value={model.id}>{model.name}</option>
+                    ))}
+                </select>
+            </div>
+
             <div className="text-center mb-6">
                 <button 
                     className="px-8 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors text-lg"
                     onClick={handleAnalyze} 
                     disabled={!selectedImage || isLoading}
                 >
-                    {isLoading ? "جاري التحليل..." : "ابدأ التحليل"}
+                    {isLoading ? "جاري التحليل..." : "3. ابدأ التحليل"}
                 </button>
             </div>
 
