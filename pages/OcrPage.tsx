@@ -35,6 +35,7 @@ type AnalysisResult = {
     status: string | null;
     result: string | null;
     error: string | null;
+    tags?: string[];
 };
 
 type AnalysisType = 'ai' | 'ocr';
@@ -53,6 +54,7 @@ const OcrPage: React.FC = () => {
     const [loadingFiles, setLoadingFiles] = useState<Record<string, { name: string; progress: number }>>({});
     const [isProcessingPdf, setIsProcessingPdf] = useState(false);
     const [pdfProcessingMessage, setPdfProcessingMessage] = useState('');
+    const [tagInputs, setTagInputs] = useState<Record<string, string>>({});
     
     // State management for pause/resume functionality
     const [analysisState, setAnalysisState] = useState<AnalysisProcessState>('idle');
@@ -246,7 +248,7 @@ const OcrPage: React.FC = () => {
                 if (!isCancelled) {
                     setAnalysisResults(prev => ({
                         ...prev,
-                        [image.id]: { isLoading: false, status: null, result, error: null }
+                        [image.id]: { isLoading: false, status: null, result, error: null, tags: [] }
                     }));
                 }
             } catch (err) {
@@ -315,21 +317,60 @@ const OcrPage: React.FC = () => {
         });
     };
     
+     const handleTagInputChange = (imageId: string, value: string) => {
+        setTagInputs(prev => ({ ...prev, [imageId]: value }));
+    };
+
+    const handleAddTag = (imageId: string) => {
+        const newTag = tagInputs[imageId]?.trim();
+        if (!newTag) return;
+
+        setAnalysisResults(prev => {
+            const currentResult = prev[imageId];
+            if (!currentResult) return prev;
+            
+            const existingTags = currentResult.tags || [];
+            if (existingTags.includes(newTag)) {
+                // Clear input if tag already exists
+                setTagInputs(p => ({ ...p, [imageId]: '' }));
+                return prev;
+            }
+
+            return {
+                ...prev,
+                [imageId]: { ...currentResult, tags: [...existingTags, newTag] }
+            };
+        });
+        setTagInputs(prev => ({ ...prev, [imageId]: '' }));
+    };
+
+    const handleRemoveTag = (imageId: string, tagToRemove: string) => {
+        setAnalysisResults(prev => {
+            const currentResult = prev[imageId];
+            if (!currentResult || !currentResult.tags) return prev;
+
+            return {
+                ...prev,
+                [imageId]: { ...currentResult, tags: currentResult.tags.filter(t => t !== tagToRemove) }
+            };
+        });
+    };
+
     const handleSendToCase = async () => {
         if (!selectedCaseId) {
             alert("الرجاء اختيار قضية أو إنشاء واحدة جديدة.");
             return;
         }
-    
-        // FIX: Explicitly cast result of Object.entries to fix type inference issues.
+
         const successfulAnalyses = (Object.entries(analysisResults) as [string, AnalysisResult][])
             .filter(([, res]) => res.result)
             .map(([id, res]) => ({
                 id,
                 result: res.result!,
+                tags: res.tags,
                 image: selectedImages.find(img => img.id === id)!
             }));
-    
+
         if (successfulAnalyses.length === 0) {
             alert("لا توجد نتائج تحليل ناجحة لإرسالها.");
             return;
@@ -342,13 +383,19 @@ const OcrPage: React.FC = () => {
                     const header = analysisType === 'ai'
                         ? `--- تحليل المستند ${index + 1} (${analysis.image.file.name}) ---`
                         : `--- نص مستخلص (OCR) من المستند ${index + 1} (${analysis.image.file.name}) ---`;
-                    return `${header}\n${analysis.result}`;
+
+                    let tagsHeader = '';
+                    if (analysis.tags && analysis.tags.length > 0) {
+                       tagsHeader = `\n**التصنيفات:** ${analysis.tags.join(', ')}\n`;
+                    }
+
+                    return `${header}${tagsHeader}\n${analysis.result}`;
                 })
                 .join('\n\n');
             
             const messageContent = analysisType === 'ai'
                 ? `تم تحليل المستندات التالية باستخدام الذكاء الاصطناعي وإضافتها إلى القضية:\n\n${analysisSummary}`
-                : `تم استخلاص النص من المستندات التالية وإضافته إلى القضية:\n\n${analysisSummary}`;
+                : `تم استخلاص النص وتصنيفه من المستندات التالية وإضافته إلى القضية:\n\n${analysisSummary}`;
     
             const analysisMessage: ChatMessage = {
                 id: uuidv4(),
@@ -483,7 +530,7 @@ const OcrPage: React.FC = () => {
                                 تحليل بالذكاء الاصطناعي
                             </button>
                             <button onClick={() => setAnalysisType('ocr')} className={`flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors ${analysisType === 'ocr' ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-600'}`}>
-                                استخلاص النص فقط (OCR)
+                                استخلاص النص وتصنيفه (OCR)
                             </button>
                         </div>
                         {analysisType === 'ai' && (
@@ -593,7 +640,38 @@ const OcrPage: React.FC = () => {
                                         </div>
                                     )}
                                     {analysisResults[image.id]?.error && <p className="text-red-400 text-sm">{analysisResults[image.id]?.error}</p>}
-                                    {analysisResults[image.id]?.result && <div className="prose prose-invert max-w-none text-sm" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(marked.parse(analysisResults[image.id]!.result!) as string) }}></div>}
+                                    {analysisResults[image.id]?.result && (
+                                        <>
+                                            <div className="prose prose-invert max-w-none text-sm" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(marked.parse(analysisResults[image.id]!.result!) as string) }}></div>
+                                            
+                                            {analysisType === 'ocr' && (
+                                                <div className="mt-4 border-t border-gray-700 pt-3">
+                                                    <h4 className="text-xs font-semibold text-gray-400 mb-2">التصنيفات</h4>
+                                                    <div className="flex flex-wrap gap-2 mb-3">
+                                                        {analysisResults[image.id]?.tags?.map(tag => (
+                                                            <span key={tag} className="bg-teal-500/20 text-teal-300 text-xs font-medium px-2.5 py-1 rounded-full flex items-center">
+                                                                {tag}
+                                                                <button onClick={() => handleRemoveTag(image.id, tag)} className="ms-1.5 text-teal-400 hover:text-white">
+                                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" /></svg>
+                                                                </button>
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                    <div className="flex gap-x-2">
+                                                        <input
+                                                            type="text"
+                                                            value={tagInputs[image.id] || ''}
+                                                            onChange={(e) => handleTagInputChange(image.id, e.target.value)}
+                                                            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddTag(image.id); } }}
+                                                            className="flex-grow bg-gray-700 border border-gray-600 rounded-md p-1.5 text-sm text-gray-200 focus:ring-blue-500 focus:outline-none"
+                                                            placeholder="أضف تصنيف..."
+                                                        />
+                                                        <button onClick={() => handleAddTag(image.id)} className="px-3 py-1.5 bg-gray-600 text-gray-200 text-sm rounded-md hover:bg-gray-500">إضافة</button>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </>
+                                    )}
                                     {!analysisResults[image.id] && <p className="text-gray-600 text-center text-sm">في انتظار التحليل</p>}
                                 </div>
                             </div>
