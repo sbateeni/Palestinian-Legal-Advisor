@@ -36,12 +36,27 @@ const SettingsPage: React.FC = () => {
       
       // Load OpenRouter settings
       const storedOpenRouterKey = await dbService.getSetting<string>('openRouterApiKey');
-      const storedModel = await dbService.getSetting<string>('openRouterModel');
+      let storedModel = await dbService.getSetting<string>('openRouterModel');
+      
+      if (storedModel) {
+        const sanitizedModel = storedModel.replace(/:free$/, '');
+        // Validate if the sanitized model is still in our current list.
+        const modelIsValid = OPENROUTER_FREE_MODELS.some(m => m.id === sanitizedModel);
+        if (modelIsValid) {
+          setOpenRouterModel(sanitizedModel);
+        } else {
+          // If not valid, default to the first model to prevent errors.
+          setOpenRouterModel(OPENROUTER_FREE_MODELS[0].id);
+        }
+      } else {
+        // If nothing is stored, default to the first model.
+        setOpenRouterModel(OPENROUTER_FREE_MODELS[0].id);
+      }
+
       if (storedOpenRouterKey) {
         setOpenRouterApiKey(storedOpenRouterKey);
         setOpenRouterInputValue(storedOpenRouterKey);
       }
-      if (storedModel) setOpenRouterModel(storedModel);
 
       // Load data stats
       const allCases = await dbService.getAllCases();

@@ -1,7 +1,7 @@
 import { ChatMessage } from '../types';
 
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
-const DEFAULT_MODEL_NAME = 'google/gemini-flash-1.5:free';
+const DEFAULT_MODEL_NAME = 'google/gemini-flash-1.5';
 
 const SYSTEM_INSTRUCTION = `أنت مساعد ذكاء اصطناعي خبير ومتخصص في القانون الفلسطيني.
 معرفتك تشمل جميع القوانين واللوائح والسوابق القضائية المعمول بها في فلسطين.
@@ -13,8 +13,8 @@ const SYSTEM_INSTRUCTION = `أنت مساعد ذكاء اصطناعي خبير �
 // A list of models known to not support the 'system' role.
 // For these, the system prompt will be prepended to the first user message.
 const MODELS_WITHOUT_SYSTEM_PROMPT: string[] = [
-    'mistralai/mistral-7b-instruct:free',
-    'nousresearch/nous-hermes-2-mistral-7b-dpo:free'
+    'mistralai/mistral-7b-instruct',
+    'nousresearch/nous-hermes-2-mistral-7b-dpo'
 ];
 
 

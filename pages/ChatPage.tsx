@@ -40,7 +40,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
   const [isApiKeyReady, setIsApiKeyReady] = useState<boolean | null>(null);
   const [apiSource, setApiSource] = useState<ApiSource>('gemini');
   const [openRouterApiKey, setOpenRouterApiKey] = useState<string>('');
-  const [openRouterModel, setOpenRouterModel] = useState<string>('google/gemini-flash-1.5:free');
+  const [openRouterModel, setOpenRouterModel] = useState<string>(OPENROUTER_FREE_MODELS[0].id);
   const [thinkingMode, setThinkingMode] = useState(false);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const [uploadedImage, setUploadedImage] = useState<{ dataUrl: string; mimeType: string } | null>(null);
@@ -64,7 +64,14 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
         if (storedApiSource === 'openrouter') {
           const storedApiKey = await dbService.getSetting<string>('openRouterApiKey');
           const storedModel = await dbService.getSetting<string>('openRouterModel');
-          if (storedModel) setOpenRouterModel(storedModel);
+          if (storedModel) {
+            // Sanitize the stored model ID to remove the legacy ":free" suffix
+            setOpenRouterModel(storedModel.replace(/:free$/, ''));
+          } else {
+            // Default to the first model in the list if none is set
+            setOpenRouterModel(OPENROUTER_FREE_MODELS[0].id);
+          }
+          
           if (storedApiKey) {
             setOpenRouterApiKey(storedApiKey);
             setIsApiKeyReady(true);
