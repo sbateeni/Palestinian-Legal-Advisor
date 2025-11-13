@@ -232,10 +232,10 @@ const OcrPage: React.FC = () => {
     
     const handleSendToCase = async () => {
         if (!selectedCaseId) {
-            alert("الرجاء اختيار قضية أولاً.");
+            alert("الرجاء اختيار قضية أو إنشاء واحدة جديدة.");
             return;
         }
-
+    
         const successfulAnalyses = Object.entries(analysisResults)
             .filter(([, res]) => res.result)
             .map(([id, res]) => ({
@@ -243,36 +243,55 @@ const OcrPage: React.FC = () => {
                 result: res.result!,
                 image: selectedImages.find(img => img.id === id)!
             }));
-
+    
         if (successfulAnalyses.length === 0) {
             alert("لا توجد نتائج تحليل ناجحة لإرسالها.");
             return;
         }
-
+    
         setIsSending(true);
         try {
-            const caseToUpdate = await dbService.getCase(selectedCaseId);
-            if (!caseToUpdate) {
-                throw new Error("لم يتم العثور على القضية المحددة.");
-            }
-
             const analysisSummary = successfulAnalyses
                 .map((analysis, index) => `--- تحليل المستند ${index + 1} (${analysis.image.file.name}) ---\n${analysis.result}`)
                 .join('\n\n');
-
+    
             const analysisMessage: ChatMessage = {
                 id: uuidv4(),
                 role: 'user',
                 content: `تم تحليل المستندات التالية وإضافتها إلى القضية:\n\n${analysisSummary}`,
                 images: successfulAnalyses.map(a => ({ dataUrl: a.image.dataUrl, mimeType: a.image.file.type })),
             };
-            
-            caseToUpdate.chatHistory.push(analysisMessage);
-            await dbService.updateCase(caseToUpdate);
-
-            alert("تم إرسال التحليلات بنجاح إلى القضية!");
-            navigate(`/case/${selectedCaseId}`);
-
+    
+            if (selectedCaseId === '__NEW__') {
+                const firstAnalysis = successfulAnalyses[0];
+                const newCaseTitle = `تحليل مستندات بتاريخ ${new Date().toLocaleString('ar-EG')}`;
+                const summary = firstAnalysis.result.substring(0, 150) + (firstAnalysis.result.length > 150 ? '...' : '');
+    
+                const newCase: Case = {
+                    id: uuidv4(),
+                    title: newCaseTitle,
+                    summary: summary,
+                    chatHistory: [analysisMessage],
+                    createdAt: Date.now(),
+                    status: 'جديدة',
+                };
+    
+                await dbService.addCase(newCase);
+                alert("تم إنشاء القضية الجديدة وإرسال التحليلات بنجاح!");
+                navigate(`/case/${newCase.id}`);
+    
+            } else {
+                const caseToUpdate = await dbService.getCase(selectedCaseId);
+                if (!caseToUpdate) {
+                    throw new Error("لم يتم العثور على القضية المحددة.");
+                }
+                caseToUpdate.chatHistory.push(analysisMessage);
+                await dbService.updateCase(caseToUpdate);
+    
+                alert("تم إرسال التحليلات بنجاح إلى القضية!");
+                navigate(`/case/${selectedCaseId}`);
+            }
+    
         } catch (error) {
             console.error("Failed to send to case:", error);
             alert(`فشل إرسال التحليلات: ${error instanceof Error ? error.message : 'خطأ غير معروف'}`);
@@ -385,13 +404,18 @@ const OcrPage: React.FC = () => {
 
                     <div className="bg-gray-800 rounded-lg shadow-lg p-6 mt-6 border-t-4 border-green-500">
                         <h2 className="text-xl font-semibold text-gray-200 mb-4">4. إرسال إلى قضية</h2>
-                        <p className="text-sm text-gray-400 mb-3">اختر قضية من القائمة لإضافة الملفات ونتائج تحليلها إليها.</p>
+                        <p className="text-sm text-gray-400 mb-3">اختر قضية من القائمة أو أنشئ واحدة جديدة لإضافة الملفات ونتائج تحليلها إليها.</p>
                         <select value={selectedCaseId} onChange={(e) => setSelectedCaseId(e.target.value)} disabled={isUploading || isAnalyzing} className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 focus:ring-2 focus:ring-blue-500 focus:outline-none mb-4 disabled:opacity-50">
-                            <option value="" disabled>-- اختر قضية --</option>
+                            <option value="" disabled>-- اختر قضية أو أنشئ واحدة --</option>
+                            <option value="__NEW__">➕ إنشاء قضية جديدة</option>
                             {cases.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
                         </select>
-                        <button className="w-full px-6 py-3 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors" onClick={handleSendToCase} disabled={!canSend || isSending || isUploading || isAnalyzing}>
-                            {isSending ? "جاري الإرسال..." : "إرسال النتائج إلى القضية المختارة"}
+                        <button 
+                            className="w-full px-6 py-3 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors" 
+                            onClick={handleSendToCase} 
+                            disabled={!canSend || isSending || isUploading || isAnalyzing}
+                        >
+                            {isSending ? "جاري الحفظ..." : selectedCaseId === '__NEW__' ? "إنشاء قضية جديدة وإرسال النتائج" : "إرسال النتائج إلى القضية المختارة"}
                         </button>
                     </div>
                 </div>
