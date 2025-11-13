@@ -402,7 +402,7 @@ const OcrPage: React.FC = () => {
                 id: uuidv4(),
                 role: 'user',
                 content: messageContent,
-                images: successfulAnalyses.map(a => ({ dataUrl: a.image.dataUrl, mimeType: a.image.file.type })),
+                // Images are intentionally omitted here to only send the text summary.
             };
     
             if (selectedCaseId === '__NEW__') {
