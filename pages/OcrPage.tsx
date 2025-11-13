@@ -226,7 +226,8 @@ const OcrPage: React.FC = () => {
                 let result: string;
                 if (analysisType === 'ai') {
                     setAnalysisResults(prev => ({ ...prev, [image.id]: { ...prev[image.id]!, status: 'جاري التحليل عبر Gemini...' } }));
-                    result = await analyzeImageWithGemini(image.dataUrl, image.file.type, prompt);
+                    const finalPrompt = `${prompt}\n\nملاحظة هامة: يجب أن تكون إجابتك باللغة العربية فقط، دون أي رموز أو لغات أخرى.`;
+                    result = await analyzeImageWithGemini(image.dataUrl, image.file.type, finalPrompt);
                 } else { // OCR
                     setAnalysisResults(prev => ({ ...prev, [image.id]: { ...prev[image.id]!, status: 'جاري تهيئة محرك OCR...' } }));
                     const tesseractResult = await Tesseract.recognize(image.dataUrl, 'ara', { 
