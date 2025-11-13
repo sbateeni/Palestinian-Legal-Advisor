@@ -10,6 +10,14 @@ const SYSTEM_INSTRUCTION = `أنت مساعد ذكاء اصطناعي خبير �
 لا تفترض أي معلومات غير مذكورة في تفاصيل القضية. لا تقترح سيناريوهات افتراضية. إذا كانت معلومة ما ضرورية للتحليل ولكنها غير متوفرة، اذكر أنها غير موجودة بدلاً من افتراضها.
 كن دقيقًا ومفصلاً وموضوعيًا في تحليلاتك.`;
 
+// A list of models known to not support the 'system' role.
+// For these, the system prompt will be prepended to the first user message.
+const MODELS_WITHOUT_SYSTEM_PROMPT: string[] = [
+    'mistralai/mistral-7b-instruct:free',
+    'nousresearch/nous-hermes-2-mistral-7b-dpo:free'
+];
+
+
 export async function analyzeImageWithOpenRouter(
   apiKey: string,
   base64Image: string,
@@ -66,9 +74,6 @@ export async function* streamChatResponseFromOpenRouter(
   modelName: string = DEFAULT_MODEL_NAME
 ): AsyncGenerator<{ text: string }> {
   
-  // FIX: Correctly handle image data from the `ChatMessage` type.
-  // The original code was incorrectly trying to access `msg.imageUrl`.
-  // This has been updated to check for the `msg.images` array and map each image's `dataUrl`.
   const messagesForApi = history.map(msg => {
     const role = msg.role === 'model' ? 'assistant' : 'user';
 
@@ -104,6 +109,28 @@ export async function* streamChatResponseFromOpenRouter(
     };
   });
 
+  let finalMessages;
+  if (MODELS_WITHOUT_SYSTEM_PROMPT.includes(modelName)) {
+      // Prepend system prompt to the first user message for specific models
+      finalMessages = [...messagesForApi];
+      const firstUserMessageIndex = finalMessages.findIndex(msg => msg.role === 'user');
+
+      if (firstUserMessageIndex !== -1) {
+          const firstUserMessage = finalMessages[firstUserMessageIndex];
+          // These models are text-only, so content is expected to be a string
+          if (typeof firstUserMessage.content === 'string') {
+            const newContent = `${SYSTEM_INSTRUCTION}\n\n---\n\n${firstUserMessage.content}`;
+            finalMessages[firstUserMessageIndex] = { ...firstUserMessage, content: newContent };
+          }
+      }
+  } else {
+      // Use a separate system message for all other models
+      finalMessages = [
+        { role: 'system', content: SYSTEM_INSTRUCTION },
+        ...messagesForApi
+      ];
+  }
+
   const response = await fetch(OPENROUTER_API_URL, {
     method: 'POST',
     headers: {
@@ -114,10 +141,7 @@ export async function* streamChatResponseFromOpenRouter(
     },
     body: JSON.stringify({
       model: modelName,
-      messages: [ // System prompt is now part of the messages array
-        { role: 'system', content: SYSTEM_INSTRUCTION },
-        ...messagesForApi
-      ],
+      messages: finalMessages,
       stream: true,
     }),
   });
@@ -125,7 +149,9 @@ export async function* streamChatResponseFromOpenRouter(
   if (!response.ok) {
     const errorBody = await response.json();
     console.error('OpenRouter API Error:', errorBody);
-    throw new Error(errorBody.error?.message || `HTTP error! status: ${response.status}`);
+    const customError = new Error(errorBody.error?.message || `HTTP error! status: ${response.status}`);
+    (customError as any).status = response.status;
+    throw customError;
   }
 
   const reader = response.body?.getReader();

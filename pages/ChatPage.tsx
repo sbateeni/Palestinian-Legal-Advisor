@@ -19,7 +19,7 @@ import { Case, ChatMessage, ApiSource } from '../types';
 import * as dbService from '../services/dbService';
 import { streamChatResponseFromGemini, countTokensForGemini, proofreadTextWithGemini } from './geminiService';
 import { streamChatResponseFromOpenRouter } from '../services/openRouterService';
-import { SUGGESTED_PROMPTS } from '../constants';
+import { OPENROUTER_FREE_MODELS, SUGGESTED_PROMPTS } from '../constants';
 import * as pdfjsLib from 'pdfjs-dist';
 import Tesseract from 'tesseract.js';
 
@@ -232,6 +232,14 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
     const messageContent = (prompt || userInput).trim();
     if (isLoading || isProcessingFile || (!messageContent && !uploadedImage)) return;
 
+    if (apiSource === 'openrouter' && uploadedImage) {
+        const selectedModelInfo = OPENROUTER_FREE_MODELS.find(m => m.id === openRouterModel);
+        if (!selectedModelInfo?.supportsImages) {
+            alert(`النموذج المحدد (${selectedModelInfo?.name || openRouterModel}) لا يدعم تحليل الصور. يرجى اختيار نموذج يدعم الصور من الإعدادات، أو إزالة الصورة المرفقة.`);
+            return;
+        }
+    }
+
     setIsLoading(true);
 
     const userMessage: ChatMessage = {
@@ -297,8 +305,8 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
         if (errorMessage.includes("API key") || errorMessage.includes("authentication") || errorMessage.includes("was not found")) {
             setIsApiKeyReady(false);
             chatErrorMessage = `مفتاح API غير صالح أو غير متوفر لـ ${apiSource}. الرجاء إعادة المحاولة بعد تحديد مفتاح صالح.`;
-        } else if (apiSource === 'openrouter' && errorMessage.includes("No endpoints found")) {
-            chatErrorMessage = `حدث خطأ: النموذج المحدد (${openRouterModel}) قد يكون غير متاح مؤقتاً. يرجى تجربة نموذج آخر.`;
+        } else if (apiSource === 'openrouter' && (errorMessage.includes("No endpoints found") || error.status === 404)) {
+            chatErrorMessage = `حدث خطأ: النموذج المحدد (${openRouterModel}) قد يكون غير متاح مؤقتاً أو غير متوافق مع الطلب. يرجى تجربة نموذج آخر.`;
         } else {
             chatErrorMessage = `حدث خطأ: ${error.message}`;
         }
