@@ -5,8 +5,7 @@ export interface ChatMessage {
   id: string;
   role: Role;
   content: string;
-  imageUrl?: string;
-  imageMimeType?: string;
+  images?: { dataUrl: string; mimeType: string }[];
   // FIX: Add isError property to handle chat error messages.
   isError?: boolean;
 }

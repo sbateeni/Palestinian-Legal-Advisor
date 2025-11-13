@@ -66,11 +66,14 @@ export async function* streamChatResponseFromOpenRouter(
   modelName: string = DEFAULT_MODEL_NAME
 ): AsyncGenerator<{ text: string }> {
   
+  // FIX: Correctly handle image data from the `ChatMessage` type.
+  // The original code was incorrectly trying to access `msg.imageUrl`.
+  // This has been updated to check for the `msg.images` array and map each image's `dataUrl`.
   const messagesForApi = history.map(msg => {
     const role = msg.role === 'model' ? 'assistant' : 'user';
 
     // For user messages with an image, format content as an array of parts
-    if (role === 'user' && msg.imageUrl) {
+    if (role === 'user' && msg.images && msg.images.length > 0) {
       const content: any[] = [];
       
       // Add text part if it exists
@@ -81,12 +84,14 @@ export async function* streamChatResponseFromOpenRouter(
         });
       }
       
-      // Add image part
-      content.push({
-        type: 'image_url',
-        image_url: {
-          url: msg.imageUrl,
-        },
+      // Add image parts
+      msg.images.forEach(image => {
+        content.push({
+          type: 'image_url',
+          image_url: {
+            url: image.dataUrl,
+          },
+        });
       });
 
       return { role, content };

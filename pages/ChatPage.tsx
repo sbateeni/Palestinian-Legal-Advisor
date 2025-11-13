@@ -230,7 +230,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
 
   const handleSendMessage = async (prompt?: string) => {
     const messageContent = (prompt || userInput).trim();
-    if (isLoading || isProcessingFile || !messageContent) return;
+    if (isLoading || isProcessingFile || (!messageContent && !uploadedImage)) return;
 
     setIsLoading(true);
 
@@ -238,6 +238,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
       id: uuidv4(),
       role: 'user',
       content: messageContent,
+      images: uploadedImage ? [uploadedImage] : undefined,
     };
     
     setUserInput('');
@@ -315,7 +316,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
   if (isApiKeyReady === null) {
       return (
         <div className="w-full flex-grow flex items-center justify-center p-8 text-lg">
-          <svg className="animate-spin h-6 w-6 text-white me-3" xmlns="http://www.w.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+          <svg className="animate-spin h-6 w-6 text-white me-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
           <span>جاري التحقق من الإعدادات...</span>
         </div>
       );
@@ -396,8 +397,12 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
                                        )}
                                     </button>
                                 )}
-                                {msg.imageUrl && (
-                                    <img src={msg.imageUrl} alt="محتوى مرفق" className="rounded-lg mb-2 max-w-xs max-h-64 object-contain" />
+                                {msg.images && msg.images.length > 0 && (
+                                    <div className="flex flex-wrap gap-2 mb-2">
+                                        {msg.images.map((image, index) => (
+                                             <img key={index} src={image.dataUrl} alt={`محتوى مرفق ${index + 1}`} className="rounded-lg max-w-xs max-h-64 object-contain" />
+                                        ))}
+                                    </div>
                                 )}
                                 <div className="prose prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(marked.parse(msg.content || '...', { breaks: true }) as string) }}></div>
                             </div>
@@ -474,7 +479,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
                   style={{maxHeight: '10rem'}}
                   disabled={isLoading || isProcessingFile}
                 />
-                <button onClick={() => handleSendMessage()} disabled={isLoading || isProcessingFile || !userInput.trim()} className="p-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors" aria-label="إرسال"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg></button>
+                <button onClick={() => handleSendMessage()} disabled={isLoading || isProcessingFile || (!userInput.trim() && !uploadedImage)} className="p-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors" aria-label="إرسال"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg></button>
             </div>
         </div>
     </div>
