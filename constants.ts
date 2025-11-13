@@ -17,6 +17,8 @@ export const OPENROUTER_FREE_MODELS = [
   // Text-only models
   { id: 'meta-llama/llama-3-8b-instruct:free', name: 'Meta: Llama 3 8B Instruct', supportsImages: false },
   { id: 'qwen/qwen3-235b-a22b:free', name: 'Qwen: Qwen3 235B', supportsImages: false },
+  { id: 'qwen/qwen-2.5-72b-instruct:free', name: 'Qwen: Qwen 2.5 72B Instruct', supportsImages: false },
+  { id: 'qwen/qwen3-coder:free', name: 'Qwen: Qwen3 Coder', supportsImages: false },
   { id: 'mistralai/mistral-7b-instruct:free', name: 'Mistral 7B Instruct', supportsImages: false },
   { id: 'nousresearch/nous-hermes-2-mistral-7b-dpo:free', name: 'Nous Hermes 2 Mistral 7B', supportsImages: false }
 ];
