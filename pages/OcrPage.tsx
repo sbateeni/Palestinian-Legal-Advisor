@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { analyzeImageWithGemini } from './geminiService';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
+import * as dbService from '../services/dbService';
 
 // Add AIStudio interface for Gemini API key handling, consistent with ChatPage
 declare global {
@@ -26,13 +28,13 @@ const OcrPage: React.FC = () => {
 
     useEffect(() => {
         const checkApiKey = async () => {
-            if (window.aistudio && typeof window.aistudio.hasSelectedApiKey === 'function') {
-                const hasKey = await window.aistudio.hasSelectedApiKey();
-                setIsApiKeyReady(hasKey);
-            } else {
-                // For local dev or environments without aistudio, assume key is available
-                setIsApiKeyReady(true);
-            }
+            // For Gemini, check both aistudio and our own db setting
+            const storedGeminiKey = await dbService.getSetting<string>('geminiApiKey');
+            const hasAiStudioKey = window.aistudio && typeof window.aistudio.hasSelectedApiKey === 'function' 
+                ? await window.aistudio.hasSelectedApiKey()
+                : false;
+            
+            setIsApiKeyReady(!!storedGeminiKey || hasAiStudioKey);
         };
         checkApiKey();
     }, []);
@@ -104,11 +106,19 @@ const OcrPage: React.FC = () => {
           <div className="w-full flex-grow flex flex-col items-center justify-center text-center p-4">
               <h2 className="text-2xl font-bold mb-4 text-gray-200">مطلوب مفتاح Google AI API</h2>
               <p className="text-gray-400 mb-6 max-w-2xl">
-                {error || 'لاستخدام ميزة تحليل الصور مع Gemini، يرجى تحديد مفتاح Google AI API الخاص بك.'}
+                {error || 'لاستخدام ميزة تحليل الصور مع Gemini، يرجى تحديد مفتاح Google AI API الخاص بك عبر النافذة المنبثقة، أو إدخاله يدويًا في '}
+                <Link to="/settings" className="text-blue-400 hover:underline">صفحة الإعدادات</Link>.
               </p>
-              <button onClick={handleSelectApiKey} className="mt-6 px-8 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700">
-                تحديد مفتاح API
-              </button>
+              <div className="flex flex-col sm:flex-row gap-4 mt-6">
+                {window.aistudio && (
+                    <button onClick={handleSelectApiKey} className="px-8 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700">
+                        تحديد مفتاح عبر Google AI
+                    </button>
+                )}
+                 <Link to="/settings" className="px-8 py-3 bg-gray-600 text-white font-semibold rounded-lg hover:bg-gray-700">
+                    الانتقال إلى الإعدادات
+                </Link>
+              </div>
           </div>
         );
     }

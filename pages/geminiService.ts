@@ -1,5 +1,6 @@
 import { GoogleGenAI, Content } from "@google/genai";
 import { ChatMessage } from '../types';
+import * as dbService from '../services/dbService';
 
 const SYSTEM_INSTRUCTION_LEGAL = `أنت مساعد ذكاء اصطناعي خبير ومتخصص في القانون الفلسطيني.
 معرفتك تشمل جميع القوانين واللوائح والسوابق القضائية المعمول بها في فلسطين.
@@ -8,11 +9,12 @@ const SYSTEM_INSTRUCTION_LEGAL = `أنت مساعد ذكاء اصطناعي خب
 لا تفترض أي معلومات غير مذورة في تفاصيل القضية. لا تقترح سيناريوهات افتراضية. إذا كانت معلومة ما ضرورية للتحليل ولكنها غير متوفرة، اذكر أنها غير موجودة بدلاً من افتراضها.
 كن دقيقًا ومفصلاً وموضوعيًا في تحليلاتك.`;
 
-function getGoogleGenAI() {
-    // This function ensures a new instance is created for each request,
-    // which is important for environments where the API key can change (like using aistudio).
-    // The API key is sourced from process.env.API_KEY as per guidelines.
-    return new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+async function getGoogleGenAI(): Promise<GoogleGenAI> {
+    // This function ensures a new instance is created for each request.
+    // It prioritizes a user-provided key from settings, falling back to the aistudio key.
+    const storedApiKey = await dbService.getSetting<string>('geminiApiKey');
+    const apiKey = storedApiKey || process.env.API_KEY || '';
+    return new GoogleGenAI({ apiKey });
 }
 
 // Helper to convert chat history for the API
@@ -40,7 +42,7 @@ export async function countTokensForGemini(history: ChatMessage[]): Promise<numb
         return 0;
     }
     try {
-        const ai = getGoogleGenAI();
+        const ai = await getGoogleGenAI();
         const model = 'gemini-2.5-flash'; // Flash is sufficient and faster for token counting
         
         const contents = chatHistoryToGeminiContents(history);
@@ -64,7 +66,7 @@ export async function proofreadTextWithGemini(textToProofread: string): Promise<
     }
 
     try {
-        const ai = getGoogleGenAI();
+        const ai = await getGoogleGenAI();
         const model = 'gemini-2.5-flash';
         
         const prompt = `أنت مدقق لغوي عربي خبير. قم بمراجعة النص التالي، المستخرج من صورة باستخدام تقنية OCR، وصحح أي أخطاء إملائية أو نحوية تجدها. حافظ على المعنى الأصلي والتنسيق الأساسي للنص قدر الإمكان. لا تضف أي معلومات أو تفسيرات جديدة. أعد النص المصحح فقط.\n\nالنص الأصلي:\n---\n${textToProofread}\n---`;
@@ -89,7 +91,7 @@ export async function* streamChatResponseFromGemini(
   thinkingMode: boolean
 ): AsyncGenerator<{ text: string }> {
   try {
-    const ai = getGoogleGenAI();
+    const ai = await getGoogleGenAI();
     const model = thinkingMode ? 'gemini-2.5-pro' : 'gemini-2.5-flash';
     
     const contents = chatHistoryToGeminiContents(history);
@@ -124,7 +126,7 @@ export async function analyzeImageWithGemini(
     throw new Error("Image data and mime type are required.");
   }
   try {
-    const ai = getGoogleGenAI();
+    const ai = await getGoogleGenAI();
     const model = 'gemini-2.5-flash';
     
     const base64Data = base64ImageDataUrl.split(',')[1];
