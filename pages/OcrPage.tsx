@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { analyzeImageWithGemini, proofreadTextWithGemini } from './geminiService';
+import { analyzeImageWithOpenRouter, proofreadTextWithOpenRouter } from '../services/openRouterService';
+import { OPENROUTER_FREE_MODELS } from '../constants';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import * as dbService from '../services/dbService';
@@ -39,13 +41,20 @@ type AnalysisResult = {
 };
 
 type AnalysisType = 'ai' | 'ocr';
+type AnalysisProvider = 'gemini' | 'openrouter';
 type AnalysisProcessState = 'idle' | 'running' | 'paused' | 'done';
 
 
 const OcrPage: React.FC = () => {
     const [selectedImages, setSelectedImages] = useState<SelectedImage[]>([]);
     const [analysisResults, setAnalysisResults] = useState<Record<string, AnalysisResult>>({});
-    const [isApiKeyReady, setIsApiKeyReady] = useState<boolean | null>(null);
+    
+    // API Provider State
+    const [analysisProvider, setAnalysisProvider] = useState<AnalysisProvider>('gemini');
+    const [openRouterModelForOcr, setOpenRouterModelForOcr] = useState<string>('');
+    const [isGeminiApiKeyReady, setIsGeminiApiKeyReady] = useState<boolean | null>(null);
+    const [isOpenRouterApiKeyReady, setIsOpenRouterApiKeyReady] = useState<boolean | null>(null);
+
     const [prompt, setPrompt] = useState<string>('ما الذي تراه في هذه الصورة؟ اشرح بالتفصيل.');
     const [analysisType, setAnalysisType] = useState<AnalysisType>('ai');
     const [cases, setCases] = useState<Case[]>([]);
@@ -68,10 +77,18 @@ const OcrPage: React.FC = () => {
 
     useEffect(() => {
         const loadInitialData = async () => {
-            // Check for API key
+            // Check for Gemini API key
             const storedGeminiKey = await dbService.getSetting<string>('geminiApiKey');
             const hasAiStudioKey = window.aistudio?.hasSelectedApiKey ? await window.aistudio.hasSelectedApiKey() : false;
-            setIsApiKeyReady(!!storedGeminiKey || hasAiStudioKey);
+            setIsGeminiApiKeyReady(!!storedGeminiKey || hasAiStudioKey);
+
+            // Check for OpenRouter API key
+            const storedOpenRouterKey = await dbService.getSetting<string>('openRouterApiKey');
+            setIsOpenRouterApiKeyReady(!!storedOpenRouterKey);
+
+            // Set default model for OpenRouter OCR from valid image models
+            const imageModels = OPENROUTER_FREE_MODELS.filter(m => m.supportsImages);
+            setOpenRouterModelForOcr(imageModels.length > 0 ? imageModels[0].id : '');
 
             // Load cases for the dropdown
             const loadedCases = await dbService.getAllCases();
@@ -225,9 +242,16 @@ const OcrPage: React.FC = () => {
             try {
                 let result: string;
                 if (analysisType === 'ai') {
-                    setAnalysisResults(prev => ({ ...prev, [image.id]: { ...prev[image.id]!, status: 'جاري التحليل عبر Gemini...' } }));
-                    const finalPrompt = `${prompt}\n\nملاحظة هامة: يجب أن تكون إجابتك باللغة العربية فقط، دون أي رموز أو لغات أخرى.`;
-                    result = await analyzeImageWithGemini(image.dataUrl, image.file.type, finalPrompt);
+                     const finalPrompt = `${prompt}\n\nملاحظة هامة: يجب أن تكون إجابتك باللغة العربية فقط، دون أي رموز أو لغات أخرى.`;
+                     if (analysisProvider === 'gemini') {
+                        setAnalysisResults(prev => ({ ...prev, [image.id]: { ...prev[image.id]!, status: 'جاري التحليل عبر Gemini...' } }));
+                        result = await analyzeImageWithGemini(image.dataUrl, image.file.type, finalPrompt);
+                     } else { // openrouter
+                        setAnalysisResults(prev => ({ ...prev, [image.id]: { ...prev[image.id]!, status: `جاري التحليل عبر ${openRouterModelForOcr}...` } }));
+                        const apiKey = await dbService.getSetting<string>('openRouterApiKey');
+                        if (!apiKey) throw new Error("مفتاح OpenRouter API غير موجود.");
+                        result = await analyzeImageWithOpenRouter(apiKey, image.dataUrl, openRouterModelForOcr, finalPrompt);
+                     }
                 } else { // OCR
                     setAnalysisResults(prev => ({ ...prev, [image.id]: { ...prev[image.id]!, status: 'جاري تهيئة محرك OCR...' } }));
                     const tesseractResult = await Tesseract.recognize(image.dataUrl, 'ara', { 
@@ -242,8 +266,16 @@ const OcrPage: React.FC = () => {
                     if (!ocrText.trim()) {
                         result = "لم يتمكن محرك OCR من استخلاص أي نص من هذه الصورة.";
                     } else {
-                        setAnalysisResults(prev => ({ ...prev, [image.id]: { ...prev[image.id]!, status: 'جاري التدقيق اللغوي للنص...' } }));
-                        result = await proofreadTextWithGemini(ocrText);
+                        if (analysisProvider === 'gemini') {
+                             setAnalysisResults(prev => ({ ...prev, [image.id]: { ...prev[image.id]!, status: 'جاري التدقيق اللغوي عبر Gemini...' } }));
+                             result = await proofreadTextWithGemini(ocrText);
+                        } else { // openrouter
+                            setAnalysisResults(prev => ({ ...prev, [image.id]: { ...prev[image.id]!, status: 'جاري التدقيق اللغوي عبر OpenRouter...' } }));
+                            const apiKey = await dbService.getSetting<string>('openRouterApiKey');
+                             if (!apiKey) throw new Error("مفتاح OpenRouter API غير موجود.");
+                            // We can use any powerful model for proofreading, even an image one.
+                            result = await proofreadTextWithOpenRouter(apiKey, ocrText, openRouterModelForOcr);
+                        }
                     }
                 }
                 if (!isCancelled) {
@@ -258,9 +290,10 @@ const OcrPage: React.FC = () => {
                     let displayError: string;
                     if (err instanceof Error) {
                         const errorMessage = err.toString();
-                        if (analysisType === 'ai' && (errorMessage.includes("API key") || errorMessage.includes("authentication") || errorMessage.includes("was not found"))) {
-                            displayError = "مفتاح API لـ Gemini غير صالح أو غير متوفر. الرجاء إعادة المحاولة بعد تحديد مفتاح صالح.";
-                            setIsApiKeyReady(false);
+                        if (errorMessage.includes("API key") || errorMessage.includes("authentication") || errorMessage.includes("was not found")) {
+                             displayError = `مفتاح API لـ ${analysisProvider} غير صالح أو غير متوفر. الرجاء إعادة المحاولة بعد تحديد مفتاح صالح.`;
+                             if (analysisProvider === 'gemini') setIsGeminiApiKeyReady(false);
+                             else setIsOpenRouterApiKeyReady(false);
                         } else {
                             displayError = `حدث خطأ أثناء التحليل: ${err.message}`;
                         }
@@ -447,7 +480,7 @@ const OcrPage: React.FC = () => {
         if (window.aistudio?.openSelectKey) {
             try {
                 await window.aistudio.openSelectKey();
-                setIsApiKeyReady(true);
+                setIsGeminiApiKeyReady(true);
             } catch (error) {
                 console.error("Error opening Gemini API key selector:", error);
             }
@@ -457,20 +490,30 @@ const OcrPage: React.FC = () => {
     const isUploading = Object.keys(loadingFiles).length > 0 || isProcessingPdf;
     const isAnalyzing = analysisState === 'running' || analysisState === 'paused';
     const hasFilesToAnalyze = selectedImages.length > 0 && selectedImages.some(img => !analysisResults[img.id]?.result);
+    const isCurrentProviderApiKeyReady = analysisProvider === 'gemini' ? isGeminiApiKeyReady : isOpenRouterApiKeyReady;
 
-    if (isApiKeyReady === null) {
+    if (isCurrentProviderApiKeyReady === null) {
         return <div className="text-center p-8">جاري التحقق من الإعدادات...</div>;
     }
     
-    if (!isApiKeyReady) {
+    if (!isCurrentProviderApiKeyReady) {
+        const isGemini = analysisProvider === 'gemini';
         return (
           <div className="w-full flex-grow flex flex-col items-center justify-center text-center p-4">
-              <h2 className="text-2xl font-bold mb-4 text-gray-200">مطلوب مفتاح Google AI API</h2>
-              <p className="text-gray-400 mb-6 max-w-2xl">
-                لاستخدام ميزة تحليل الصور، يرجى تحديد مفتاح Google AI API الخاص بك عبر النافذة المنبثقة، أو إدخاله يدويًا في <Link to="/settings" className="text-blue-400 hover:underline">صفحة الإعدادات</Link>.
-              </p>
+              <h2 className="text-2xl font-bold mb-4 text-gray-200">
+                {isGemini ? 'مطلوب مفتاح Google AI API' : 'مطلوب مفتاح OpenRouter API'}
+              </h2>
+               {isGemini ? (
+                <p className="text-gray-400 mb-6 max-w-2xl">
+                    لاستخدام ميزة تحليل الصور، يرجى تحديد مفتاح Google AI API الخاص بك عبر النافذة المنبثقة، أو إدخاله يدويًا في <Link to="/settings" className="text-blue-400 hover:underline">صفحة الإعدادات</Link>.
+                </p>
+               ) : (
+                <p className="text-gray-400 mb-6 max-w-2xl">
+                    لاستخدام OpenRouter، يرجى إدخال مفتاح API الخاص بك في <Link to="/settings" className="text-blue-400 hover:underline">صفحة الإعدادات</Link>.
+                </p>
+               )}
               <div className="flex flex-col sm:flex-row gap-4 mt-6">
-                {window.aistudio && (
+                {isGemini && window.aistudio && (
                     <button onClick={handleSelectApiKey} className="px-8 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700">تحديد مفتاح عبر Google AI</button>
                 )}
                  <Link to="/settings" className="px-8 py-3 bg-gray-600 text-white font-semibold rounded-lg hover:bg-gray-700">الانتقال إلى الإعدادات</Link>
@@ -526,20 +569,53 @@ const OcrPage: React.FC = () => {
                     
                     <div className="bg-gray-800 rounded-lg shadow-lg p-6">
                         <h2 className="text-xl font-semibold text-gray-200 mb-4">2. اختر نوع التحليل</h2>
-                        <div className="flex items-center space-x-2 space-x-reverse bg-gray-700 rounded-lg p-1 mb-4">
-                            <button onClick={() => setAnalysisType('ai')} className={`flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors ${analysisType === 'ai' ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-600'}`}>
-                                تحليل بالذكاء الاصطناعي
-                            </button>
-                            <button onClick={() => setAnalysisType('ocr')} className={`flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors ${analysisType === 'ocr' ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-600'}`}>
-                                استخلاص النص وتصنيفه (OCR)
-                            </button>
+                        
+                        <div className="mb-4">
+                            <h3 className="text-md font-semibold text-gray-300 mb-2">مزود الخدمة</h3>
+                             <div className="flex items-center space-x-2 space-x-reverse bg-gray-700 rounded-lg p-1">
+                                <button onClick={() => setAnalysisProvider('gemini')} className={`flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors ${analysisProvider === 'gemini' ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-600'}`}>
+                                    Google Gemini
+                                </button>
+                                <button onClick={() => setAnalysisProvider('openrouter')} className={`flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors ${analysisProvider === 'openrouter' ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-600'}`}>
+                                    OpenRouter
+                                </button>
+                            </div>
                         </div>
-                        {analysisType === 'ai' && (
-                            <div>
-                                <label htmlFor="prompt-text" className="block text-sm font-medium text-gray-300 mb-2">أدخل الطلب (موحد لجميع الملفات):</label>
-                                <textarea id="prompt-text" value={prompt} onChange={(e) => setPrompt(e.target.value)} disabled={isUploading || isAnalyzing} className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 focus:ring-2 focus:ring-blue-500 focus:outline-none disabled:opacity-50" rows={3} />
+
+                        {analysisProvider === 'openrouter' && (
+                            <div className="mb-4">
+                                <label htmlFor="or-model-ocr" className="block text-sm font-medium text-gray-300 mb-2">اختر نموذج OpenRouter (يدعم الصور):</label>
+                                <select 
+                                    id="or-model-ocr" 
+                                    value={openRouterModelForOcr} 
+                                    onChange={(e) => setOpenRouterModelForOcr(e.target.value)}
+                                    disabled={isUploading || isAnalyzing}
+                                    className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 focus:ring-2 focus:ring-blue-500 focus:outline-none disabled:opacity-50"
+                                >
+                                    {OPENROUTER_FREE_MODELS.filter(m => m.supportsImages).map(model => (
+                                        <option key={model.id} value={model.id}>{model.name}</option>
+                                    ))}
+                                </select>
                             </div>
                         )}
+
+                        <div className="pt-4 border-t border-gray-700">
+                             <h3 className="text-md font-semibold text-gray-300 mb-2">نوع التحليل</h3>
+                            <div className="flex items-center space-x-2 space-x-reverse bg-gray-700 rounded-lg p-1 mb-4">
+                                <button onClick={() => setAnalysisType('ai')} className={`flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors ${analysisType === 'ai' ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-600'}`}>
+                                    تحليل بالذكاء الاصطناعي
+                                </button>
+                                <button onClick={() => setAnalysisType('ocr')} className={`flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors ${analysisType === 'ocr' ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-600'}`}>
+                                    استخلاص النص وتصنيفه (OCR)
+                                </button>
+                            </div>
+                            {analysisType === 'ai' && (
+                                <div>
+                                    <label htmlFor="prompt-text" className="block text-sm font-medium text-gray-300 mb-2">أدخل الطلب (موحد لجميع الملفات):</label>
+                                    <textarea id="prompt-text" value={prompt} onChange={(e) => setPrompt(e.target.value)} disabled={isUploading || isAnalyzing} className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 focus:ring-2 focus:ring-blue-500 focus:outline-none disabled:opacity-50" rows={3} />
+                                </div>
+                            )}
+                        </div>
                     </div>
 
                     <div className="bg-gray-800 rounded-lg shadow-lg p-6">

@@ -68,6 +68,50 @@ export async function analyzeImageWithOpenRouter(
     }
 }
 
+export async function proofreadTextWithOpenRouter(
+    apiKey: string,
+    textToProofread: string,
+    modelName: string
+  ): Promise<string> {
+      if (!textToProofread.trim()) {
+          return textToProofread;
+      }
+
+      try {
+          const prompt = `أنت مدقق لغوي عربي خبير ومتخصص في تنقيح النصوص المستخرجة عبر تقنية OCR. مهمتك هي مراجعة النص التالي وتصحيح أي أخطاء إملائية أو نحوية مع الحفاظ الدقيق على المعنى الأصلي وهيكل التنسيق. انتبه بشكل خاص للحفاظ على فواصل الأسطر والفقرات كما هي في النص الأصلي. لا تضف أي معلومات أو تفسيرات جديدة. أعد النص المصحح باللغة العربية فقط.\n\nالنص الأصلي:\n---\n${textToProofread}\n---`;
+
+          const response = await fetch(OPENROUTER_API_URL, {
+              method: 'POST',
+              headers: {
+                  'Authorization': `Bearer ${apiKey}`,
+                  'Content-Type': 'application/json',
+                  'HTTP-Referer': 'https://aistudio.google.com',
+                  'X-Title': encodeURIComponent('المستشار القانوني الفلسطيني - تدقيق لغوي'),
+              },
+              body: JSON.stringify({
+                  model: modelName,
+                  messages: [{ role: 'user', content: prompt }],
+              }),
+          });
+  
+          if (!response.ok) {
+              const errorBody = await response.json();
+              console.error('OpenRouter Proofread API Error:', errorBody);
+              throw new Error(errorBody.error?.message || `HTTP error! status: ${response.status}`);
+          }
+  
+          const result = await response.json();
+          const correctedText = result.choices[0]?.message?.content || textToProofread;
+          console.log("Original vs Corrected (OpenRouter):", { original: textToProofread, corrected: correctedText });
+          return correctedText;
+
+      } catch (error) {
+          console.error("Error proofreading text with OpenRouter:", error);
+          // Fallback to original text if correction fails
+          return textToProofread;
+      }
+}
+
 
 export async function* streamChatResponseFromOpenRouter(
   apiKey: string,
