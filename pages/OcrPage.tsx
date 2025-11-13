@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { analyzeImageWithGemini, proofreadTextWithGemini } from './geminiService';
 import { marked } from 'marked';
@@ -38,6 +38,8 @@ type AnalysisResult = {
 };
 
 type AnalysisType = 'ai' | 'ocr';
+type AnalysisProcessState = 'idle' | 'running' | 'paused' | 'done';
+
 
 const OcrPage: React.FC = () => {
     const [selectedImages, setSelectedImages] = useState<SelectedImage[]>([]);
@@ -51,7 +53,12 @@ const OcrPage: React.FC = () => {
     const [loadingFiles, setLoadingFiles] = useState<Record<string, { name: string; progress: number }>>({});
     const [isProcessingPdf, setIsProcessingPdf] = useState(false);
     const [pdfProcessingMessage, setPdfProcessingMessage] = useState('');
-    const [analysisProgress, setAnalysisProgress] = useState<{ current: number; total: number } | null>(null);
+    
+    // State management for pause/resume functionality
+    const [analysisState, setAnalysisState] = useState<AnalysisProcessState>('idle');
+    const [imagesToAnalyzeQueue, setImagesToAnalyzeQueue] = useState<SelectedImage[]>([]);
+    const [currentAnalysisIndex, setCurrentAnalysisIndex] = useState(0);
+    const [totalToAnalyze, setTotalToAnalyze] = useState(0);
 
 
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -190,17 +197,27 @@ const OcrPage: React.FC = () => {
             return newResults;
         });
     };
-
-    const handleAnalyze = async () => {
-        const imagesToAnalyze = selectedImages.filter(img => !analysisResults[img.id]?.result);
-        if (imagesToAnalyze.length === 0) return;
     
-        setAnalysisProgress({ current: 0, total: imagesToAnalyze.length });
+    // Effect to process the next image in the queue when the state is 'running'
+    useEffect(() => {
+        if (analysisState !== 'running' || imagesToAnalyzeQueue.length === 0) {
+            if (analysisState === 'running' && imagesToAnalyzeQueue.length === 0 && totalToAnalyze > 0) {
+                setAnalysisState('done');
+                setTimeout(() => {
+                    setAnalysisState('idle');
+                    setCurrentAnalysisIndex(0);
+                    setTotalToAnalyze(0);
+                }, 1500);
+            }
+            return;
+        }
     
-        for (const image of imagesToAnalyze) {
+        let isCancelled = false;
+    
+        const processImage = async (image: SelectedImage) => {
             setAnalysisResults(prev => ({
                 ...prev,
-                [image.id]: { isLoading: true, status: null, result: null, error: null }
+                [image.id]: { isLoading: true, status: 'في الانتظار...', result: null, error: null }
             }));
     
             try {
@@ -210,17 +227,13 @@ const OcrPage: React.FC = () => {
                     result = await analyzeImageWithGemini(image.dataUrl, image.file.type, prompt);
                 } else { // OCR
                     setAnalysisResults(prev => ({ ...prev, [image.id]: { ...prev[image.id]!, status: 'جاري تهيئة محرك OCR...' } }));
-                    const tesseractResult = await Tesseract.recognize(
-                        image.dataUrl,
-                        'ara',
-                        { 
-                            logger: m => {
-                                if (m.status === 'recognizing text') {
-                                    setAnalysisResults(prev => ({ ...prev, [image.id]: { ...prev[image.id]!, status: `جاري استخلاص النص... ${Math.round(m.progress * 100)}%` } }));
-                                }
-                            } 
-                        }
-                    );
+                    const tesseractResult = await Tesseract.recognize(image.dataUrl, 'ara', { 
+                        logger: m => {
+                            if (!isCancelled && m.status === 'recognizing text') {
+                                setAnalysisResults(prev => ({ ...prev, [image.id]: { ...prev[image.id]!, status: `جاري استخلاص النص... ${Math.round(m.progress * 100)}%` } }));
+                            }
+                        } 
+                    });
                     
                     const ocrText = tesseractResult.data.text;
                     if (!ocrText.trim()) {
@@ -230,37 +243,76 @@ const OcrPage: React.FC = () => {
                         result = await proofreadTextWithGemini(ocrText);
                     }
                 }
-                setAnalysisResults(prev => ({
-                    ...prev,
-                    [image.id]: { isLoading: false, status: null, result, error: null }
-                }));
-            } catch (err) {
-                console.error("Analysis Error:", err);
-                let displayError: string;
-                if (err instanceof Error) {
-                    const errorMessage = err.toString();
-                    if (analysisType === 'ai' && (errorMessage.includes("API key") || errorMessage.includes("authentication") || errorMessage.includes("was not found"))) {
-                        displayError = "مفتاح API لـ Gemini غير صالح أو غير متوفر. الرجاء إعادة المحاولة بعد تحديد مفتاح صالح.";
-                        setIsApiKeyReady(false);
-                    } else {
-                        displayError = `حدث خطأ أثناء التحليل: ${err.message}`;
-                    }
-                } else {
-                    displayError = `حدث خطأ غير معروف: ${String(err)}`;
+                if (!isCancelled) {
+                    setAnalysisResults(prev => ({
+                        ...prev,
+                        [image.id]: { isLoading: false, status: null, result, error: null }
+                    }));
                 }
-                setAnalysisResults(prev => ({
-                    ...prev,
-                    [image.id]: { isLoading: false, status: null, result: null, error: displayError }
-                }));
+            } catch (err) {
+                if (!isCancelled) {
+                    console.error("Analysis Error:", err);
+                    let displayError: string;
+                    if (err instanceof Error) {
+                        const errorMessage = err.toString();
+                        if (analysisType === 'ai' && (errorMessage.includes("API key") || errorMessage.includes("authentication") || errorMessage.includes("was not found"))) {
+                            displayError = "مفتاح API لـ Gemini غير صالح أو غير متوفر. الرجاء إعادة المحاولة بعد تحديد مفتاح صالح.";
+                            setIsApiKeyReady(false);
+                        } else {
+                            displayError = `حدث خطأ أثناء التحليل: ${err.message}`;
+                        }
+                    } else {
+                        displayError = `حدث خطأ غير معروف: ${String(err)}`;
+                    }
+                    setAnalysisResults(prev => ({
+                        ...prev,
+                        [image.id]: { isLoading: false, status: null, result: null, error: displayError }
+                    }));
+                }
             } finally {
-                setAnalysisProgress(prev => (prev ? { ...prev, current: prev.current + 1 } : null));
+                if (!isCancelled) {
+                    setCurrentAnalysisIndex(prev => prev + 1);
+                    setImagesToAnalyzeQueue(prev => prev.slice(1));
+                }
             }
-        }
+        };
     
-        // Reset after a short delay to let the user see 100%
-        setTimeout(() => {
-            setAnalysisProgress(null);
-        }, 1500);
+        processImage(imagesToAnalyzeQueue[0]);
+    
+        return () => {
+            isCancelled = true;
+        };
+    }, [analysisState, imagesToAnalyzeQueue]);
+
+    const handleStartAnalysis = () => {
+        const imagesToProcess = selectedImages.filter(img => !analysisResults[img.id]?.result);
+        if (imagesToProcess.length === 0) return;
+
+        setImagesToAnalyzeQueue(imagesToProcess);
+        setTotalToAnalyze(imagesToProcess.length);
+        setCurrentAnalysisIndex(0);
+        setAnalysisState('running');
+    };
+
+    const handlePauseAnalysis = () => {
+        setAnalysisState('paused');
+    };
+
+    const handleResumeAnalysis = () => {
+        setAnalysisState('running');
+    };
+
+    const handleCancelAnalysis = () => {
+        setAnalysisState('idle');
+        setImagesToAnalyzeQueue([]);
+        setCurrentAnalysisIndex(0);
+        setTotalToAnalyze(0);
+        // Reset loading states for any in-progress items
+        Object.keys(analysisResults).forEach(key => {
+            if (analysisResults[key].isLoading) {
+                 setAnalysisResults(prev => ({...prev, [key]: {...prev[key], isLoading: false, status: 'تم الإلغاء' }}));
+            }
+        });
     };
     
     const handleSendToCase = async () => {
@@ -355,7 +407,7 @@ const OcrPage: React.FC = () => {
     };
     
     const isUploading = Object.keys(loadingFiles).length > 0 || isProcessingPdf;
-    const isAnalyzing = analysisProgress !== null;
+    const isAnalyzing = analysisState === 'running' || analysisState === 'paused';
     const hasFilesToAnalyze = selectedImages.length > 0 && selectedImages.some(img => !analysisResults[img.id]?.result);
 
     if (isApiKeyReady === null) {
@@ -393,7 +445,7 @@ const OcrPage: React.FC = () => {
                         <h2 className="text-xl font-semibold text-gray-200 mb-4">1. رفع الملفات</h2>
                         <div className="border-2 border-dashed border-gray-600 rounded-lg p-6 text-center hover:border-blue-500 transition-colors">
                             <input type="file" accept="image/*,application/pdf" ref={fileInputRef} onChange={handleFileChange} className="hidden" multiple />
-                            <button onClick={() => fileInputRef.current?.click()} disabled={isUploading} className="w-full h-full text-gray-400 disabled:cursor-wait">
+                            <button onClick={() => fileInputRef.current?.click()} disabled={isUploading || isAnalyzing} className="w-full h-full text-gray-400 disabled:cursor-wait">
                                 <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-10 w-10 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
                                 <p className="mt-2 text-lg">انقر لرفع صورة أو PDF</p>
                                 <p className="text-sm">يمكنك تحديد عدة ملفات</p>
@@ -444,17 +496,60 @@ const OcrPage: React.FC = () => {
 
                     <div className="bg-gray-800 rounded-lg shadow-lg p-6">
                         <h2 className="text-xl font-semibold text-gray-200 mb-4">3. ابدأ التحليل</h2>
-                        <button className="w-full px-8 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors text-lg" onClick={handleAnalyze} disabled={!hasFilesToAnalyze || isUploading || isAnalyzing}>
-                             {isAnalyzing ? `جاري التحليل... (${analysisProgress.current}/${analysisProgress.total})` : 'ابدأ تحليل جميع الملفات'}
-                        </button>
-                        {isAnalyzing && (
+                        <div className="space-y-2">
+                             {analysisState === 'idle' || analysisState === 'done' ? (
+                                <button
+                                    className="w-full px-8 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors text-lg"
+                                    onClick={handleStartAnalysis}
+                                    disabled={!hasFilesToAnalyze || isUploading}
+                                >
+                                    {analysisState === 'done' ? 'اكتمل التحليل' : `ابدأ تحليل (${selectedImages.filter(img => !analysisResults[img.id]?.result).length}) ملفات`}
+                                </button>
+                            ) : analysisState === 'running' ? (
+                                <button
+                                    className="w-full px-8 py-3 bg-yellow-600 text-white font-semibold rounded-lg hover:bg-yellow-700 transition-colors text-lg flex items-center justify-center"
+                                    onClick={handlePauseAnalysis}
+                                >
+                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 me-2" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                                    </svg>
+                                    إيقاف مؤقت
+                                </button>
+                            ) : ( // paused state
+                                <div className="flex gap-x-2">
+                                    <button
+                                        className="w-full px-6 py-3 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center"
+                                        onClick={handleResumeAnalysis}
+                                    >
+                                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 me-2" viewBox="0 0 20 20" fill="currentColor">
+                                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
+                                        </svg>
+                                        استئناف التحليل
+                                    </button>
+                                    <button
+                                        className="w-full px-6 py-3 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center"
+                                        onClick={handleCancelAnalysis}
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 me-2" viewBox="0 0 20 20" fill="currentColor">
+                                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                                        </svg>
+                                        إلغاء
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                        {isAnalyzing && totalToAnalyze > 0 && (
                             <div className="mt-4">
                                 <div className="flex justify-between mb-1">
-                                    <span className="text-sm font-medium text-gray-300">إجمالي التقدم</span>
-                                    <span className="text-sm font-medium text-gray-300">{Math.round((analysisProgress.current / analysisProgress.total) * 100)}%</span>
+                                    <span className="text-sm font-medium text-gray-300">
+                                        إجمالي التقدم ({currentAnalysisIndex} / {totalToAnalyze})
+                                    </span>
+                                    <span className="text-sm font-medium text-gray-300">
+                                        {Math.round((currentAnalysisIndex / totalToAnalyze) * 100)}%
+                                    </span>
                                 </div>
                                 <div className="w-full bg-gray-600 rounded-full h-2.5">
-                                    <div className="bg-blue-500 h-2.5 rounded-full transition-all duration-300" style={{ width: `${(analysisProgress.current / analysisProgress.total) * 100}%` }}></div>
+                                    <div className="bg-blue-500 h-2.5 rounded-full transition-all duration-300" style={{ width: `${(currentAnalysisIndex / totalToAnalyze) * 100}%` }}></div>
                                 </div>
                             </div>
                         )}

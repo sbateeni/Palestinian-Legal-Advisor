@@ -47,6 +47,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
   const [isProcessingFile, setIsProcessingFile] = useState(false);
   const [processingMessage, setProcessingMessage] = useState('');
   const [tokenCount, setTokenCount] = useState(0);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   const navigate = useNavigate();
   const chatContainerRef = useRef<HTMLDivElement>(null);
@@ -236,6 +237,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
   }, []);
 
   const handleSendMessage = async (prompt?: string) => {
+    setAuthError(null); // Clear previous auth errors
     const messageContent = (prompt || userInput).trim();
     if (isLoading || isProcessingFile || (!messageContent && !uploadedImage)) return;
 
@@ -313,7 +315,8 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
         // More specific check for auth errors
         if (errorStatus === 401 || errorMessage.includes("API key") || errorMessage.includes("authentication") || errorMessage.includes("was not found") || errorMessage.includes("User not found")) {
             setIsApiKeyReady(false);
-            chatErrorMessage = `مفتاح API غير صالح أو غير متوفر لـ ${apiSource}. يرجى التحقق من المفتاح في صفحة الإعدادات والمحاولة مرة أخرى.`;
+            chatErrorMessage = `مفتاح API غير صالح أو غير متوفر لـ ${apiSource}. يرجى الانتقال إلى صفحة الإعدادات لإدخال مفتاح صالح.`;
+            setAuthError(chatErrorMessage); // Set state for banner
         } else if (apiSource === 'openrouter' && (errorMessage.includes("No endpoints found") || error.status === 404)) {
             chatErrorMessage = `حدث خطأ: النموذج المحدد (${openRouterModel}) قد يكون غير متاح مؤقتاً أو غير متوافق مع الطلب. يرجى تجربة نموذج آخر.`;
         } else {
@@ -441,6 +444,22 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
         </div>
 
         <div className="p-4 border-t border-gray-700 bg-gray-800">
+            {authError && (
+                <div className="mb-3 p-3 bg-red-500/20 border border-red-500/50 text-red-300 rounded-lg text-sm" role="alert">
+                    <div className="flex items-start">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 me-2 flex-shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.21 3.03-1.742 3.03H4.42c-1.532 0-2.492-1.696-1.742-3.03l5.58-9.92zM10 13a1 1 0 110-2 1 1 0 010 2zm-1-4a1 1 0 011-1h.01a1 1 0 110 2H10a1 1 0 01-1-1z" clipRule="evenodd" />
+                        </svg>
+                        <div>
+                            <h3 className="font-bold">خطأ في المصادقة</h3>
+                            <p className="mt-1">{authError}</p>
+                            <Link to="/settings" className="text-red-200 font-semibold hover:underline mt-2 inline-block">
+                                الانتقال إلى الإعدادات لتصحيح المفتاح
+                            </Link>
+                        </div>
+                    </div>
+                </div>
+            )}
             {chatHistory.length > 0 && !isLoading && (
                 <div className="mb-3">
                     <div className="flex items-center gap-2 overflow-x-auto pb-2">
