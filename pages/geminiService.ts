@@ -76,7 +76,7 @@ export async function proofreadTextWithGemini(textToProofread: string): Promise<
         const ai = await getGoogleGenAI();
         const model = 'gemini-2.5-flash';
         
-        const prompt = `أنت مدقق لغوي عربي خبير. قم بمراجعة النص التالي، المستخرج من صورة باستخدام تقنية OCR، وصحح أي أخطاء إملائية أو نحوية تجدها. حافظ على المعنى الأصلي والتنسيق الأساسي للنص قدر الإمكان. لا تضف أي معلومات أو تفسيرات جديدة. أعد النص المصحح فقط.\n\nالنص الأصلي:\n---\n${textToProofread}\n---`;
+        const prompt = `أنت مدقق لغوي عربي خبير ومتخصص في تنقيح النصوص المستخرجة عبر تقنية OCR. مهمتك هي مراجعة النص التالي وتصحيح أي أخطاء إملائية أو نحوية مع الحفاظ الدقيق على المعنى الأصلي وهيكل التنسيق. انتبه بشكل خاص للحفاظ على فواصل الأسطر والفقرات كما هي في النص الأصلي. لا تضف أي معلومات أو تفسيرات جديدة. أعد النص المصحح فقط.\n\nالنص الأصلي:\n---\n${textToProofread}\n---`;
 
         const response = await ai.models.generateContent({
             model: model,

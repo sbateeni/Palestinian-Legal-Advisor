@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { analyzeImageWithGemini } from './geminiService';
+import { analyzeImageWithGemini, proofreadTextWithGemini } from './geminiService';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import * as dbService from '../services/dbService';
 import { Case, ChatMessage } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 import * as pdfjsLib from 'pdfjs-dist';
+import Tesseract from 'tesseract.js';
 
 // Configure the worker for pdf.js, pointing to the CDN-hosted script
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://aistudiocdn.com/pdfjs-dist@5.4.394/build/pdf.worker.js';
@@ -31,15 +32,19 @@ type SelectedImage = {
 
 type AnalysisResult = {
     isLoading: boolean;
+    status: string | null;
     result: string | null;
     error: string | null;
 };
+
+type AnalysisType = 'ai' | 'ocr';
 
 const OcrPage: React.FC = () => {
     const [selectedImages, setSelectedImages] = useState<SelectedImage[]>([]);
     const [analysisResults, setAnalysisResults] = useState<Record<string, AnalysisResult>>({});
     const [isApiKeyReady, setIsApiKeyReady] = useState<boolean | null>(null);
     const [prompt, setPrompt] = useState<string>('ما الذي تراه في هذه الصورة؟ اشرح بالتفصيل.');
+    const [analysisType, setAnalysisType] = useState<AnalysisType>('ai');
     const [cases, setCases] = useState<Case[]>([]);
     const [selectedCaseId, setSelectedCaseId] = useState<string>('');
     const [isSending, setIsSending] = useState(false);
@@ -70,7 +75,8 @@ const OcrPage: React.FC = () => {
         const files = event.target.files;
         if (!files) return;
     
-        for (const file of Array.from(files)) {
+        // FIX: Iterate over FileList directly. `Array.from(files)` can cause type inference issues.
+        for (const file of files) {
             const tempId = uuidv4();
             
             setLoadingFiles(prev => ({ ...prev, [tempId]: { name: file.name, progress: 0 } }));
@@ -132,7 +138,8 @@ const OcrPage: React.FC = () => {
                             canvas.width = viewport.width;
     
                             if (context) {
-                                await page.render({ canvasContext: context, viewport: viewport }).promise;
+                                // FIX: Add the `canvas` property to the `render` parameters. The type definitions for this version of pdfjs-dist seem to require it.
+                                await page.render({ canvas, canvasContext: context, viewport: viewport }).promise;
                                 const dataUrl = canvas.toDataURL('image/png');
                                 // Create a File-like object to maintain type consistency
                                 const pageFile = {
@@ -193,31 +200,57 @@ const OcrPage: React.FC = () => {
         for (const image of imagesToAnalyze) {
             setAnalysisResults(prev => ({
                 ...prev,
-                [image.id]: { isLoading: true, result: null, error: null }
+                [image.id]: { isLoading: true, status: null, result: null, error: null }
             }));
     
             try {
-                const result = await analyzeImageWithGemini(image.dataUrl, image.file.type, prompt);
+                let result: string;
+                if (analysisType === 'ai') {
+                    setAnalysisResults(prev => ({ ...prev, [image.id]: { ...prev[image.id]!, status: 'جاري التحليل عبر Gemini...' } }));
+                    result = await analyzeImageWithGemini(image.dataUrl, image.file.type, prompt);
+                } else { // OCR
+                    setAnalysisResults(prev => ({ ...prev, [image.id]: { ...prev[image.id]!, status: 'جاري تهيئة محرك OCR...' } }));
+                    const tesseractResult = await Tesseract.recognize(
+                        image.dataUrl,
+                        'ara',
+                        { 
+                            logger: m => {
+                                if (m.status === 'recognizing text') {
+                                    setAnalysisResults(prev => ({ ...prev, [image.id]: { ...prev[image.id]!, status: `جاري استخلاص النص... ${Math.round(m.progress * 100)}%` } }));
+                                }
+                            } 
+                        }
+                    );
+                    
+                    const ocrText = tesseractResult.data.text;
+                    if (!ocrText.trim()) {
+                        result = "لم يتمكن محرك OCR من استخلاص أي نص من هذه الصورة.";
+                    } else {
+                        setAnalysisResults(prev => ({ ...prev, [image.id]: { ...prev[image.id]!, status: 'جاري التدقيق اللغوي للنص...' } }));
+                        result = await proofreadTextWithGemini(ocrText);
+                    }
+                }
                 setAnalysisResults(prev => ({
                     ...prev,
-                    [image.id]: { isLoading: false, result, error: null }
+                    [image.id]: { isLoading: false, status: null, result, error: null }
                 }));
             } catch (err) {
                 console.error("Analysis Error:", err);
                 let displayError: string;
                 if (err instanceof Error) {
                     const errorMessage = err.toString();
-                    displayError = `حدث خطأ أثناء التحليل: ${err.message}`;
-                    if (errorMessage.includes("API key") || errorMessage.includes("authentication") || errorMessage.includes("was not found")) {
+                    if (analysisType === 'ai' && (errorMessage.includes("API key") || errorMessage.includes("authentication") || errorMessage.includes("was not found"))) {
                         displayError = "مفتاح API لـ Gemini غير صالح أو غير متوفر. الرجاء إعادة المحاولة بعد تحديد مفتاح صالح.";
                         setIsApiKeyReady(false);
+                    } else {
+                        displayError = `حدث خطأ أثناء التحليل: ${err.message}`;
                     }
                 } else {
                     displayError = `حدث خطأ غير معروف: ${String(err)}`;
                 }
                 setAnalysisResults(prev => ({
                     ...prev,
-                    [image.id]: { isLoading: false, result: null, error: displayError }
+                    [image.id]: { isLoading: false, status: null, result: null, error: displayError }
                 }));
             } finally {
                 setAnalysisProgress(prev => (prev ? { ...prev, current: prev.current + 1 } : null));
@@ -236,7 +269,8 @@ const OcrPage: React.FC = () => {
             return;
         }
     
-        const successfulAnalyses = Object.entries(analysisResults)
+        // FIX: Explicitly cast result of Object.entries to fix type inference issues.
+        const successfulAnalyses = (Object.entries(analysisResults) as [string, AnalysisResult][])
             .filter(([, res]) => res.result)
             .map(([id, res]) => ({
                 id,
@@ -252,13 +286,22 @@ const OcrPage: React.FC = () => {
         setIsSending(true);
         try {
             const analysisSummary = successfulAnalyses
-                .map((analysis, index) => `--- تحليل المستند ${index + 1} (${analysis.image.file.name}) ---\n${analysis.result}`)
+                .map((analysis, index) => {
+                    const header = analysisType === 'ai'
+                        ? `--- تحليل المستند ${index + 1} (${analysis.image.file.name}) ---`
+                        : `--- نص مستخلص (OCR) من المستند ${index + 1} (${analysis.image.file.name}) ---`;
+                    return `${header}\n${analysis.result}`;
+                })
                 .join('\n\n');
+            
+            const messageContent = analysisType === 'ai'
+                ? `تم تحليل المستندات التالية باستخدام الذكاء الاصطناعي وإضافتها إلى القضية:\n\n${analysisSummary}`
+                : `تم استخلاص النص من المستندات التالية وإضافته إلى القضية:\n\n${analysisSummary}`;
     
             const analysisMessage: ChatMessage = {
                 id: uuidv4(),
                 role: 'user',
-                content: `تم تحليل المستندات التالية وإضافتها إلى القضية:\n\n${analysisSummary}`,
+                content: messageContent,
                 images: successfulAnalyses.map(a => ({ dataUrl: a.image.dataUrl, mimeType: a.image.file.type })),
             };
     
@@ -277,7 +320,7 @@ const OcrPage: React.FC = () => {
                 };
     
                 await dbService.addCase(newCase);
-                alert("تم إنشاء القضية الجديدة وإرسال التحليلات بنجاح!");
+                alert("تم إنشاء القضية الجديدة وإرسال النتائج بنجاح!");
                 navigate(`/case/${newCase.id}`);
     
             } else {
@@ -288,13 +331,13 @@ const OcrPage: React.FC = () => {
                 caseToUpdate.chatHistory.push(analysisMessage);
                 await dbService.updateCase(caseToUpdate);
     
-                alert("تم إرسال التحليلات بنجاح إلى القضية!");
+                alert("تم إرسال النتائج بنجاح إلى القضية!");
                 navigate(`/case/${selectedCaseId}`);
             }
     
         } catch (error) {
             console.error("Failed to send to case:", error);
-            alert(`فشل إرسال التحليلات: ${error instanceof Error ? error.message : 'خطأ غير معروف'}`);
+            alert(`فشل إرسال النتائج: ${error instanceof Error ? error.message : 'خطأ غير معروف'}`);
         } finally {
             setIsSending(false);
         }
@@ -336,7 +379,8 @@ const OcrPage: React.FC = () => {
         );
     }
     
-    const canSend = Object.values(analysisResults).some(r => r.result) && selectedCaseId;
+    // FIX: Explicitly cast result of Object.values to fix type inference issues.
+    const canSend = (Object.values(analysisResults) as AnalysisResult[]).some(r => r.result) && selectedCaseId;
 
     return (
         <div className="w-full max-w-5xl mx-auto p-4 sm:p-6 lg:p-8">
@@ -358,7 +402,8 @@ const OcrPage: React.FC = () => {
                          {Object.keys(loadingFiles).length > 0 && (
                             <div className="mt-4 space-y-2">
                                 <h3 className="text-sm font-medium text-gray-300">جاري الرفع...</h3>
-                                {Object.entries(loadingFiles).map(([id, { name, progress }]) => (
+                                {/* FIX: Explicitly cast result of Object.entries to fix type inference issues. */}
+                                {(Object.entries(loadingFiles) as [string, { name: string, progress: number }][]).map(([id, { name, progress }]) => (
                                     <div key={id}>
                                         <div className="flex justify-between text-xs text-gray-400">
                                             <span className="truncate max-w-[70%]">{name}</span>
@@ -380,8 +425,21 @@ const OcrPage: React.FC = () => {
                     </div>
                     
                     <div className="bg-gray-800 rounded-lg shadow-lg p-6">
-                        <h2 className="text-xl font-semibold text-gray-200 mb-4">2. أدخل الطلب (موحد لجميع الملفات)</h2>
-                         <textarea id="prompt-text" value={prompt} onChange={(e) => setPrompt(e.target.value)} disabled={isUploading || isAnalyzing} className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 focus:ring-2 focus:ring-blue-500 focus:outline-none disabled:opacity-50" rows={3} />
+                        <h2 className="text-xl font-semibold text-gray-200 mb-4">2. اختر نوع التحليل</h2>
+                        <div className="flex items-center space-x-2 space-x-reverse bg-gray-700 rounded-lg p-1 mb-4">
+                            <button onClick={() => setAnalysisType('ai')} className={`flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors ${analysisType === 'ai' ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-600'}`}>
+                                تحليل بالذكاء الاصطناعي
+                            </button>
+                            <button onClick={() => setAnalysisType('ocr')} className={`flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors ${analysisType === 'ocr' ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-600'}`}>
+                                استخلاص النص فقط (OCR)
+                            </button>
+                        </div>
+                        {analysisType === 'ai' && (
+                            <div>
+                                <label htmlFor="prompt-text" className="block text-sm font-medium text-gray-300 mb-2">أدخل الطلب (موحد لجميع الملفات):</label>
+                                <textarea id="prompt-text" value={prompt} onChange={(e) => setPrompt(e.target.value)} disabled={isUploading || isAnalyzing} className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 focus:ring-2 focus:ring-blue-500 focus:outline-none disabled:opacity-50" rows={3} />
+                            </div>
+                        )}
                     </div>
 
                     <div className="bg-gray-800 rounded-lg shadow-lg p-6">
@@ -433,7 +491,12 @@ const OcrPage: React.FC = () => {
                                 </div>
                                 <img src={image.dataUrl} alt={image.file.name} className="max-h-48 rounded-lg mx-auto shadow-md mb-4 border border-gray-700" />
                                 <div className="bg-gray-800 rounded p-3 min-h-[80px]">
-                                    {analysisResults[image.id]?.isLoading && <div className="text-center text-gray-400">جاري التحليل...</div>}
+                                    {analysisResults[image.id]?.isLoading && (
+                                        <div className="flex flex-col items-center justify-center text-center text-gray-400">
+                                             <svg className="animate-spin h-6 w-6 mb-2 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                             <p className="text-sm">{analysisResults[image.id]?.status || 'جاري المعالجة...'}</p>
+                                        </div>
+                                    )}
                                     {analysisResults[image.id]?.error && <p className="text-red-400 text-sm">{analysisResults[image.id]?.error}</p>}
                                     {analysisResults[image.id]?.result && <div className="prose prose-invert max-w-none text-sm" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(marked.parse(analysisResults[image.id]!.result!) as string) }}></div>}
                                     {!analysisResults[image.id] && <p className="text-gray-600 text-center text-sm">في انتظار التحليل</p>}
