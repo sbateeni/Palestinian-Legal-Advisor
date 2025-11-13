@@ -308,10 +308,12 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
         console.error(`Error during ${apiSource} streaming:`, error);
         let chatErrorMessage = 'حدث خطأ أثناء معالجة الطلب.';
         const errorMessage = error.toString();
+        const errorStatus = error.status; // From custom error in openRouterService
         
-        if (errorMessage.includes("API key") || errorMessage.includes("authentication") || errorMessage.includes("was not found")) {
+        // More specific check for auth errors
+        if (errorStatus === 401 || errorMessage.includes("API key") || errorMessage.includes("authentication") || errorMessage.includes("was not found") || errorMessage.includes("User not found")) {
             setIsApiKeyReady(false);
-            chatErrorMessage = `مفتاح API غير صالح أو غير متوفر لـ ${apiSource}. الرجاء إعادة المحاولة بعد تحديد مفتاح صالح.`;
+            chatErrorMessage = `مفتاح API غير صالح أو غير متوفر لـ ${apiSource}. يرجى التحقق من المفتاح في صفحة الإعدادات والمحاولة مرة أخرى.`;
         } else if (apiSource === 'openrouter' && (errorMessage.includes("No endpoints found") || error.status === 404)) {
             chatErrorMessage = `حدث خطأ: النموذج المحدد (${openRouterModel}) قد يكون غير متاح مؤقتاً أو غير متوافق مع الطلب. يرجى تجربة نموذج آخر.`;
         } else {
