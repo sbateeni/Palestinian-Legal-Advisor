@@ -114,3 +114,42 @@ export async function* streamChatResponseFromGemini(
     throw error;
   }
 }
+
+export async function analyzeImageWithGemini(
+  base64ImageDataUrl: string,
+  mimeType: string,
+  prompt: string
+): Promise<string> {
+  if (!base64ImageDataUrl || !mimeType) {
+    throw new Error("Image data and mime type are required.");
+  }
+  try {
+    const ai = getGoogleGenAI();
+    const model = 'gemini-2.5-flash';
+    
+    const base64Data = base64ImageDataUrl.split(',')[1];
+    if (!base64Data) {
+      throw new Error("Invalid base64 image data URL.");
+    }
+
+    const imagePart = {
+      inlineData: {
+        data: base64Data,
+        mimeType: mimeType
+      }
+    };
+
+    const textPart = { text: prompt };
+
+    const response = await ai.models.generateContent({
+        model: model,
+        contents: { parts: [imagePart, textPart] },
+    });
+
+    return response.text;
+  } catch (error) {
+    console.error("Error analyzing image with Gemini:", error);
+    // Re-throw to be handled by the calling component
+    throw error;
+  }
+}

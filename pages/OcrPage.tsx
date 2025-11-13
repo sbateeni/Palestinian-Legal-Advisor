@@ -1,10 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import * as dbService from '../services/dbService';
-import { analyzeImageWithOpenRouter } from '../services/openRouterService';
+import { analyzeImageWithGemini } from './geminiService';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
-import { OPENROUTER_FREE_MODELS } from '../constants';
+
+// Add AIStudio interface for Gemini API key handling, consistent with ChatPage
+declare global {
+  interface AIStudio {
+    hasSelectedApiKey: () => Promise<boolean>;
+    openSelectKey: () => Promise<void>;
+  }
+  interface Window {
+    aistudio?: AIStudio;
+  }
+}
 
 const OcrPage: React.FC = () => {
     const [selectedImage, setSelectedImage] = useState<{ file: File; dataUrl: string } | null>(null);
@@ -12,36 +20,21 @@ const OcrPage: React.FC = () => {
     const [analysisResult, setAnalysisResult] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [isApiKeyReady, setIsApiKeyReady] = useState<boolean | null>(null);
-    const [openRouterApiKey, setOpenRouterApiKey] = useState<string>('');
-    const [selectedModel, setSelectedModel] = useState<string>('google/gemini-flash-1.5:free');
     const [prompt, setPrompt] = useState<string>('ما الذي تراه في هذه الصورة؟ اشرح بالتفصيل.');
 
-
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const navigate = useNavigate();
-
-    const imageModels = OPENROUTER_FREE_MODELS.filter(m => m.supportsImages);
 
     useEffect(() => {
-        const loadApiKey = async () => {
-            // This page specifically uses OpenRouter as per the request
-            const storedApiSource = await dbService.getSetting<'openrouter'>('apiSource');
-            if (storedApiSource !== 'openrouter') {
-                // If the user has Gemini selected, we guide them to switch for this feature.
-                setError("هذه الميزة تتطلب استخدام OpenRouter. يرجى التبديل إلى OpenRouter في صفحة الإعدادات.");
-                setIsApiKeyReady(false); // Block usage
-                return;
-            }
-
-            const storedApiKey = await dbService.getSetting<string>('openRouterApiKey');
-            if (storedApiKey) {
-                setOpenRouterApiKey(storedApiKey);
-                setIsApiKeyReady(true);
+        const checkApiKey = async () => {
+            if (window.aistudio && typeof window.aistudio.hasSelectedApiKey === 'function') {
+                const hasKey = await window.aistudio.hasSelectedApiKey();
+                setIsApiKeyReady(hasKey);
             } else {
-                setIsApiKeyReady(false);
+                // For local dev or environments without aistudio, assume key is available
+                setIsApiKeyReady(true);
             }
         };
-        loadApiKey();
+        checkApiKey();
     }, []);
 
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -70,13 +63,13 @@ const OcrPage: React.FC = () => {
         setAnalysisResult(null);
 
         try {
-            const result = await analyzeImageWithOpenRouter(openRouterApiKey, selectedImage.dataUrl, selectedModel, prompt);
+            const result = await analyzeImageWithGemini(selectedImage.dataUrl, selectedImage.file.type, prompt);
             setAnalysisResult(result);
         } catch (err: any) {
             console.error("Analysis Error:", err);
             const errorMessage = err.toString();
-            if (errorMessage.includes("API key") || errorMessage.includes("authentication")) {
-                setError("مفتاح API لـ OpenRouter غير صالح. يرجى التحقق منه في الإعدادات.");
+            if (errorMessage.includes("API key") || errorMessage.includes("authentication") || errorMessage.includes("was not found")) {
+                setError("مفتاح API لـ Gemini غير صالح أو غير متوفر. الرجاء إعادة المحاولة بعد تحديد مفتاح صالح.");
                 setIsApiKeyReady(false);
             } else {
                 setError(`حدث خطأ أثناء التحليل: ${err.message}`);
@@ -86,8 +79,15 @@ const OcrPage: React.FC = () => {
         }
     };
     
-    const handleGoToSettings = () => {
-        navigate('/settings');
+    const handleSelectApiKey = async () => {
+        if (window.aistudio && typeof window.aistudio.openSelectKey === 'function') {
+            try {
+                await window.aistudio.openSelectKey();
+                setIsApiKeyReady(true); // Assume success to allow user to proceed
+            } catch (error) {
+                console.error("Error opening Gemini API key selector:", error);
+            }
+        }
     };
 
     if (isApiKeyReady === null) {
@@ -102,22 +102,21 @@ const OcrPage: React.FC = () => {
     if (!isApiKeyReady) {
         return (
           <div className="w-full flex-grow flex flex-col items-center justify-center text-center p-4">
-              <h2 className="text-2xl font-bold mb-4 text-gray-200">مطلوب إعداد OpenRouter</h2>
+              <h2 className="text-2xl font-bold mb-4 text-gray-200">مطلوب مفتاح Google AI API</h2>
               <p className="text-gray-400 mb-6 max-w-2xl">
-                {error || 'لاستخدام ميزة تحليل الصور، يجب عليك تفعيل OpenRouter وإدخال مفتاح API الخاص بك في صفحة الإعدادات.'}
+                {error || 'لاستخدام ميزة تحليل الصور مع Gemini، يرجى تحديد مفتاح Google AI API الخاص بك.'}
               </p>
-              <button onClick={handleGoToSettings} className="mt-6 px-8 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700">
-                الانتقال إلى الإعدادات
+              <button onClick={handleSelectApiKey} className="mt-6 px-8 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700">
+                تحديد مفتاح API
               </button>
           </div>
         );
     }
 
-
     return (
         <div className="w-full max-w-4xl mx-auto p-4 sm:p-6 lg:p-8">
             <h1 className="text-3xl font-bold mb-6 text-gray-100 border-b border-gray-700 pb-3">
-                🖼️ استخراج وتحليل النص من الصور
+                🖼️ تحليل الصور مع Gemini
             </h1>
 
             <div className="bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
@@ -154,24 +153,9 @@ const OcrPage: React.FC = () => {
                     )}
                 </div>
             </div>
-
-            <div className="bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
-                <h2 className="text-xl font-semibold text-gray-200 mb-4">2. اختر نموذج التحليل</h2>
-                <select
-                    id="model-select"
-                    value={selectedModel}
-                    onChange={(e) => setSelectedModel(e.target.value)}
-                    className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                    disabled={isLoading}
-                >
-                    {imageModels.map(model => (
-                        <option key={model.id} value={model.id}>{model.name}</option>
-                    ))}
-                </select>
-            </div>
             
             <div className="bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
-                <h2 className="text-xl font-semibold text-gray-200 mb-4">3. أدخل الطلب (اختياري)</h2>
+                <h2 className="text-xl font-semibold text-gray-200 mb-4">2. أدخل الطلب (اختياري)</h2>
                  <textarea
                     id="prompt-text"
                     value={prompt}
@@ -189,7 +173,7 @@ const OcrPage: React.FC = () => {
                     onClick={handleAnalyze} 
                     disabled={!selectedImage || isLoading}
                 >
-                    {isLoading ? "جاري التحليل..." : "4. ابدأ التحليل"}
+                    {isLoading ? "جاري التحليل..." : "3. ابدأ التحليل"}
                 </button>
             </div>
 
