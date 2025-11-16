@@ -78,7 +78,7 @@ export async function proofreadTextWithOpenRouter(
       }
 
       try {
-          const prompt = `أنت مدقق لغوي عربي خبير ومتخصص في تنقيح النصوص المستخرجة عبر تقنية OCR. مهمتك هي مراجعة النص التالي وتصحيح أي أخطاء إملائية أو نحوية مع الحفاظ الدقيق على المعنى الأصلي وهيكل التنسيق. انتبه بشكل خاص للحفاظ على فواصل الأسطر والفقرات كما هي في النص الأصلي. لا تضف أي معلومات أو تفسيرات جديدة. أعد النص المصحح باللغة العربية فقط.\n\nالنص الأصلي:\n---\n${textToProofread}\n---`;
+          const prompt = `أنت مدقق لغوي عربي خبير ومتخصص في تنقيح النصوص المستخرجة عبر تقنية OCR. مهمتك هي مراجعة النص التالي وتصحيح أي أخطاء إملائية أو نحوية مع الحفاظ الدقيق على المعنى الأصلي وهيكل التنسيق. انتبه بشكل خاص للحفاظ على فواصل الأسطر والفقرات كما هي في النص الأصلي. لا تضف أي معلومات أو تفسيرات جديدة. أعد النص المصحح باللغة العربية فقط.\n\النص الأصلي:\n---\n${textToProofread}\n---`;
 
           const response = await fetch(OPENROUTER_API_URL, {
               method: 'POST',
@@ -117,7 +117,7 @@ export async function* streamChatResponseFromOpenRouter(
   apiKey: string,
   history: ChatMessage[],
   modelName: string = DEFAULT_MODEL_NAME
-): AsyncGenerator<{ text: string }> {
+): AsyncGenerator<{ text: string; model: string }> {
   
   const messagesForApi = history.map(msg => {
     const role = msg.role === 'model' ? 'assistant' : 'user';
@@ -227,7 +227,7 @@ export async function* streamChatResponseFromOpenRouter(
           const parsed = JSON.parse(data);
           const content = parsed.choices[0]?.delta?.content;
           if (content) {
-            yield { text: content };
+            yield { text: content, model: modelName };
           }
         } catch (e) {
           console.error('Error parsing stream data chunk:', data, e);

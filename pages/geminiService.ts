@@ -77,7 +77,7 @@ export async function proofreadTextWithGemini(textToProofread: string): Promise<
         const ai = await getGoogleGenAI();
         const model = 'gemini-2.5-flash';
         
-        const prompt = `أنت مدقق لغوي عربي خبير ومتخصص في تنقيح النصوص المستخرجة عبر تقنية OCR. مهمتك هي مراجعة النص التالي وتصحيح أي أخطاء إملائية أو نحوية مع الحفاظ الدقيق على المعنى الأصلي وهيكل التنسيق. انتبه بشكل خاص للحفاظ على فواصل الأسطر والفقرات كما هي في النص الأصلي. لا تضف أي معلومات أو تفسيرات جديدة. أعد النص المصحح باللغة العربية فقط.\n\nالنص الأصلي:\n---\n${textToProofread}\n---`;
+        const prompt = `أنت مدقق لغوي عربي خبير ومتخصص في تنقيح النصوص المستخرجة عبر تقنية OCR. مهمتك هي مراجعة النص التالي وتصحيح أي أخطاء إملائية أو نحوية مع الحفاظ الدقيق على المعنى الأصلي وهيكل التنسيق. انتبه بشكل خاص للحفاظ على فواصل الأسطر والفقرات كما هي في النص الأصلي. لا تضف أي معلومات أو تفسيرات جديدة. أعد النص المصحح باللغة العربية فقط.\n\النص الأصلي:\n---\n${textToProofread}\n---`;
 
         const response = await ai.models.generateContent({
             model: model,
@@ -97,7 +97,7 @@ export async function proofreadTextWithGemini(textToProofread: string): Promise<
 export async function* streamChatResponseFromGemini(
   history: ChatMessage[],
   thinkingMode: boolean
-): AsyncGenerator<{ text: string }> {
+): AsyncGenerator<{ text: string; model: string }> {
   try {
     const ai = await getGoogleGenAI();
     const model = thinkingMode ? 'gemini-2.5-pro' : 'gemini-2.5-flash';
@@ -115,7 +115,7 @@ export async function* streamChatResponseFromGemini(
     for await (const chunk of response) {
         const text = chunk.text;
         if (text) {
-            yield { text };
+            yield { text, model };
         }
     }
   } catch (error) {

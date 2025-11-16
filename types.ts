@@ -6,6 +6,7 @@ export interface ChatMessage {
   role: Role;
   content: string;
   images?: { dataUrl: string; mimeType: string }[];
+  model?: string; // Add model property to store which model generated the response
   // FIX: Add isError property to handle chat error messages.
   isError?: boolean;
 }

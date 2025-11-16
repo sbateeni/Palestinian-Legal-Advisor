@@ -219,21 +219,23 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
     };
 
   const processStream = useCallback(async (
-      stream: AsyncGenerator<{ text: string }>,
+      stream: AsyncGenerator<{ text: string; model: string }>,
       tempModelMessageId: string
   ) => {
       let fullResponse = '';
+      let responseModel = '';
       for await (const chunk of stream) {
           if (chunk.text) {
               fullResponse += chunk.text;
+              responseModel = chunk.model; // The model will be the same for all chunks in a stream
               setChatHistory(prev =>
                   prev.map(msg =>
-                      msg.id === tempModelMessageId ? { ...msg, content: fullResponse } : msg
+                      msg.id === tempModelMessageId ? { ...msg, content: fullResponse, model: responseModel } : msg
                   )
               );
           }
       }
-      return fullResponse;
+      return { fullResponse, responseModel };
   }, []);
 
   const handleSendMessage = async (prompt?: string) => {
@@ -279,8 +281,8 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
             stream = streamChatResponseFromGemini(currentChatHistory, thinkingMode);
         }
 
-        const fullResponse = await processStream(stream, tempModelMessage.id);
-        const finalHistory = [...currentChatHistory, { ...tempModelMessage, content: fullResponse }];
+        const { fullResponse, responseModel } = await processStream(stream, tempModelMessage.id);
+        const finalHistory = [...currentChatHistory, { ...tempModelMessage, content: fullResponse, model: responseModel }];
 
         if (apiSource === 'gemini') {
             countTokensForGemini(finalHistory).then(setTokenCount);
@@ -331,6 +333,15 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
     } finally {
         setIsLoading(false);
     }
+  };
+
+  const getModelDisplayName = (modelId?: string): string => {
+    if (!modelId) return '';
+    if (modelId === 'gemini-2.5-pro') return 'Gemini 2.5 Pro';
+    if (modelId === 'gemini-2.5-flash') return 'Gemini 2.5 Flash';
+
+    const openRouterModel = OPENROUTER_FREE_MODELS.find(m => m.id === modelId);
+    return openRouterModel?.name || modelId;
   };
 
   if (isApiKeyReady === null) {
@@ -406,8 +417,8 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
             ) : (
                 <div className="space-y-6">
                     {chatHistory.map((msg) => (
-                        <div key={msg.id} className={`flex group ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                            <div className={`max-w-xl lg:max-w-3xl px-5 py-3 rounded-2xl relative ${msg.isError ? 'bg-red-500/30 text-red-200 rounded-bl-none' : msg.role === 'user' ? 'bg-blue-600 text-white rounded-br-none' : 'bg-gray-700 text-gray-200 rounded-bl-none'}`}>
+                        <div key={msg.id} className={`flex flex-col group ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
+                            <div className={`max-w-xl lg:max-w-3xl px-5 py-3 rounded-2xl relative ${msg.isError ? 'bg-red-500/30 text-red-200' : msg.role === 'user' ? 'bg-blue-600 text-white rounded-br-none' : 'bg-gray-700 text-gray-200 rounded-bl-none'}`}>
                                 {msg.role === 'model' && (
                                     <button onClick={() => handleCopy(msg.content, msg.id)} className="absolute top-2 left-2 p-1.5 bg-gray-600/50 rounded-full text-gray-300 hover:bg-gray-500/80 opacity-0 group-hover:opacity-100 transition-opacity" aria-label="نسخ">
                                        {copiedMessageId === msg.id ? (
@@ -426,6 +437,11 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
                                 )}
                                 <div className="prose prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(marked.parse(msg.content || '...', { breaks: true }) as string) }}></div>
                             </div>
+                             {msg.role === 'model' && msg.model && !msg.isError && msg.content && (
+                                <div className="px-3 pt-1.5">
+                                  <span className="text-xs text-gray-500 bg-gray-700/50 px-2 py-0.5 rounded-full">{getModelDisplayName(msg.model)}</span>
+                                </div>
+                            )}
                         </div>
                     ))}
                     {isLoading && chatHistory.length > 0 && chatHistory[chatHistory.length - 1].role !== 'model' && (
