@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ApiSource, Case } from '../types';
+import { ApiSource, Case, OpenRouterModel } from '../types';
 import * as dbService from '../services/dbService';
-import { OPENROUTER_FREE_MODELS } from '../constants';
+import { DEFAULT_OPENROUTER_MODELS } from '../constants';
 
 const SettingsPage: React.FC = () => {
   const [apiSource, setApiSource] = useState<ApiSource>('gemini');
@@ -13,9 +13,12 @@ const SettingsPage: React.FC = () => {
   
   // OpenRouter states
   const [openRouterApiKey, setOpenRouterApiKey] = useState('');
-  const [openRouterModel, setOpenRouterModel] = useState<string>(OPENROUTER_FREE_MODELS[0].id);
+  const [openRouterModelId, setOpenRouterModelId] = useState<string>(DEFAULT_OPENROUTER_MODELS[0].id);
   const [openRouterInputValue, setOpenRouterInputValue] = useState<string>('');
   const [openRouterSaved, setOpenRouterSaved] = useState<boolean>(false);
+  const [openRouterModels, setOpenRouterModels] = useState<OpenRouterModel[]>(DEFAULT_OPENROUTER_MODELS);
+  const [newModelId, setNewModelId] = useState('');
+  const [newModelSupportsImages, setNewModelSupportsImages] = useState(false);
   
   // Data management states
   const [casesCount, setCasesCount] = useState(0);
@@ -36,21 +39,17 @@ const SettingsPage: React.FC = () => {
       
       // Load OpenRouter settings
       const storedOpenRouterKey = await dbService.getSetting<string>('openRouterApiKey');
-      let storedModel = await dbService.getSetting<string>('openRouterModel');
+      const storedModelId = await dbService.getSetting<string>('openRouterModel');
+      const storedCustomModels = await dbService.getSetting<OpenRouterModel[]>('openRouterModels');
       
-      if (storedModel) {
-        const sanitizedModel = storedModel.replace(/:free$/, '');
-        // Validate if the sanitized model is still in our current list.
-        const modelIsValid = OPENROUTER_FREE_MODELS.some(m => m.id === sanitizedModel);
-        if (modelIsValid) {
-          setOpenRouterModel(sanitizedModel);
-        } else {
-          // If not valid, default to the first model to prevent errors.
-          setOpenRouterModel(OPENROUTER_FREE_MODELS[0].id);
-        }
+      const availableModels = storedCustomModels && storedCustomModels.length > 0 ? storedCustomModels : DEFAULT_OPENROUTER_MODELS;
+      setOpenRouterModels(availableModels);
+
+      if (storedModelId && availableModels.some(m => m.id === storedModelId)) {
+        setOpenRouterModelId(storedModelId);
       } else {
-        // If nothing is stored, default to the first model.
-        setOpenRouterModel(OPENROUTER_FREE_MODELS[0].id);
+        // If nothing is stored or stored model is no longer valid, default to the first model.
+        setOpenRouterModelId(availableModels[0]?.id || '');
       }
 
       if (storedOpenRouterKey) {
@@ -87,8 +86,48 @@ const SettingsPage: React.FC = () => {
 
   const handleModelChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newModel = e.target.value;
-    setOpenRouterModel(newModel);
+    setOpenRouterModelId(newModel);
     await dbService.setSetting({ key: 'openRouterModel', value: newModel });
+  };
+
+  const handleAddModel = async () => {
+    const trimmedId = newModelId.trim();
+    if (!trimmedId) {
+        alert("يرجى إدخال معرف النموذج.");
+        return;
+    }
+    if (openRouterModels.some(m => m.id === trimmedId)) {
+        alert("هذا النموذج موجود بالفعل.");
+        return;
+    }
+
+    const newModel: OpenRouterModel = {
+        id: trimmedId,
+        name: trimmedId, // Use ID as name for simplicity
+        supportsImages: newModelSupportsImages,
+    };
+
+    const updatedModels = [...openRouterModels, newModel];
+    setOpenRouterModels(updatedModels);
+    await dbService.setSetting({ key: 'openRouterModels', value: updatedModels });
+
+    setNewModelId('');
+    setNewModelSupportsImages(false);
+  };
+
+  const handleDeleteModel = async (idToDelete: string) => {
+    if (!window.confirm(`هل أنت متأكد من حذف النموذج: ${idToDelete}؟`)) return;
+
+    const updatedModels = openRouterModels.filter(m => m.id !== idToDelete);
+    setOpenRouterModels(updatedModels);
+    await dbService.setSetting({ key: 'openRouterModels', value: updatedModels });
+
+    // If the deleted model was the selected one, select the first available model
+    if (openRouterModelId === idToDelete) {
+        const newSelectedModel = updatedModels.length > 0 ? updatedModels[0].id : '';
+        setOpenRouterModelId(newSelectedModel);
+        await dbService.setSetting({ key: 'openRouterModel', value: newSelectedModel });
+    }
   };
 
   const handleClearCases = async () => {
@@ -248,18 +287,63 @@ const SettingsPage: React.FC = () => {
                     نموذج OpenRouter
                 </label>
                 <p className="text-sm text-gray-400 mb-3">
-                    اختر النموذج المجاني الذي ترغب باستخدامه. النماذج التي تدعم تحليل الصور محددة. يتم الحفظ تلقائياً عند الاختيار.
+                    اختر النموذج الذي ترغب باستخدامه. يتم الحفظ تلقائياً عند الاختيار.
                 </p>
                 <select
                     id="openrouter-model"
-                    value={openRouterModel}
+                    value={openRouterModelId}
                     onChange={handleModelChange}
                     className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 focus:ring-2 focus:ring-blue-500 focus:outline-none"
                 >
-                    {OPENROUTER_FREE_MODELS.map(model => (
-                    <option key={model.id} value={model.id}>{model.name}</option>
+                    {openRouterModels.map(model => (
+                    <option key={model.id} value={model.id}>{model.name} {model.supportsImages ? '(يدعم الصور)' : ''}</option>
                     ))}
                 </select>
+            </div>
+
+            <div className="mt-8 border-t border-gray-700 pt-6">
+                <h4 className="text-lg font-medium text-gray-200 mb-2">إدارة نماذج OpenRouter</h4>
+                <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-700">
+                    <h5 className="font-semibold text-gray-300 mb-3">إضافة نموذج جديد</h5>
+                    <div className="flex flex-col sm:flex-row gap-2 items-start mb-4">
+                        <input
+                            type="text"
+                            value={newModelId}
+                            onChange={(e) => setNewModelId(e.target.value)}
+                            className="flex-grow p-2 bg-gray-700 border border-gray-600 rounded-md text-gray-200 focus:ring-blue-500 focus:outline-none"
+                            placeholder="مثال: google/gemini-flash-1.5"
+                        />
+                        <button onClick={handleAddModel} className="w-full sm:w-auto px-4 py-2 bg-green-600 text-white font-semibold rounded-md hover:bg-green-700 transition-colors flex-shrink-0">إضافة</button>
+                    </div>
+                    <div className="flex items-center mb-4">
+                        <input
+                            type="checkbox"
+                            id="supports-images"
+                            checked={newModelSupportsImages}
+                            onChange={(e) => setNewModelSupportsImages(e.target.checked)}
+                            className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 bg-gray-700"
+                        />
+                        <label htmlFor="supports-images" className="ms-2 block text-sm text-gray-300">
+                            هذا النموذج يدعم الصور
+                        </label>
+                    </div>
+
+                    <h5 className="font-semibold text-gray-300 mb-2 border-t border-gray-700 pt-4">قائمة النماذج الحالية</h5>
+                    <div className="max-h-60 overflow-y-auto space-y-2 pe-2">
+                        {openRouterModels.map(model => (
+                            <div key={model.id} className="flex justify-between items-center p-2 bg-gray-700 rounded-md">
+                                <span className="text-sm text-gray-200 font-mono truncate me-2">{model.id} {model.supportsImages && '🖼️'}</span>
+                                <button
+                                    onClick={() => handleDeleteModel(model.id)}
+                                    className="p-1 text-gray-400 hover:text-red-400 hover:bg-gray-600 rounded-full flex-shrink-0"
+                                    aria-label={`حذف ${model.id}`}
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                </div>
             </div>
           </div>
         )}

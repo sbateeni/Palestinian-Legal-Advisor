@@ -20,7 +20,7 @@ export const SUGGESTED_PROMPTS = [
   "تصرف الآن كقاضٍ. بالنظر إلى جميع الأدلة المقدمة، ما هو حكمك المحتمل؟",
 ];
 
-export const OPENROUTER_FREE_MODELS = [
+export const DEFAULT_OPENROUTER_MODELS = [
   // Image-supporting models first, reordered for popularity
   { id: 'openai/gpt-4o-mini', name: 'GPT-4o Mini (يدعم الصور)', supportsImages: true },
   { id: 'google/gemini-flash-1.5', name: 'Google: Gemini Flash 1.5 (يدعم الصور)', supportsImages: true },

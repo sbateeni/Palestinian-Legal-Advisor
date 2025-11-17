@@ -2,11 +2,11 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { analyzeImageWithGemini, proofreadTextWithGemini } from './geminiService';
 import { analyzeImageWithOpenRouter, proofreadTextWithOpenRouter } from '../services/openRouterService';
-import { OPENROUTER_FREE_MODELS } from '../constants';
+import { DEFAULT_OPENROUTER_MODELS } from '../constants';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import * as dbService from '../services/dbService';
-import { Case, ChatMessage } from '../types';
+import { Case, ChatMessage, OpenRouterModel } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 import * as pdfjsLib from 'pdfjs-dist';
 import Tesseract from 'tesseract.js';
@@ -51,6 +51,7 @@ const OcrPage: React.FC = () => {
     
     // API Provider State
     const [analysisProvider, setAnalysisProvider] = useState<AnalysisProvider>('gemini');
+    const [openRouterModels, setOpenRouterModels] = useState<OpenRouterModel[]>(DEFAULT_OPENROUTER_MODELS);
     const [openRouterModelForOcr, setOpenRouterModelForOcr] = useState<string>('');
     const [isGeminiApiKeyReady, setIsGeminiApiKeyReady] = useState<boolean | null>(null);
     const [isOpenRouterApiKeyReady, setIsOpenRouterApiKeyReady] = useState<boolean | null>(null);
@@ -85,9 +86,14 @@ const OcrPage: React.FC = () => {
             // Check for OpenRouter API key
             const storedOpenRouterKey = await dbService.getSetting<string>('openRouterApiKey');
             setIsOpenRouterApiKeyReady(!!storedOpenRouterKey);
+            
+            // Load custom OpenRouter models
+            const storedCustomModels = await dbService.getSetting<OpenRouterModel[]>('openRouterModels');
+            const availableModels = storedCustomModels && storedCustomModels.length > 0 ? storedCustomModels : DEFAULT_OPENROUTER_MODELS;
+            setOpenRouterModels(availableModels);
 
             // Set default model for OpenRouter OCR from valid image models
-            const imageModels = OPENROUTER_FREE_MODELS.filter(m => m.supportsImages);
+            const imageModels = availableModels.filter(m => m.supportsImages);
             setOpenRouterModelForOcr(imageModels.length > 0 ? imageModels[0].id : '');
 
             // Load cases for the dropdown
@@ -592,7 +598,7 @@ const OcrPage: React.FC = () => {
                                     disabled={isUploading || isAnalyzing}
                                     className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 focus:ring-2 focus:ring-blue-500 focus:outline-none disabled:opacity-50"
                                 >
-                                    {OPENROUTER_FREE_MODELS.filter(m => m.supportsImages).map(model => (
+                                    {openRouterModels.filter(m => m.supportsImages).map(model => (
                                         <option key={model.id} value={model.id}>{model.name}</option>
                                     ))}
                                 </select>

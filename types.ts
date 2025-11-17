@@ -23,3 +23,9 @@ export interface Case {
 }
 
 export type ApiSource = 'gemini' | 'openrouter';
+
+export interface OpenRouterModel {
+  id: string;
+  name: string;
+  supportsImages: boolean;
+}

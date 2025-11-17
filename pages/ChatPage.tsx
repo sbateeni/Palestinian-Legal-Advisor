@@ -15,11 +15,11 @@ import { useNavigate, Link } from 'react-router-dom';
 import { v4 as uuidv4 } from 'uuid';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
-import { Case, ChatMessage, ApiSource } from '../types';
+import { Case, ChatMessage, ApiSource, OpenRouterModel } from '../types';
 import * as dbService from '../services/dbService';
 import { streamChatResponseFromGemini, countTokensForGemini, proofreadTextWithGemini } from './geminiService';
 import { streamChatResponseFromOpenRouter } from '../services/openRouterService';
-import { OPENROUTER_FREE_MODELS, SUGGESTED_PROMPTS } from '../constants';
+import { DEFAULT_OPENROUTER_MODELS, SUGGESTED_PROMPTS } from '../constants';
 import * as pdfjsLib from 'pdfjs-dist';
 import Tesseract from 'tesseract.js';
 
@@ -40,7 +40,8 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
   const [isApiKeyReady, setIsApiKeyReady] = useState<boolean | null>(null);
   const [apiSource, setApiSource] = useState<ApiSource>('gemini');
   const [openRouterApiKey, setOpenRouterApiKey] = useState<string>('');
-  const [openRouterModel, setOpenRouterModel] = useState<string>(OPENROUTER_FREE_MODELS[0].id);
+  const [openRouterModel, setOpenRouterModel] = useState<string>(DEFAULT_OPENROUTER_MODELS[0].id);
+  const [openRouterModels, setOpenRouterModels] = useState<OpenRouterModel[]>(DEFAULT_OPENROUTER_MODELS);
   const [thinkingMode, setThinkingMode] = useState(false);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const [uploadedImage, setUploadedImage] = useState<{ dataUrl: string; mimeType: string } | null>(null);
@@ -62,15 +63,19 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
         const storedApiSource = await dbService.getSetting<ApiSource>('apiSource');
         if (storedApiSource) setApiSource(storedApiSource);
 
+        const storedCustomModels = await dbService.getSetting<OpenRouterModel[]>('openRouterModels');
+        const availableModels = storedCustomModels && storedCustomModels.length > 0 ? storedCustomModels : DEFAULT_OPENROUTER_MODELS;
+        setOpenRouterModels(availableModels);
+
         if (storedApiSource === 'openrouter') {
           const storedApiKey = await dbService.getSetting<string>('openRouterApiKey');
           const storedModel = await dbService.getSetting<string>('openRouterModel');
-          if (storedModel) {
+          if (storedModel && availableModels.some(m => m.id === storedModel)) {
             // Sanitize the stored model ID to remove the legacy ":free" suffix
             setOpenRouterModel(storedModel.replace(/:free$/, ''));
           } else {
-            // Default to the first model in the list if none is set
-            setOpenRouterModel(OPENROUTER_FREE_MODELS[0].id);
+            // Default to the first model in the list if none is set or if stored model is no longer valid
+            setOpenRouterModel(availableModels[0].id);
           }
           
           if (storedApiKey) {
@@ -244,7 +249,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
     if (isLoading || isProcessingFile || (!messageContent && !uploadedImage)) return;
 
     if (apiSource === 'openrouter' && uploadedImage) {
-        const selectedModelInfo = OPENROUTER_FREE_MODELS.find(m => m.id === openRouterModel);
+        const selectedModelInfo = openRouterModels.find(m => m.id === openRouterModel);
         if (!selectedModelInfo?.supportsImages) {
             alert(`النموذج المحدد (${selectedModelInfo?.name || openRouterModel}) لا يدعم تحليل الصور. يرجى اختيار نموذج يدعم الصور من الإعدادات، أو إزالة الصورة المرفقة.`);
             return;
@@ -339,7 +344,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
     if (modelId === 'gemini-2.5-pro') return 'Gemini 2.5 Pro';
     if (modelId === 'gemini-2.5-flash') return 'Gemini 2.5 Flash';
 
-    const openRouterModel = OPENROUTER_FREE_MODELS.find(m => m.id === modelId);
+    const openRouterModel = openRouterModels.find(m => m.id === modelId);
     return openRouterModel?.name || modelId;
   };
 
