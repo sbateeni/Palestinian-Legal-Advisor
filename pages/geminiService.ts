@@ -40,7 +40,7 @@ const SYSTEM_INSTRUCTION_LEGAL = `أنت مساعد ذكاء اصطناعي خب
 
 **3. البحث القانوني الدقيق**
 *المتطلبات:*
-- المصادر الأولية: نصوص القوانين، الأحكام القضائية السابقة (سابقة قضائية)، اللوائح.
+- المصادر الأولية: نصوص القوانين، الأحكام القضائية السابقة (سابقة قضائية)، اللوائح. **استخدم قاعدة بيانات "المقتفي" من جامعة بيرزيت (muqtafi.birzeit.edu) كمرجع أساسي وموثوق للتشريعات والأحكام الفلسطينية.**
 - المصادر الثانوية: شروحات الفقهاء، المقالات القانونية، المبادئ العامة للقانون.
 - تحديث البحث: مراجعة التعديلات التشريعية أو الأحكام الحديثة.
 *ما يُنقص القضية إذا أغفل:*
@@ -185,7 +185,8 @@ export async function proofreadTextWithGemini(textToProofread: string): Promise<
 
 export async function* streamChatResponseFromGemini(
   history: ChatMessage[],
-  thinkingMode: boolean
+  thinkingMode: boolean,
+  signal: AbortSignal
 ): AsyncGenerator<{ text: string; model: string }> {
   try {
     const ai = await getGoogleGenAI();
@@ -202,12 +203,19 @@ export async function* streamChatResponseFromGemini(
     });
 
     for await (const chunk of response) {
+        if (signal.aborted) {
+            break;
+        }
         const text = chunk.text;
         if (text) {
             yield { text, model };
         }
     }
   } catch (error) {
+    if (signal.aborted) {
+        console.log("Gemini stream cancelled by user.");
+        return;
+    }
     console.error("Error in Gemini chat stream:", error);
     // Re-throw the error to be handled by the calling component
     throw error;

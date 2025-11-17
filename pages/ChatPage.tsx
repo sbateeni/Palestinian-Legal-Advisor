@@ -54,6 +54,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
   const isNewCase = !caseId;
 
   useEffect(() => {
@@ -224,22 +225,45 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
     };
 
   const processStream = useCallback(async (
-      stream: AsyncGenerator<{ text: string; model: string }>,
-      tempModelMessageId: string
+    stream: AsyncGenerator<{ text: string; model: string }>,
+    tempModelMessageId: string
   ) => {
       let fullResponse = '';
       let responseModel = '';
-      for await (const chunk of stream) {
-          if (chunk.text) {
-              fullResponse += chunk.text;
-              responseModel = chunk.model; // The model will be the same for all chunks in a stream
-              setChatHistory(prev =>
-                  prev.map(msg =>
-                      msg.id === tempModelMessageId ? { ...msg, content: fullResponse, model: responseModel } : msg
-                  )
-              );
+      let wasAborted = false;
+  
+      try {
+          for await (const chunk of stream) {
+              if (chunk.text) {
+                  fullResponse += chunk.text;
+                  responseModel = chunk.model; 
+                  setChatHistory(prev =>
+                      prev.map(msg =>
+                          msg.id === tempModelMessageId ? { ...msg, content: fullResponse, model: responseModel } : msg
+                      )
+                  );
+              }
+          }
+      } catch (e: any) {
+          if (e.name === 'AbortError') {
+              wasAborted = true;
+              console.log('Stream was aborted.');
+          } else {
+              // Let the caller handle other errors.
+              throw e;
           }
       }
+  
+      if (wasAborted) {
+          const stoppedMessage = '\n\n**(تم إيقاف الإنشاء)**';
+          fullResponse += stoppedMessage;
+          setChatHistory(prev =>
+              prev.map(msg =>
+                  msg.id === tempModelMessageId ? { ...msg, content: fullResponse, model: responseModel } : msg
+              )
+          );
+      }
+      
       return { fullResponse, responseModel };
   }, []);
 
@@ -271,19 +295,20 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
       textareaRef.current.style.height = 'auto'; // Reset textarea height
     }
 
-
     const currentChatHistory = [...chatHistory, userMessage];
     setChatHistory(currentChatHistory);
 
     const tempModelMessage: ChatMessage = { role: 'model', content: '', id: uuidv4() };
     setChatHistory(prev => [...prev, tempModelMessage]);
+    
+    abortControllerRef.current = new AbortController();
 
     try {
         let stream;
         if (apiSource === 'openrouter') {
-            stream = streamChatResponseFromOpenRouter(openRouterApiKey, currentChatHistory, openRouterModel);
+            stream = streamChatResponseFromOpenRouter(openRouterApiKey, currentChatHistory, openRouterModel, abortControllerRef.current.signal);
         } else {
-            stream = streamChatResponseFromGemini(currentChatHistory, thinkingMode);
+            stream = streamChatResponseFromGemini(currentChatHistory, thinkingMode, abortControllerRef.current.signal);
         }
 
         const { fullResponse, responseModel } = await processStream(stream, tempModelMessage.id);
@@ -336,6 +361,13 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
         );
     } finally {
         setIsLoading(false);
+        abortControllerRef.current = null;
+    }
+  };
+
+  const handleStopGenerating = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
     }
   };
 
@@ -535,7 +567,17 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
                   style={{maxHeight: '10rem'}}
                   disabled={isLoading || isProcessingFile}
                 />
-                <button onClick={() => handleSendMessage()} disabled={isLoading || isProcessingFile || (!userInput.trim() && !uploadedImage)} className="p-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors" aria-label="إرسال"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg></button>
+                {isLoading ? (
+                    <button onClick={handleStopGenerating} className="p-3 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition-colors" aria-label="إيقاف الإنشاء">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
+                           <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 9a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" clipRule="evenodd" />
+                        </svg>
+                    </button>
+                ) : (
+                    <button onClick={() => handleSendMessage()} disabled={isProcessingFile || (!userInput.trim() && !uploadedImage)} className="p-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors" aria-label="إرسال">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
+                    </button>
+                )}
             </div>
         </div>
     </div>

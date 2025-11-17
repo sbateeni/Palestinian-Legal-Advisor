@@ -324,10 +324,10 @@ const OcrPage: React.FC = () => {
         return () => {
             isCancelled = true;
         };
-    }, [analysisState, imagesToAnalyzeQueue]);
+    }, [analysisState, imagesToAnalyzeQueue, analysisProvider, analysisType, openRouterModelForOcr, prompt]);
 
     const handleStartAnalysis = () => {
-        const imagesToProcess = selectedImages.filter(img => !analysisResults[img.id]?.result);
+        const imagesToProcess = selectedImages.filter(img => !analysisResults[img.id]?.result && !analysisResults[img.id]?.isLoading);
         if (imagesToProcess.length === 0) return;
 
         setImagesToAnalyzeQueue(imagesToProcess);
@@ -495,7 +495,7 @@ const OcrPage: React.FC = () => {
     
     const isUploading = Object.keys(loadingFiles).length > 0 || isProcessingPdf;
     const isAnalyzing = analysisState === 'running' || analysisState === 'paused';
-    const hasFilesToAnalyze = selectedImages.length > 0 && selectedImages.some(img => !analysisResults[img.id]?.result);
+    const hasFilesToAnalyze = selectedImages.length > 0 && selectedImages.some(img => !analysisResults[img.id]?.result && !analysisResults[img.id]?.isLoading);
     const isCurrentProviderApiKeyReady = analysisProvider === 'gemini' ? isGeminiApiKeyReady : isOpenRouterApiKeyReady;
 
     if (isCurrentProviderApiKeyReady === null) {
