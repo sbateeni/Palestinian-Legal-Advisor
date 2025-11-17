@@ -40,7 +40,7 @@ const SYSTEM_INSTRUCTION_LEGAL = `أنت مساعد ذكاء اصطناعي خب
 
 **3. البحث القانوني الدقيق**
 *المتطلبات:*
-- المصادر الأولية: نصوص القوانين، الأحكام القضائية السابقة (سابقة قضائية)، اللوائح. **استخدم قاعدة بيانات "المقتفي" من جامعة بيرزيت (muqtafi.birzeit.edu) كمرجع أساسي وموثوق للتشريعات والأحكام الفلسطينية.**
+- المصادر الأولية: نصوص القوانين، الأحكام القضائية السابقة (سابقة قضائية)، اللوائح. **استخدم قاعدة بيانات "المقتفي" من جامعة بيرزيت (muqtafi.birzeit.edu) كمرجع أساسي وموثوق للتشريعات والأحكام الفلسطينية. عند الاستشهاد بأي مادة قانونية، قم بتضمين رابط مباشر لها على "المقتفي" إن أمكن.**
 - المصادر الثانوية: شروحات الفقهاء، المقالات القانونية، المبادئ العامة للقانون.
 - تحديث البحث: مراجعة التعديلات التشريعية أو الأحكام الحديثة.
 *ما يُنقص القضية إذا أغفل:*
@@ -180,6 +180,37 @@ export async function proofreadTextWithGemini(textToProofread: string): Promise<
         console.error("Error proofreading text with Gemini:", error);
         // Fallback to original text if correction fails
         return textToProofread;
+    }
+}
+
+export async function summarizeChatHistory(history: ChatMessage[]): Promise<string> {
+    if (!history || history.length === 0) {
+        return "لا يوجد محتوى لتلخيصه.";
+    }
+    try {
+        const ai = await getGoogleGenAI();
+        const model = 'gemini-2.5-flash'; // Flash is sufficient for summarization
+
+        const contents = chatHistoryToGeminiContents(history);
+        
+        // Add a final instruction for summarization
+        contents.push({
+            role: 'user',
+            parts: [{ text: 'بناءً على المحادثة السابقة بأكملها، قم بتقديم ملخص شامل وواضح. يجب أن يركز الملخص على النقاط القانونية الرئيسية، الوقائع الأساسية، الاستراتيجيات المقترحة، والاستنتاجات التي تم التوصل إليها حتى الآن. قدم الملخص في نقاط منظمة. يجب أن يكون ردك باللغة العربية فقط.' }]
+        });
+
+        const response = await ai.models.generateContent({
+            model: model,
+            contents: contents,
+            config: {
+                systemInstruction: SYSTEM_INSTRUCTION_LEGAL
+            }
+        });
+
+        return response.text;
+    } catch (error) {
+        console.error("Error summarizing chat history:", error);
+        throw new Error("فشل في تلخيص المحادثة.");
     }
 }
 

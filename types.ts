@@ -20,6 +20,7 @@ export interface Case {
   chatHistory: ChatMessage[];
   createdAt: number;
   status: CaseStatus;
+  pinnedMessages?: ChatMessage[];
 }
 
 export type ApiSource = 'gemini' | 'openrouter';

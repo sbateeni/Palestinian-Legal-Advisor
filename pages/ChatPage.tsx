@@ -17,7 +17,7 @@ import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import { Case, ChatMessage, ApiSource, OpenRouterModel } from '../types';
 import * as dbService from '../services/dbService';
-import { streamChatResponseFromGemini, countTokensForGemini, proofreadTextWithGemini } from './geminiService';
+import { streamChatResponseFromGemini, countTokensForGemini, proofreadTextWithGemini, summarizeChatHistory } from './geminiService';
 import { streamChatResponseFromOpenRouter } from '../services/openRouterService';
 import { DEFAULT_OPENROUTER_MODELS, SUGGESTED_PROMPTS } from '../constants';
 import * as pdfjsLib from 'pdfjs-dist';
@@ -27,6 +27,17 @@ import Tesseract from 'tesseract.js';
 // The '?url' import suffix for workers is a Vite-specific feature that does not work with
 // browser-native import maps that load from a CDN. We provide the full URL to the worker script.
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://aistudiocdn.com/pdfjs-dist@5.4.394/build/pdf.worker.js';
+
+// Configure marked to open links in a new tab for security and better UX
+const renderer = new marked.Renderer();
+const linkRenderer = renderer.link;
+renderer.link = (href, title, text) => {
+    const html = linkRenderer.call(renderer, href, title, text);
+    // Use rel="noopener noreferrer" for security
+    return html.replace(/^<a /, '<a target="_blank" rel="noopener noreferrer" ');
+};
+marked.setOptions({ renderer });
+
 
 interface ChatPageProps {
   caseId?: string;
@@ -49,6 +60,12 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
   const [processingMessage, setProcessingMessage] = useState('');
   const [tokenCount, setTokenCount] = useState(0);
   const [authError, setAuthError] = useState<string | null>(null);
+
+  // New states for added features
+  const [pinnedMessages, setPinnedMessages] = useState<ChatMessage[]>([]);
+  const [isSummaryLoading, setIsSummaryLoading] = useState(false);
+  const [isPinnedPanelOpen, setIsPinnedPanelOpen] = useState(true);
+
 
   const navigate = useNavigate();
   const chatContainerRef = useRef<HTMLDivElement>(null);
@@ -100,6 +117,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
           if (loadedCase) {
             setCaseData(loadedCase);
             setChatHistory(loadedCase.chatHistory);
+            setPinnedMessages(loadedCase.pinnedMessages || []);
             if (storedApiSource !== 'openrouter') {
                 countTokensForGemini(loadedCase.chatHistory).then(setTokenCount);
             }
@@ -109,6 +127,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
           }
         } else {
           setChatHistory([]);
+          setPinnedMessages([]);
           setTokenCount(0);
         }
       } catch (error) {
@@ -143,6 +162,93 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
         setTimeout(() => setCopiedMessageId(null), 2000);
     });
   };
+
+  const handlePinMessage = async (messageToPin: ChatMessage) => {
+    const isPinned = pinnedMessages.some(p => p.id === messageToPin.id);
+    if (isPinned) return; // Already pinned
+    
+    const newPinnedMessages = [...pinnedMessages, messageToPin];
+    setPinnedMessages(newPinnedMessages);
+
+    if (caseData) {
+        const updatedCase = { ...caseData, pinnedMessages: newPinnedMessages };
+        await dbService.updateCase(updatedCase);
+        setCaseData(updatedCase); // Update local case data state
+    }
+  };
+
+  const handleUnpinMessage = async (messageIdToUnpin: string) => {
+    const newPinnedMessages = pinnedMessages.filter(p => p.id !== messageIdToUnpin);
+    setPinnedMessages(newPinnedMessages);
+
+    if (caseData) {
+        const updatedCase = { ...caseData, pinnedMessages: newPinnedMessages };
+        await dbService.updateCase(updatedCase);
+        setCaseData(updatedCase); // Update local case data state
+    }
+  };
+
+  const handleSummarize = async () => {
+    if (isSummaryLoading || isLoading || chatHistory.length === 0) return;
+
+    setIsSummaryLoading(true);
+    const tempSummaryMessage: ChatMessage = {
+        id: uuidv4(),
+        role: 'model',
+        content: 'جاري إنشاء الملخص...',
+        model: apiSource === 'gemini' ? 'gemini-2.5-flash' : openRouterModel,
+    };
+    
+    const currentChatHistory = [...chatHistory, tempSummaryMessage];
+    setChatHistory(currentChatHistory);
+    
+    try {
+        // We only support summarization via Gemini for now as it's more integrated and tested.
+        if (apiSource !== 'gemini') {
+            throw new Error("خاصية التلخيص متاحة حاليًا لـ Google Gemini فقط.");
+        }
+        
+        // Exclude the last temporary message from the history sent for summarization
+        const historyToSummarize = chatHistory.filter(m => m.id !== tempSummaryMessage.id);
+        const summaryText = await summarizeChatHistory(historyToSummarize);
+        
+        const finalSummaryContent = `**ملخص المحادثة:**\n\n${summaryText}`;
+
+        const finalHistory = currentChatHistory.map(msg => 
+            msg.id === tempSummaryMessage.id ? { ...msg, content: finalSummaryContent } : msg
+        );
+        setChatHistory(finalHistory);
+
+        // Save the updated history
+        if (isNewCase) {
+             const newCase: Case = {
+                id: uuidv4(),
+                title: 'قضية جديدة (مع ملخص)',
+                summary: summaryText.substring(0, 150) + (summaryText.length > 150 ? '...' : ''),
+                chatHistory: finalHistory,
+                pinnedMessages: pinnedMessages,
+                createdAt: Date.now(),
+                status: 'جديدة',
+            };
+            await dbService.addCase(newCase);
+            navigate(`/case/${newCase.id}`, { replace: true });
+        } else if (caseData) {
+            const updatedCase = { ...caseData, chatHistory: finalHistory };
+            await dbService.updateCase(updatedCase);
+            setCaseData(updatedCase);
+        }
+
+    } catch (error: any) {
+        console.error("Summarization error:", error);
+        const errorMessage = `**خطأ في التلخيص:** ${error.message || 'فشل إنشاء الملخص.'}`;
+         setChatHistory(prev => prev.map(msg => 
+            msg.id === tempSummaryMessage.id ? { ...msg, content: errorMessage, isError: true } : msg
+        ));
+    } finally {
+        setIsSummaryLoading(false);
+    }
+  };
+
 
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -324,6 +430,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
                 title: messageContent.substring(0, 50) + (messageContent.length > 50 ? '...' : ''),
                 summary: fullResponse.substring(0, 150) + (fullResponse.length > 150 ? '...' : ''),
                 chatHistory: finalHistory,
+                pinnedMessages: pinnedMessages,
                 createdAt: Date.now(),
                 status: 'جديدة',
             };
@@ -333,7 +440,8 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
             const updatedCase = {
                 ...caseData,
                 summary: fullResponse.substring(0, 150) + (fullResponse.length > 150 ? '...' : ''),
-                chatHistory: finalHistory
+                chatHistory: finalHistory,
+                pinnedMessages: pinnedMessages,
             };
             await dbService.updateCase(updatedCase);
             setCaseData(updatedCase);
@@ -421,13 +529,28 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
     <div className="w-full flex flex-col flex-grow bg-gray-800 overflow-hidden">
         <div className="p-3 border-b border-gray-700 bg-gray-800/50 flex justify-between items-center flex-wrap gap-2 sticky top-0 z-10">
             <h2 className="text-lg font-semibold text-gray-200 truncate">{caseData?.title || 'قضية جديدة'}</h2>
-            <div className="flex items-center gap-x-4">
+            <div className="flex items-center gap-x-3">
                 {apiSource === 'gemini' && tokenCount > 0 && (
                   <div className="text-sm text-gray-400" title="إجمالي التوكن المستخدمة في هذه المحادثة">
                     <span>الاستهلاك: </span>
                     <span className="font-mono font-semibold text-gray-300">{tokenCount.toLocaleString('ar-EG')}</span>
                     <span> توكن</span>
                   </div>
+                )}
+                {apiSource === 'gemini' && (
+                  <button 
+                      onClick={handleSummarize} 
+                      disabled={isLoading || isSummaryLoading || chatHistory.length === 0}
+                      className="flex items-center space-x-2 space-x-reverse px-3 py-1.5 bg-gray-700 text-gray-200 rounded-md text-sm hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      title="تلخيص المحادثة الحالية"
+                  >
+                      {isSummaryLoading ? (
+                          <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                      ) : (
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M5 4a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2V6a2 2 0 00-2-2H5zM12 13a1 1 0 100 2h-4a1 1 0 100-2h4zm-1-3a1 1 0 10-2 0v1a1 1 0 102 0v-1z" /></svg>
+                      )}
+                      <span>تلخيص</span>
+                  </button>
                 )}
                 {apiSource === 'gemini' && (
                     <div className="flex items-center space-x-2 space-x-reverse">
@@ -441,6 +564,29 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
             </div>
         </div>
 
+        {pinnedMessages.length > 0 && (
+            <div className="bg-gray-800/80 backdrop-blur-sm border-b border-gray-700 sticky top-[61px] z-10">
+                <div className="p-2">
+                    <button onClick={() => setIsPinnedPanelOpen(!isPinnedPanelOpen)} className="w-full flex justify-between items-center text-left text-sm font-semibold text-gray-300 hover:text-white p-1">
+                        <span>الرسائل المثبتة ({pinnedMessages.length})</span>
+                        <svg className={`h-5 w-5 transition-transform ${isPinnedPanelOpen ? 'rotate-180' : ''}`} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
+                    </button>
+                </div>
+                {isPinnedPanelOpen && (
+                    <div className="p-3 border-t border-gray-700/50 max-h-48 overflow-y-auto space-y-2">
+                        {pinnedMessages.map(msg => (
+                            <div key={`pinned-${msg.id}`} className="bg-gray-700/50 p-2 rounded-lg text-xs text-gray-300 flex items-start group">
+                                <p className="prose prose-invert prose-sm max-w-none line-clamp-2 flex-grow">{msg.content}</p>
+                                <button onClick={() => handleUnpinMessage(msg.id)} className="p-1 text-gray-500 hover:text-red-400 opacity-50 group-hover:opacity-100 transition-opacity flex-shrink-0 ms-2" aria-label="إلغاء تثبيت الرسالة">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" /></svg>
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+        )}
+
         <div ref={chatContainerRef} className="flex-grow p-4 overflow-y-auto">
             {chatHistory.length === 0 && !isLoading ? (
                 <div className="text-center text-gray-400 flex flex-col items-center justify-center h-full">
@@ -452,34 +598,45 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
                 </div>
             ) : (
                 <div className="space-y-6">
-                    {chatHistory.map((msg) => (
-                        <div key={msg.id} className={`flex flex-col group ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
-                            <div className={`max-w-xl lg:max-w-3xl px-5 py-3 rounded-2xl relative ${msg.isError ? 'bg-red-500/30 text-red-200' : msg.role === 'user' ? 'bg-blue-600 text-white rounded-br-none' : 'bg-gray-700 text-gray-200 rounded-bl-none'}`}>
-                                {msg.role === 'model' && (
-                                    <button onClick={() => handleCopy(msg.content, msg.id)} className="absolute top-2 left-2 p-1.5 bg-gray-600/50 rounded-full text-gray-300 hover:bg-gray-500/80 opacity-0 group-hover:opacity-100 transition-opacity" aria-label="نسخ">
-                                       {copiedMessageId === msg.id ? (
-                                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                                       ) : (
-                                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
-                                       )}
-                                    </button>
-                                )}
-                                {msg.images && msg.images.length > 0 && (
-                                    <div className="flex flex-wrap gap-2 mb-2">
-                                        {msg.images.map((image, index) => (
-                                             <img key={index} src={image.dataUrl} alt={`محتوى مرفق ${index + 1}`} className="rounded-lg max-w-xs max-h-64 object-contain" />
-                                        ))}
+                    {chatHistory.map((msg) => {
+                        const isPinned = pinnedMessages.some(p => p.id === msg.id);
+                        return (
+                            <div key={msg.id} className={`flex flex-col group ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
+                                <div className={`max-w-xl lg:max-w-3xl px-5 py-3 rounded-2xl relative ${msg.isError ? 'bg-red-500/30 text-red-200' : msg.role === 'user' ? 'bg-blue-600 text-white rounded-br-none' : 'bg-gray-700 text-gray-200 rounded-bl-none'}`}>
+                                    <div className="absolute top-2 left-2 flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <button onClick={() => handlePinMessage(msg)} className="p-1.5 bg-gray-600/50 rounded-full text-gray-300 hover:bg-gray-500/80 disabled:opacity-50 disabled:cursor-default" title={isPinned ? "تم التثبيت" : "تثبيت الرسالة"} disabled={isPinned}>
+                                            <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 ${isPinned ? 'text-yellow-400' : ''}`} viewBox="0 0 20 20" fill="currentColor">
+                                                <path fillRule="evenodd" d="M10.49 2.23a.75.75 0 00-1.02-.04l-7.5 6.25a.75.75 0 00.99 1.18L8 5.44V14a1 1 0 102 0V5.44l5.03 4.18a.75.75 0 00.99-1.18l-7.5-6.25z" clipRule="evenodd" />
+                                                <path d="M4 14a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM16 14a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1z" />
+                                            </svg>
+                                        </button>
+                                        {msg.role === 'model' && (
+                                            <button onClick={() => handleCopy(msg.content, msg.id)} className="p-1.5 bg-gray-600/50 rounded-full text-gray-300 hover:bg-gray-500/80" aria-label="نسخ">
+                                            {copiedMessageId === msg.id ? (
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                                            ) : (
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                                            )}
+                                            </button>
+                                        )}
+                                    </div>
+                                    {msg.images && msg.images.length > 0 && (
+                                        <div className="flex flex-wrap gap-2 mb-2">
+                                            {msg.images.map((image, index) => (
+                                                <img key={index} src={image.dataUrl} alt={`محتوى مرفق ${index + 1}`} className="rounded-lg max-w-xs max-h-64 object-contain" />
+                                            ))}
+                                        </div>
+                                    )}
+                                    <div className="prose prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(marked.parse(msg.content || '...', { breaks: true }) as string) }}></div>
+                                </div>
+                                {msg.role === 'model' && msg.model && !msg.isError && msg.content && (
+                                    <div className="px-3 pt-1.5">
+                                    <span className="text-xs text-gray-500 bg-gray-700/50 px-2 py-0.5 rounded-full">{getModelDisplayName(msg.model)}</span>
                                     </div>
                                 )}
-                                <div className="prose prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(marked.parse(msg.content || '...', { breaks: true }) as string) }}></div>
                             </div>
-                             {msg.role === 'model' && msg.model && !msg.isError && msg.content && (
-                                <div className="px-3 pt-1.5">
-                                  <span className="text-xs text-gray-500 bg-gray-700/50 px-2 py-0.5 rounded-full">{getModelDisplayName(msg.model)}</span>
-                                </div>
-                            )}
-                        </div>
-                    ))}
+                        )
+                    })}
                     {isLoading && chatHistory.length > 0 && chatHistory[chatHistory.length - 1].role !== 'model' && (
                         <div className="flex justify-start">
                             <div className="max-w-xl lg:max-w-2xl px-5 py-3 rounded-2xl bg-gray-700 text-gray-200 rounded-bl-none">
