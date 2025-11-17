@@ -316,9 +316,8 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
         
         // More specific check for auth errors
         if (errorStatus === 401 || errorMessage.includes("API key") || errorMessage.includes("authentication") || errorMessage.includes("was not found") || errorMessage.includes("User not found")) {
-            setIsApiKeyReady(false);
-            chatErrorMessage = `مفتاح API غير صالح أو غير متوفر لـ ${apiSource}. يرجى الانتقال إلى صفحة الإعدادات لإدخال مفتاح صالح.`;
-            setAuthError(chatErrorMessage); // Set state for banner
+            chatErrorMessage = `مفتاح API غير صالح أو تم رفضه لـ ${apiSource}. يرجى الانتقال إلى صفحة الإعدادات للتأكد من صحة المفتاح.`;
+            setAuthError(chatErrorMessage);
         } else if (apiSource === 'openrouter' && (errorMessage.includes("No endpoints found") || error.status === 404)) {
             chatErrorMessage = `حدث خطأ: النموذج المحدد (${openRouterModel}) قد يكون غير متاح مؤقتاً أو غير متوافق مع الطلب. يرجى تجربة نموذج آخر.`;
         } else {
