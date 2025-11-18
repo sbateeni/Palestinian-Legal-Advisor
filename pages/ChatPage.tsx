@@ -32,12 +32,47 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://aistudiocdn.com/pdfjs-dist@5.4
 // Configure marked to open links in a new tab for security and better UX
 const renderer = new marked.Renderer();
 const linkRenderer = renderer.link;
-renderer.link = (href, title, text) => {
-    const html = linkRenderer.call(renderer, href, title, text);
+// FIX: Cast to 'any' to handle type definition changes in marked v12+ (args vs object)
+renderer.link = function (this: any, ...args: any[]) {
+    const html = linkRenderer.apply(this, args as any);
     // Use rel="noopener noreferrer" for security
     return html.replace(/^<a /, '<a target="_blank" rel="noopener noreferrer" ');
-};
+} as any;
 marked.setOptions({ renderer });
+
+// Define Legal Modes
+type ActionMode = 'analysis' | 'loopholes' | 'drafting' | 'strategy';
+
+const ACTION_MODES: { id: ActionMode; label: string; icon: React.ReactNode; color: string; promptPrefix: string }[] = [
+    {
+        id: 'analysis',
+        label: 'تحليل شامل',
+        icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" /></svg>,
+        color: 'bg-blue-600 hover:bg-blue-500',
+        promptPrefix: '' // Default behavior
+    },
+    {
+        id: 'loopholes',
+        label: 'كشف الثغرات',
+        icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 1.944A11.954 11.954 0 012.166 5C2.056 5.649 2 6.319 2 7c0 5.225 3.34 9.67 8 11.317C14.66 16.67 18 12.225 18 7c0-.682-.057-1.35-.166-2.001A11.954 11.954 0 0110 1.944zM11 14a1 1 0 11-2 0 1 1 0 012 0zm0-7a1 1 0 10-2 0v3a1 1 0 102 0V7z" clipRule="evenodd" /></svg>,
+        color: 'bg-rose-600 hover:bg-rose-500',
+        promptPrefix: '🔴 **[وضع كشف الثغرات ومحامي الخصم]**: تقمص دور محامي الخصم الشرس. ابحث عن كل خطأ إجرائي، ثغرة قانونية، تناقض في الوقائع، أو مشكلة في التقادم والاختصاص في النص التالي. لا تجامل. هدفك هو إسقاط الدعوى أو تضعيف الموقف.\n\nالنص:\n'
+    },
+    {
+        id: 'drafting',
+        label: 'صياغة قانونية',
+        icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" /><path fillRule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clipRule="evenodd" /></svg>,
+        color: 'bg-emerald-600 hover:bg-emerald-500',
+        promptPrefix: '📝 **[وضع الصياغة القانونية]**: بناءً على الوقائع التالية، قم بصياغة وثيقة قانونية رسمية (لائحة دعوى، مذكرة دفاع، أو عقد حسب السياق). استخدم لغة قانونية فلسطينية رصينة، ونسق النص ليناسب تقديمه للمحكمة، مع ترك فراغات للبيانات الناقصة (مثل التواريخ الدقيقة أو الأسماء).\n\nالوقائع:\n'
+    },
+    {
+        id: 'strategy',
+        label: 'خطة الفوز',
+        icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z" clipRule="evenodd" /></svg>,
+        color: 'bg-amber-600 hover:bg-amber-500',
+        promptPrefix: '🚀 **[وضع التخطيط الاستراتيجي للفوز]**: لا تكتفِ بالتحليل. ضع خطة عملية (خطوة بخطوة 1، 2، 3) للفوز بهذه القضية أو تحقيق أفضل نتيجة ممكنة. حدد ما هي الأدلة القوية التي يجب التركيز عليها، وما هي المعلومات التي يجب الحذر عند ذكرها. اقترح تكتيكات تفاوضية.\n\nالقضية:\n'
+    }
+];
 
 
 interface ChatPageProps {
@@ -143,6 +178,8 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
   const [processingMessage, setProcessingMessage] = useState('');
   const [tokenCount, setTokenCount] = useState(0);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [actionMode, setActionMode] = useState<ActionMode>('analysis');
+
 
   // New states for added features
   const [pinnedMessages, setPinnedMessages] = useState<ChatMessage[]>([]);
@@ -447,12 +484,10 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
               );
           }
       } catch (e: any) {
-          if (e.name === 'AbortError') {
-              wasAborted = true;
-              console.log('Stream was aborted.');
+          if (e.name !== 'AbortError') {
+               throw e;
           } else {
-              // Let the caller handle other errors.
-              throw e;
+              wasAborted = true;
           }
       }
   
@@ -485,10 +520,22 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
 
     setIsLoading(true);
 
+    // Determine if we need to prepend special instructions based on the selected mode
+    const activeModeConfig = ACTION_MODES.find(m => m.id === actionMode);
+    const augmentedContent = activeModeConfig && activeModeConfig.id !== 'analysis' 
+        ? `${activeModeConfig.promptPrefix}${messageContent}`
+        : messageContent;
+    
+    // We display the user's original input in the chat bubble, but send the augmented prompt to the AI
+    // However, to ensure the AI understands the context in future turns if we reload history,
+    // it is often safer to save the augmented prompt.
+    // Let's save the augmented prompt but maybe visually clean it up? 
+    // For simplicity and correctness, we save what we send. The user will see the "tag" we added.
+    
     const userMessage: ChatMessage = {
       id: uuidv4(),
       role: 'user',
-      content: messageContent,
+      content: augmentedContent, // Send and save the augmented content
       images: uploadedImage ? [uploadedImage] : undefined,
     };
     
@@ -705,7 +752,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
                         <path d="M12 3c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm-1.5 8.5c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm3 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zM9 13.5c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm6 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zM12 1c-3.86 0-7 3.14-7 7 0 1.95.8 3.72 2.05 4.95-.02.02-.05.04-.05.05 0 .83.67 1.5 1.5 1.5s1.5-.67 1.5-1.5c0-1.38 1.12-2.5 2.5-2.5s2.5 1.12 2.5 2.5c0 .83.67 1.5 1.5 1.5s1.5-.67 1.5-1.5c0-.01-.03-.03-.05-.05C18.2 11.72 19 9.95 19 8c0-3.86-3.14-7-7-7z"></path>
                     </svg>
                     <h2 className="text-2xl font-bold mb-4 text-gray-200">المستشار القانوني الفلسطيني</h2>
-                    <p className="mb-8 max-w-xl">ابدأ بوصف وقائع القضية، اطرح سؤالاً، أو ارفق مستنداً لتحليله. سأقوم بالمساعدة في تحليل الموقف القانوني بناءً على القوانين الفلسطينية.</p>
+                    <p className="mb-8 max-w-xl">ابدأ بوصف وقائع القضية، أو ارفق مستنداً. اختر وضع "كشف الثغرات" أو "خطة الفوز" للحصول على استراتيجيات متقدمة.</p>
                 </div>
             ) : (
                 <div className="space-y-6">
@@ -809,6 +856,26 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
                     </div>
                 </div>
             )}
+            {/* Legal Action Toolbar - Added Here */}
+            <div className="mb-3 bg-gray-700/30 p-2 rounded-xl overflow-x-auto">
+                <div className="flex items-center gap-2 min-w-max">
+                    {ACTION_MODES.map((mode) => (
+                        <button
+                            key={mode.id}
+                            onClick={() => setActionMode(mode.id)}
+                            className={`flex items-center space-x-1.5 space-x-reverse px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                                actionMode === mode.id 
+                                    ? mode.color + ' text-white shadow-lg scale-105' 
+                                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                            }`}
+                        >
+                            <span className={actionMode === mode.id ? 'animate-pulse' : ''}>{mode.icon}</span>
+                            <span>{mode.label}</span>
+                        </button>
+                    ))}
+                </div>
+            </div>
+
             {chatHistory.length > 0 && !isLoading && (
                 <div className="mb-3">
                     <div className="flex items-center gap-2 overflow-x-auto pb-2">
@@ -858,8 +925,18 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
                     e.target.style.height = `${e.target.scrollHeight}px`;
                   }}
                   onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }}
-                  className="flex-grow p-3 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 focus:ring-2 focus:ring-blue-500 focus:outline-none resize-none"
-                  placeholder="اكتب رسالتك أو ارفق ملفاً..."
+                  className={`flex-grow p-3 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 focus:ring-2 focus:outline-none resize-none transition-all duration-300 ${
+                      actionMode === 'loopholes' ? 'focus:ring-rose-500 placeholder-rose-300/30' :
+                      actionMode === 'drafting' ? 'focus:ring-emerald-500 placeholder-emerald-300/30' :
+                      actionMode === 'strategy' ? 'focus:ring-amber-500 placeholder-amber-300/30' :
+                      'focus:ring-blue-500'
+                  }`}
+                  placeholder={
+                      actionMode === 'loopholes' ? "أدخل تفاصيل القضية لكشف الثغرات ومهاجمة الأدلة..." :
+                      actionMode === 'drafting' ? "أدخل الوقائع لصياغة وثيقة قانونية رسمية..." :
+                      actionMode === 'strategy' ? "اشرح الوضع للحصول على خطة فوز استراتيجية..." :
+                      "اكتب رسالتك أو ارفق ملفاً..."
+                  }
                   rows={1}
                   style={{maxHeight: '10rem'}}
                   disabled={isLoading || isProcessingFile}
@@ -871,7 +948,17 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
                         </svg>
                     </button>
                 ) : (
-                    <button onClick={() => handleSendMessage()} disabled={isProcessingFile || (!userInput.trim() && !uploadedImage)} className="p-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors" aria-label="إرسال">
+                    <button 
+                        onClick={() => handleSendMessage()} 
+                        disabled={isProcessingFile || (!userInput.trim() && !uploadedImage)} 
+                        className={`p-3 text-white font-semibold rounded-lg disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors ${
+                             actionMode === 'loopholes' ? 'bg-rose-600 hover:bg-rose-700' :
+                             actionMode === 'drafting' ? 'bg-emerald-600 hover:bg-emerald-700' :
+                             actionMode === 'strategy' ? 'bg-amber-600 hover:bg-amber-700' :
+                             'bg-blue-600 hover:bg-blue-700'
+                        }`}
+                        aria-label="إرسال"
+                    >
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
                     </button>
                 )}
