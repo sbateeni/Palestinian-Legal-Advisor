@@ -11,7 +11,7 @@ declare global {
   }
 }
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { v4 as uuidv4 } from 'uuid';
 import { marked } from 'marked';
@@ -43,6 +43,83 @@ marked.setOptions({ renderer });
 interface ChatPageProps {
   caseId?: string;
 }
+
+// Helper component to render message content with proper parsing of thoughts and tools
+const MessageContent: React.FC<{ content: string; isModel: boolean }> = ({ content, isModel }) => {
+    if (!isModel) {
+        return <div className="prose prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(marked.parse(content, { breaks: true }) as string) }}></div>;
+    }
+
+    const { toolCode, thought, finalContent } = useMemo(() => {
+        let c = content || '';
+        let tc: string | null = null;
+        let th: string | null = null;
+
+        // 1. Extract tool_code if present at the start
+        // Pattern: starts with tool_code, captures until 'thought' or Arabic chars or end of string
+        const toolCodeRegex = /^tool_code\s*\n([\s\S]*?)(?=\n(thought|[\u0600-\u06FF]|$))/;
+        const tcMatch = c.match(toolCodeRegex);
+        if (tcMatch) {
+             tc = tcMatch[1].trim();
+             c = c.replace(tcMatch[0], '').trim();
+        }
+
+        // 2. Extract thought if present (after tool_code removal)
+        // Pattern: starts with thought, captures until it hits an Arabic character on a new line (heuristically the start of the answer)
+        // or a double newline followed by non-whitespace.
+        const thoughtRegex = /^thought\s*\n([\s\S]*?)(?=\n[\u0600-\u06FF]|$)/;
+        const thMatch = c.match(thoughtRegex);
+        if (thMatch) {
+            th = thMatch[1].trim();
+            c = c.replace(thMatch[0], '').trim();
+        } else if (c.startsWith('thought')) {
+             // Fallback for streaming where the end might not be clear yet
+             // If we are strictly in 'thought' block (entire content is thought)
+             th = c.replace(/^thought\s*\n/, '').trim();
+             c = ''; // Hide content until real answer appears or stream finishes
+        }
+        
+        return { toolCode: tc, thought: th, finalContent: c };
+    }, [content]);
+
+    return (
+        <div className="flex flex-col gap-y-2 w-full">
+            {toolCode && (
+                <details className="group bg-black/30 rounded-lg border border-gray-700/50 overflow-hidden">
+                    <summary className="px-3 py-2 text-xs font-mono text-gray-500 cursor-pointer hover:bg-gray-800/50 hover:text-gray-300 transition-colors flex items-center select-none">
+                        <svg className="w-3 h-3 me-2 transition-transform group-open:rotate-90" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
+                        أكواد الأداة (Debug Info)
+                    </summary>
+                    <div className="p-3 bg-black/50 text-green-400 font-mono text-xs overflow-x-auto whitespace-pre-wrap" dir="ltr">
+                        {toolCode}
+                    </div>
+                </details>
+            )}
+            
+            {thought && (
+                <details className="group bg-indigo-900/20 rounded-lg border border-indigo-500/20 overflow-hidden mb-2">
+                    <summary className="px-3 py-2 text-xs font-semibold text-indigo-300 cursor-pointer hover:bg-indigo-900/30 transition-colors flex items-center select-none">
+                        <svg className="w-4 h-4 me-2 text-indigo-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>
+                        <span className="flex-grow">عملية التفكير القانوني</span>
+                        <svg className="w-3 h-3 transition-transform group-open:rotate-90 text-indigo-400/70" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
+                    </summary>
+                    {/* Render thought content with markdown parsing for better structure */}
+                    <div className="p-3 text-indigo-200/80 text-sm leading-relaxed border-t border-indigo-500/10 bg-indigo-900/10">
+                         <div className="prose prose-invert prose-sm max-w-none prose-p:my-1 prose-ul:my-1" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(marked.parse(thought) as string) }}></div>
+                    </div>
+                </details>
+            )}
+
+            {finalContent && (
+                <div className="prose prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(marked.parse(finalContent, { breaks: true }) as string) }}></div>
+            )}
+            
+            {!finalContent && !toolCode && !thought && (
+                <span className="animate-pulse">...</span>
+            )}
+        </div>
+    );
+};
 
 const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
   const [caseData, setCaseData] = useState<Case | null>(null);
@@ -636,7 +713,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
                                         <button onClick={() => handlePinMessage(msg)} className="p-1.5 bg-gray-600/50 rounded-full text-gray-300 hover:bg-gray-500/80 disabled:opacity-50 disabled:cursor-default" title={isPinned ? "تم التثبيت" : "تثبيت الرسالة"} disabled={isPinned}>
                                             <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 ${isPinned ? 'text-yellow-400' : ''}`} viewBox="0 0 20 20" fill="currentColor">
                                                 <path fillRule="evenodd" d="M10.49 2.23a.75.75 0 00-1.02-.04l-7.5 6.25a.75.75 0 00.99 1.18L8 5.44V14a1 1 0 102 0V5.44l5.03 4.18a.75.75 0 00.99-1.18l-7.5-6.25z" clipRule="evenodd" />
-                                                <path d="M4 14a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM16 14a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1z" />
+                                                <path d="M4 14a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM16 14a1 1 0 011 1v1a1 1 0 011-1z" />
                                             </svg>
                                         </button>
                                         {msg.role === 'model' && (
@@ -656,7 +733,9 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
                                             ))}
                                         </div>
                                     )}
-                                    <div className="prose prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(marked.parse(msg.content || '...', { breaks: true }) as string) }}></div>
+                                    
+                                    {/* Use the parsed message content component */}
+                                    <MessageContent content={msg.content || '...'} isModel={msg.role === 'model'} />
                                     
                                     {/* Render Grounding Sources if available */}
                                     {msg.groundingMetadata?.groundingChunks && msg.groundingMetadata.groundingChunks.length > 0 && (

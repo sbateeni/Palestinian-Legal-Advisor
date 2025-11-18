@@ -8,24 +8,77 @@
   <style>
     /* Basic styles for Tailwind prose on dark background without the typography plugin */
     .prose-invert {
-        color: #d1d5db; /* gray-300 */
+        color: #e5e7eb; /* gray-200 - Standard text */
+        font-size: 1rem;
+        line-height: 1.75;
     }
-    .prose-invert h1, .prose-invert h2, .prose-invert h3, .prose-invert h4, .prose-invert strong {
-        color: #f9fafb; /* gray-50 */
+    
+    /* Professional Legal Coloring Strategy */
+    
+    /* Headers: Amber/Gold for distinct section separation (Official look) */
+    .prose-invert h1, .prose-invert h2, .prose-invert h3, .prose-invert h4 {
+        color: #fbbf24; /* amber-400 */
+        font-weight: 700;
+        margin-top: 1.5em;
+        margin-bottom: 0.8em;
+        border-bottom: 1px solid rgba(251, 191, 36, 0.2); /* Subtle underline */
+        padding-bottom: 0.3em;
     }
+    
+    /* Strong/Bold text: Bright Cyan to highlight key legal terms/Article numbers */
+    .prose-invert strong, .prose-invert b {
+        color: #22d3ee; /* cyan-400 */
+        font-weight: 700;
+    }
+    
+    /* Links: Rose/Pink to differentiate from bold text */
     .prose-invert a {
-        color: #60a5fa; /* blue-400 */
+        color: #f472b6; /* pink-400 */
+        text-decoration: underline;
+        text-underline-offset: 4px;
+        transition: color 0.2s;
     }
     .prose-invert a:hover {
-        color: #93c5fd; /* blue-300 */
+        color: #fbcfe8; /* pink-200 */
     }
+    
+    /* Inline Code: Subtle background for specific terms */
     .prose-invert code {
-      color: #f9a8d4; /* pink-300 */
+      color: #e2e8f0; /* slate-200 */
+      background-color: rgba(51, 65, 85, 0.5); /* slate-700/50 */
+      padding: 0.2em 0.4em;
+      border-radius: 0.25rem;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.9em;
     }
+    
+    /* Blockquotes: Distinct style for citing laws/articles */
     .prose-invert blockquote {
-        border-right-color: #4b5563; /* gray-600 */
-        color: #9ca3af; /* gray-400 */
+        border-right: 4px solid #818cf8; /* indigo-400 */
+        background-color: rgba(49, 46, 129, 0.2); /* indigo-900/20 */
+        color: #c7d2fe; /* indigo-100 */
+        padding: 0.8em 1.2em;
+        margin: 1.5em 0;
+        border-radius: 0.375rem;
+        font-style: italic;
     }
+    
+    /* Lists */
+    .prose-invert ul, .prose-invert ol {
+        margin-top: 1em;
+        margin-bottom: 1em;
+        padding-right: 1.5em; /* Space for bullets in RTL */
+    }
+    .prose-invert li {
+        margin-bottom: 0.5em;
+    }
+    .prose-invert ul > li::marker {
+        color: #fbbf24; /* amber-400 bullets */
+    }
+    .prose-invert ol > li::marker {
+        color: #9ca3af; /* gray-400 numbers */
+    }
+
     /* Make layout full-height and prevent body scroll for app-like feel */
     html, body, #root {
       height: 100%;
