@@ -1,5 +1,24 @@
+
 // FIX: Define shared types for the application.
 export type Role = 'user' | 'model';
+
+export interface GroundingMetadata {
+  groundingChunks: {
+    web?: {
+      uri: string;
+      title: string;
+    };
+  }[];
+  groundingSupports?: {
+    segment: {
+      startIndex: number;
+      endIndex: number;
+    };
+    groundingChunkIndices: number[];
+    confidenceScores: number[];
+  }[];
+  webSearchQueries?: string[];
+}
 
 export interface ChatMessage {
   id: string;
@@ -9,6 +28,8 @@ export interface ChatMessage {
   model?: string; // Add model property to store which model generated the response
   // FIX: Add isError property to handle chat error messages.
   isError?: boolean;
+  // Add grounding metadata for search sources
+  groundingMetadata?: GroundingMetadata;
 }
 
 export type CaseStatus = 'جديدة' | 'قيد النظر' | 'مؤجلة' | 'مغلقة' | 'استئناف' | 'أخرى';

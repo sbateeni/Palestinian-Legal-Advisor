@@ -1,4 +1,5 @@
-import { ChatMessage } from '../types';
+
+import { ChatMessage, GroundingMetadata } from '../types';
 
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 const DEFAULT_MODEL_NAME = 'google/gemini-flash-1.5';
@@ -207,7 +208,7 @@ export async function* streamChatResponseFromOpenRouter(
   history: ChatMessage[],
   modelName: string = DEFAULT_MODEL_NAME,
   signal: AbortSignal
-): AsyncGenerator<{ text: string; model: string }> {
+): AsyncGenerator<{ text: string; model: string; groundingMetadata?: GroundingMetadata }> {
   
   const messagesForApi = history.map(msg => {
     const role = msg.role === 'model' ? 'assistant' : 'user';

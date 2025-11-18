@@ -78,6 +78,12 @@ const OcrPage: React.FC = () => {
 
     useEffect(() => {
         const loadInitialData = async () => {
+            // Load the globally selected API source first
+            const storedApiSource = await dbService.getSetting<AnalysisProvider>('apiSource');
+            if (storedApiSource) {
+                setAnalysisProvider(storedApiSource);
+            }
+            
             // Check for Gemini API key
             const storedGeminiKey = await dbService.getSetting<string>('geminiApiKey');
             const hasAiStudioKey = window.aistudio?.hasSelectedApiKey ? await window.aistudio.hasSelectedApiKey() : false;

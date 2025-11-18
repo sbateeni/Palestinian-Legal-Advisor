@@ -1,3 +1,4 @@
+
 // FIX: Fix TypeScript error by using a named interface for the global aistudio property.
 // Using a named interface `AIStudio` resolves potential type conflicts with other global declarations.
 declare global {
@@ -15,7 +16,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { v4 as uuidv4 } from 'uuid';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
-import { Case, ChatMessage, ApiSource, OpenRouterModel } from '../types';
+import { Case, ChatMessage, ApiSource, OpenRouterModel, GroundingMetadata } from '../types';
 import * as dbService from '../services/dbService';
 import { streamChatResponseFromGemini, countTokensForGemini, proofreadTextWithGemini, summarizeChatHistory } from './geminiService';
 import { streamChatResponseFromOpenRouter } from '../services/openRouterService';
@@ -331,24 +332,37 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
     };
 
   const processStream = useCallback(async (
-    stream: AsyncGenerator<{ text: string; model: string }>,
+    stream: AsyncGenerator<{ text: string; model: string; groundingMetadata?: GroundingMetadata }>,
     tempModelMessageId: string
   ) => {
       let fullResponse = '';
       let responseModel = '';
+      let groundingMetadata: GroundingMetadata | undefined;
       let wasAborted = false;
   
       try {
           for await (const chunk of stream) {
               if (chunk.text) {
                   fullResponse += chunk.text;
-                  responseModel = chunk.model; 
-                  setChatHistory(prev =>
-                      prev.map(msg =>
-                          msg.id === tempModelMessageId ? { ...msg, content: fullResponse, model: responseModel } : msg
-                      )
-                  );
               }
+              responseModel = chunk.model;
+              
+              // Update grounding metadata if present in this chunk.
+              // We accumulate it because it might come in one specific chunk.
+              if (chunk.groundingMetadata) {
+                  groundingMetadata = chunk.groundingMetadata;
+              }
+
+              setChatHistory(prev =>
+                  prev.map(msg =>
+                      msg.id === tempModelMessageId ? { 
+                          ...msg, 
+                          content: fullResponse, 
+                          model: responseModel,
+                          groundingMetadata: groundingMetadata
+                      } : msg
+                  )
+              );
           }
       } catch (e: any) {
           if (e.name === 'AbortError') {
@@ -365,12 +379,13 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
           fullResponse += stoppedMessage;
           setChatHistory(prev =>
               prev.map(msg =>
-                  msg.id === tempModelMessageId ? { ...msg, content: fullResponse, model: responseModel } : msg
+                  msg.id === tempModelMessageId ? { ...msg, content: fullResponse, model: responseModel, groundingMetadata } : msg
               )
           );
       }
       
-      return { fullResponse, responseModel };
+      // Return the final state including metadata so it can be saved to DB
+      return { fullResponse, responseModel, groundingMetadata };
   }, []);
 
   const handleSendMessage = async (prompt?: string) => {
@@ -417,19 +432,27 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
             stream = streamChatResponseFromGemini(currentChatHistory, thinkingMode, abortControllerRef.current.signal);
         }
 
-        const { fullResponse, responseModel } = await processStream(stream, tempModelMessage.id);
-        const finalHistory = [...currentChatHistory, { ...tempModelMessage, content: fullResponse, model: responseModel }];
+        const { fullResponse, responseModel, groundingMetadata } = await processStream(stream, tempModelMessage.id);
+        
+        // Construct the final message object with all metadata for saving
+        const finalModelMessage: ChatMessage = {
+            id: tempModelMessage.id,
+            role: 'model',
+            content: fullResponse,
+            model: responseModel,
+            groundingMetadata: groundingMetadata // Ensure this is saved
+        };
 
-        if (apiSource === 'gemini') {
-            countTokensForGemini(finalHistory).then(setTokenCount);
-        }
-
+        const finalMsgs = [...currentChatHistory, finalModelMessage];
+        
+        setChatHistory(finalMsgs);
+             
         if (isNewCase) {
             const newCase: Case = {
                 id: uuidv4(),
                 title: messageContent.substring(0, 50) + (messageContent.length > 50 ? '...' : ''),
                 summary: fullResponse.substring(0, 150) + (fullResponse.length > 150 ? '...' : ''),
-                chatHistory: finalHistory,
+                chatHistory: finalMsgs,
                 pinnedMessages: pinnedMessages,
                 createdAt: Date.now(),
                 status: 'جديدة',
@@ -440,12 +463,18 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
             const updatedCase = {
                 ...caseData,
                 summary: fullResponse.substring(0, 150) + (fullResponse.length > 150 ? '...' : ''),
-                chatHistory: finalHistory,
+                chatHistory: finalMsgs,
                 pinnedMessages: pinnedMessages,
             };
             await dbService.updateCase(updatedCase);
             setCaseData(updatedCase);
         }
+
+        if (apiSource === 'gemini') {
+             // Token counting is async, doesn't block
+             countTokensForGemini(finalMsgs).then(setTokenCount);
+        }
+
     } catch (error: any) {
         console.error(`Error during ${apiSource} streaming:`, error);
         let chatErrorMessage = 'حدث خطأ أثناء معالجة الطلب.';
@@ -628,6 +657,33 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
                                         </div>
                                     )}
                                     <div className="prose prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(marked.parse(msg.content || '...', { breaks: true }) as string) }}></div>
+                                    
+                                    {/* Render Grounding Sources if available */}
+                                    {msg.groundingMetadata?.groundingChunks && msg.groundingMetadata.groundingChunks.length > 0 && (
+                                        <div className="mt-4 pt-3 border-t border-gray-600/50">
+                                            <p className="text-xs text-gray-400 mb-2 font-semibold flex items-center">
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 me-1 text-blue-400" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" /></svg>
+                                                مصادر البحث (Grounding):
+                                            </p>
+                                            <div className="flex flex-wrap gap-2">
+                                                {msg.groundingMetadata.groundingChunks.map((chunk, idx) => (
+                                                    chunk.web && (
+                                                        <a 
+                                                            key={idx} 
+                                                            href={chunk.web.uri} 
+                                                            target="_blank" 
+                                                            rel="noopener noreferrer"
+                                                            className="text-xs bg-gray-800/50 hover:bg-gray-800 text-blue-300 px-2 py-1 rounded border border-gray-600/50 transition-colors flex items-center max-w-[200px]"
+                                                            title={chunk.web.title}
+                                                        >
+                                                            <span className="truncate">{chunk.web.title || chunk.web.uri}</span>
+                                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 ms-1 flex-shrink-0 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                                                        </a>
+                                                    )
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                                 {msg.role === 'model' && msg.model && !msg.isError && msg.content && (
                                     <div className="px-3 pt-1.5">

@@ -1,5 +1,6 @@
+
 import { GoogleGenAI, Content } from "@google/genai";
-import { ChatMessage } from '../types';
+import { ChatMessage, GroundingMetadata } from '../types';
 import * as dbService from '../services/dbService';
 
 const SYSTEM_INSTRUCTION_LEGAL = `أنت مساعد ذكاء اصطناعي خبير ومتخصص في القانون الفلسطيني. معرفتك تشمل جميع القوانين واللوائح والسوابق القضائية المعمول بها في فلسطين.
@@ -10,6 +11,7 @@ const SYSTEM_INSTRUCTION_LEGAL = `أنت مساعد ذكاء اصطناعي خب
 
 **قواعد صارمة:**
 - استند بشكل صارم وحصري على القانون الفلسطيني والوقائع المقدمة لك فقط.
+- استخدم أداة البحث (Google Search) المتاحة لك للتحقق من أرقام المواد القانونية وتواريخ الأحكام.
 - لا تقدم آراء شخصية أو معلومات قانونية من ولايات قضائية أخرى.
 - لا تفترض أي معلومات غير مذورة في تفاصيل القضية. إذا كانت معلومة ما ضرورية للتحليل ولكنها غير متوفرة، اذكر أنها غير موجودة بدلاً من افتراضها.
 - كن دقيقًا ومفصلًا وموضوعيًا في تحليلاتك.
@@ -218,18 +220,22 @@ export async function* streamChatResponseFromGemini(
   history: ChatMessage[],
   thinkingMode: boolean,
   signal: AbortSignal
-): AsyncGenerator<{ text: string; model: string }> {
+): AsyncGenerator<{ text: string; model: string; groundingMetadata?: GroundingMetadata }> {
   try {
     const ai = await getGoogleGenAI();
     const model = thinkingMode ? 'gemini-2.5-pro' : 'gemini-2.5-flash';
     
     const contents = chatHistoryToGeminiContents(history);
 
+    // Agentic capabilities: Enable Google Search Grounding
+    const tools = [{ googleSearch: {} }];
+
     const response = await ai.models.generateContentStream({
         model: model,
         contents: contents,
         config: {
-            systemInstruction: SYSTEM_INSTRUCTION_LEGAL
+            systemInstruction: SYSTEM_INSTRUCTION_LEGAL,
+            tools: tools,
         }
     });
 
@@ -238,8 +244,15 @@ export async function* streamChatResponseFromGemini(
             break;
         }
         const text = chunk.text;
-        if (text) {
-            yield { text, model };
+        
+        // Extract grounding metadata if available
+        let groundingMetadata: GroundingMetadata | undefined;
+        if (chunk.candidates && chunk.candidates[0]?.groundingMetadata) {
+            groundingMetadata = chunk.candidates[0].groundingMetadata as unknown as GroundingMetadata;
+        }
+
+        if (text || groundingMetadata) {
+            yield { text, model, groundingMetadata };
         }
     }
   } catch (error) {
