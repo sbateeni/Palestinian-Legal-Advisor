@@ -106,6 +106,11 @@ const SYSTEM_INSTRUCTION_LEGAL = `أنت مساعد ذكاء اصطناعي خب
 **ملاحظة أخيرة:**
 النجاح في القضاء لا يعتمد فقط على الجانب القانوني، بل أيضًا على المصداقية، الوضوح، واحترام الإجراءات. تجنب أي تصرف قد يُعتبر ازدراءً للمحكمة (مثل التأخير المتعمد أو عدم الاحترام في الخطاب).`;
 
+// Constants for Token Management
+const MAX_HISTORY_MESSAGES = 25; // Limit history to the last N messages to save context
+const MAX_OUTPUT_TOKENS_FLASH = 8192;
+const THINKING_BUDGET_PRO = 2048; // Conservative thinking budget for Pro
+
 async function getGoogleGenAI(): Promise<GoogleGenAI> {
     // This function ensures a new instance is created for each request.
     // It prioritizes a user-provided key from settings, falling back to the aistudio key.
@@ -115,22 +120,42 @@ async function getGoogleGenAI(): Promise<GoogleGenAI> {
 }
 
 // Helper to convert chat history for the API
+// OPTIMIZATION: Strips base64 image data from older messages to save massive amounts of tokens.
+// Only the most recent user message retains its images.
 function chatHistoryToGeminiContents(history: ChatMessage[]): Content[] {
-    return history.map(msg => {
+    // Manual implementation of findLastIndex for compatibility
+    let lastUserMessageIndex = -1;
+    for (let i = history.length - 1; i >= 0; i--) {
+        const msg = history[i];
+        if (msg.role === 'user' && msg.images && msg.images.length > 0) {
+            lastUserMessageIndex = i;
+            break;
+        }
+    }
+
+    return history.map((msg, index) => {
         const parts = [];
         if (msg.content) {
             parts.push({ text: msg.content });
         }
+        
+        // Only attach images if it's the *latest* message with images.
+        // Older images are stripped to save tokens, relying on the model's previous analysis in the history.
         if (msg.images && msg.images.length > 0) {
-            msg.images.forEach(image => {
-                const base64Data = image.dataUrl.split(',')[1];
-                parts.push({
-                    inlineData: {
-                        data: base64Data,
-                        mimeType: image.mimeType
-                    }
+            if (index === lastUserMessageIndex) {
+                msg.images.forEach(image => {
+                    const base64Data = image.dataUrl.split(',')[1];
+                    parts.push({
+                        inlineData: {
+                            data: base64Data,
+                            mimeType: image.mimeType
+                        }
+                    });
                 });
-            });
+            } else {
+                // Placeholder to indicate an image was there but removed for optimization
+                parts.push({ text: `[مرفق صورة سابق: تم تحليله مسبقاً لتوفير الموارد]` });
+            }
         }
         return { role: msg.role, parts: parts };
     });
@@ -142,9 +167,11 @@ export async function countTokensForGemini(history: ChatMessage[]): Promise<numb
     }
     try {
         const ai = await getGoogleGenAI();
-        const model = 'gemini-2.5-flash'; // Flash is sufficient and faster for token counting
+        const model = 'gemini-2.5-flash';
         
-        const contents = chatHistoryToGeminiContents(history);
+        // Use the optimized history for counting to get a realistic estimate of what will be sent
+        const historyToCount = history.slice(-MAX_HISTORY_MESSAGES);
+        const contents = chatHistoryToGeminiContents(historyToCount);
 
         const response = await ai.models.countTokens({
             model: model,
@@ -154,7 +181,6 @@ export async function countTokensForGemini(history: ChatMessage[]): Promise<numb
         return response.totalTokens;
     } catch (error) {
         console.error("Error counting tokens:", error);
-        // Don't throw, just return 0 so the app doesn't crash.
         return 0;
     }
 }
@@ -176,11 +202,10 @@ export async function proofreadTextWithGemini(textToProofread: string): Promise<
         });
 
         const correctedText = response.text;
-        console.log("Original vs Corrected:", { original: textToProofread, corrected: correctedText });
-        return correctedText;
+        // console.log("Original vs Corrected:", { original: textToProofread, corrected: correctedText });
+        return correctedText || textToProofread;
     } catch (error) {
         console.error("Error proofreading text with Gemini:", error);
-        // Fallback to original text if correction fails
         return textToProofread;
     }
 }
@@ -191,11 +216,14 @@ export async function summarizeChatHistory(history: ChatMessage[]): Promise<stri
     }
     try {
         const ai = await getGoogleGenAI();
-        const model = 'gemini-2.5-flash'; // Flash is sufficient for summarization
+        const model = 'gemini-2.5-flash'; 
 
-        const contents = chatHistoryToGeminiContents(history);
+        // For summarization, we can likely skip images entirely to save even more tokens
+        const contents = history.map(msg => ({
+            role: msg.role,
+            parts: [{ text: msg.content }]
+        }));
         
-        // Add a final instruction for summarization
         contents.push({
             role: 'user',
             parts: [{ text: 'بناءً على المحادثة السابقة بأكملها، قم بتقديم ملخص شامل وواضح. يجب أن يركز الملخص على النقاط القانونية الرئيسية، الوقائع الأساسية، الاستراتيجيات المقترحة، والاستنتاجات التي تم التوصل إليها حتى الآن. قدم الملخص في نقاط منظمة. يجب أن يكون ردك باللغة العربية فقط.' }]
@@ -209,7 +237,7 @@ export async function summarizeChatHistory(history: ChatMessage[]): Promise<stri
             }
         });
 
-        return response.text;
+        return response.text || "فشل في إنشاء الملخص.";
     } catch (error) {
         console.error("Error summarizing chat history:", error);
         throw new Error("فشل في تلخيص المحادثة.");
@@ -225,18 +253,33 @@ export async function* streamChatResponseFromGemini(
     const ai = await getGoogleGenAI();
     const model = thinkingMode ? 'gemini-2.5-pro' : 'gemini-2.5-flash';
     
-    const contents = chatHistoryToGeminiContents(history);
+    // OPTIMIZATION: Slice history to the last N messages to respect Token Limits (TPM) on free tier
+    // We always keep the system instruction (sent via config) implicitly.
+    const historyToSend = history.slice(-MAX_HISTORY_MESSAGES);
+    
+    const contents = chatHistoryToGeminiContents(historyToSend);
 
     // Agentic capabilities: Enable Google Search Grounding
     const tools = [{ googleSearch: {} }];
 
+    // Configure limits to prevent runaway token usage
+    const config: any = {
+        systemInstruction: SYSTEM_INSTRUCTION_LEGAL,
+        tools: tools,
+        maxOutputTokens: MAX_OUTPUT_TOKENS_FLASH,
+    };
+
+    // If thinking mode is enabled (Pro model), we must handle the budget
+    if (thinkingMode) {
+        config.thinkingConfig = { thinkingBudget: THINKING_BUDGET_PRO };
+        // When using thinking, maxOutputTokens MUST be greater than thinkingBudget
+        config.maxOutputTokens = Math.max(MAX_OUTPUT_TOKENS_FLASH, THINKING_BUDGET_PRO + 4000);
+    }
+
     const response = await ai.models.generateContentStream({
         model: model,
         contents: contents,
-        config: {
-            systemInstruction: SYSTEM_INSTRUCTION_LEGAL,
-            tools: tools,
-        }
+        config: config
     });
 
     for await (const chunk of response) {
@@ -245,7 +288,6 @@ export async function* streamChatResponseFromGemini(
         }
         const text = chunk.text;
         
-        // Extract grounding metadata if available
         let groundingMetadata: GroundingMetadata | undefined;
         if (chunk.candidates && chunk.candidates[0]?.groundingMetadata) {
             groundingMetadata = chunk.candidates[0].groundingMetadata as unknown as GroundingMetadata;
@@ -261,7 +303,6 @@ export async function* streamChatResponseFromGemini(
         return;
     }
     console.error("Error in Gemini chat stream:", error);
-    // Re-throw the error to be handled by the calling component
     throw error;
   }
 }
@@ -295,12 +336,15 @@ export async function analyzeImageWithGemini(
     const response = await ai.models.generateContent({
         model: model,
         contents: { parts: [imagePart, textPart] },
+        config: {
+             systemInstruction: "أنت محلل صور قانوني ومستندي. دورك هو استخراج المعلومات بدقة.",
+             maxOutputTokens: 4000, // Limit for single image analysis
+        }
     });
 
-    return response.text;
+    return response.text || "لم يتم إنشاء أي نص.";
   } catch (error) {
     console.error("Error analyzing image with Gemini:", error);
-    // Re-throw to be handled by the calling component
     throw error;
   }
 }
