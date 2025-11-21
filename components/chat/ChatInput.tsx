@@ -22,6 +22,7 @@ interface ChatInputProps {
     actionMode: ActionMode;
     setActionMode: (mode: ActionMode) => void;
     chatHistoryLength: number;
+    isApiKeyReady: boolean | null; // Added prop
 }
 
 const ChatInput: React.FC<ChatInputProps> = ({
@@ -40,10 +41,14 @@ const ChatInput: React.FC<ChatInputProps> = ({
     authError,
     actionMode,
     setActionMode,
-    chatHistoryLength
+    chatHistoryLength,
+    isApiKeyReady // Destructure prop
 }) => {
     const [isListening, setIsListening] = useState(false);
     const [recognition, setRecognition] = useState<any>(null);
+
+    // Derived state for disabling inputs
+    const isDisabled = isLoading || isProcessingFile || !isApiKeyReady;
 
     useEffect(() => {
         if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
@@ -61,7 +66,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
                     }
                 }
                 if (finalTranscript) {
-                    setUserInput((prev: string) => prev + (prev ? ' ' : '') + finalTranscript);
+                    setUserInput((prev: string) => prev.trim() + (prev.trim() ? ' ' : '') + finalTranscript);
                 }
             };
 
@@ -95,6 +100,21 @@ const ChatInput: React.FC<ChatInputProps> = ({
 
     return (
         <div className="p-4 border-t border-gray-700 bg-gray-800">
+            {/* API Key Warning */}
+            {!isApiKeyReady && (
+                <div className="mb-3 p-3 bg-yellow-600/20 border border-yellow-500/50 text-yellow-200 rounded-lg text-sm flex items-center justify-between">
+                    <div className="flex items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 me-2" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                        </svg>
+                        <span>وضع القراءة فقط: يجب إدخال مفتاح API لمتابعة المحادثة.</span>
+                    </div>
+                    <Link to="/settings" className="bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-1 rounded transition-colors text-xs font-bold">
+                        الإعدادات
+                    </Link>
+                </div>
+            )}
+
             {authError && (
                 <div className="mb-3 p-3 bg-red-500/20 border border-red-500/50 text-red-300 rounded-lg text-sm animate-pulse" role="alert">
                     <div className="flex items-start">
@@ -116,11 +136,11 @@ const ChatInput: React.FC<ChatInputProps> = ({
             <LegalToolbar
                 currentMode={actionMode}
                 onModeChange={setActionMode}
-                disabled={isLoading}
+                disabled={isDisabled}
             />
 
             {/* Suggested Prompts */}
-            {chatHistoryLength > 0 && !isLoading && (
+            {chatHistoryLength > 0 && !isDisabled && (
                 <div className="mb-3">
                     <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
                         <span className="text-sm text-gray-400 font-medium whitespace-nowrap">اقتراحات:</span>
@@ -162,15 +182,15 @@ const ChatInput: React.FC<ChatInputProps> = ({
             {/* Input Area */}
             <div className="flex items-center space-x-reverse space-x-2">
                 <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*,application/pdf" className="hidden" />
-                <button onClick={() => fileInputRef.current?.click()} disabled={isLoading || isProcessingFile} className="p-3 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 disabled:opacity-50 transition-colors flex-shrink-0" aria-label="إرفاق ملف" title="إرفاق صورة أو PDF">
+                <button onClick={() => fileInputRef.current?.click()} disabled={isDisabled} className="p-3 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 disabled:opacity-50 transition-colors flex-shrink-0" aria-label="إرفاق ملف" title="إرفاق صورة أو PDF">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>
                 </button>
                 
                 {/* Voice Dictation Button */}
                 <button
                     onClick={toggleListening}
-                    disabled={isLoading || isProcessingFile}
-                    className={`p-3 rounded-lg transition-colors flex-shrink-0 ${isListening ? 'bg-red-600 text-white animate-pulse' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}
+                    disabled={isDisabled}
+                    className={`p-3 rounded-lg transition-colors flex-shrink-0 ${isListening ? 'bg-red-600 text-white animate-pulse' : 'bg-gray-700 text-gray-300 hover:bg-gray-600 disabled:opacity-50'}`}
                     aria-label="إملاء صوتي"
                     title={isListening ? "جاري الاستماع... (انقر للإيقاف)" : "تحدث للكتابة"}
                 >
@@ -194,12 +214,13 @@ const ChatInput: React.FC<ChatInputProps> = ({
                         e.target.style.height = `${e.target.scrollHeight}px`;
                     }}
                     onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }}
-                    className={`flex-grow p-3 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 focus:ring-2 focus:outline-none resize-none transition-all duration-300 ${actionMode === 'loopholes' ? 'focus:ring-rose-500 placeholder-rose-300/30' :
+                    className={`flex-grow p-3 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 focus:ring-2 focus:outline-none resize-none transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed ${actionMode === 'loopholes' ? 'focus:ring-rose-500 placeholder-rose-300/30' :
                         actionMode === 'drafting' ? 'focus:ring-emerald-500 placeholder-emerald-300/30' :
                             actionMode === 'strategy' ? 'focus:ring-amber-500 placeholder-amber-300/30' :
                                 'focus:ring-blue-500'
                         }`}
                     placeholder={
+                        !isApiKeyReady ? "يرجى إدخال مفتاح API للمتابعة..." :
                         actionMode === 'loopholes' ? "أدخل تفاصيل القضية لكشف الثغرات ومهاجمة الأدلة..." :
                             actionMode === 'drafting' ? "أدخل الوقائع لصياغة وثيقة قانونية رسمية..." :
                                 actionMode === 'strategy' ? "اشرح الوضع للحصول على خطة فوز استراتيجية..." :
@@ -207,7 +228,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
                     }
                     rows={1}
                     style={{ maxHeight: '10rem' }}
-                    disabled={isLoading || isProcessingFile}
+                    disabled={isDisabled}
                 />
                 {isLoading ? (
                     <button onClick={handleStopGenerating} className="p-3 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition-colors flex-shrink-0" aria-label="إيقاف الإنشاء">
@@ -218,7 +239,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
                 ) : (
                     <button
                         onClick={() => handleSendMessage()}
-                        disabled={isProcessingFile || (!userInput.trim() && !uploadedImage)}
+                        disabled={isProcessingFile || (!userInput.trim() && !uploadedImage) || !isApiKeyReady}
                         className={`p-3 text-white font-semibold rounded-lg disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors flex-shrink-0 ${actionMode === 'loopholes' ? 'bg-rose-600 hover:bg-rose-700' :
                             actionMode === 'drafting' ? 'bg-emerald-600 hover:bg-emerald-700' :
                                 actionMode === 'strategy' ? 'bg-amber-600 hover:bg-amber-700' :

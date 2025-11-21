@@ -56,7 +56,11 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
         );
     }
 
-    if (!isApiKeyReady) {
+    // Only block access if there is NO API key AND it's a completely new case (no history)
+    // This allows users to view saved cases even if the key is invalid/missing
+    const isNewCaseWithoutKey = !isApiKeyReady && chatHistory.length === 0;
+
+    if (isNewCaseWithoutKey) {
         const isGemini = apiSource === 'gemini';
         return (
             <div className="w-full flex-grow flex flex-col items-center justify-center text-center p-4">
@@ -131,6 +135,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
                 actionMode={actionMode}
                 setActionMode={setActionMode}
                 chatHistoryLength={chatHistory.length}
+                isApiKeyReady={isApiKeyReady}
             />
         </div>
     );
