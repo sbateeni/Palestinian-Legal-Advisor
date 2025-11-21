@@ -47,15 +47,29 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
         handleUnpinMessage
     } = useChatLogic(caseId);
 
-    // Determine if we are in a "loading" state where we shouldn't show errors yet
-    // If it's an existing case (caseId exists) but we haven't loaded data yet, show spinner
-    const isCaseLoading = !!caseId && !caseData;
+    // CRITICAL FIX: Determine loading state correctly.
+    // If we have a caseId, but no data yet, AND the hook says it's still loading, then show spinner.
+    // If hook says NOT loading, and we still have no data, it means case not found.
+    const isInitializing = !!caseId && !caseData && isLoading;
+    const isCaseNotFound = !!caseId && !caseData && !isLoading;
 
-    if (isCaseLoading) {
+    if (isInitializing) {
         return (
             <div className="w-full flex-grow flex items-center justify-center p-8 text-lg">
                 <svg className="animate-spin h-6 w-6 text-white me-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                <span>جاري تحميل القضية...</span>
+                <span>جاري استرجاع بيانات القضية...</span>
+            </div>
+        );
+    }
+
+    if (isCaseNotFound) {
+        return (
+            <div className="w-full flex-grow flex flex-col items-center justify-center text-center p-4">
+                <h2 className="text-2xl font-bold mb-4 text-red-400">عذراً، لم يتم العثور على القضية</h2>
+                <p className="text-gray-400 mb-6">ربما تم حذفها أو أن الرابط غير صحيح.</p>
+                <button onClick={() => navigate('/cases')} className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                    العودة للقضايا
+                </button>
             </div>
         );
     }

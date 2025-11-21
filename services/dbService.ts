@@ -2,8 +2,8 @@
 import { Case, ApiSource } from '../types';
 
 const DB_NAME = 'PalestinianLawAdvisorDB';
-// Bumping version to 2 forces a schema upgrade/reset on client browsers
-const DB_VERSION = 2; 
+// Bumping version to 3 forces a clean wipe of old/corrupted data
+const DB_VERSION = 3; 
 const CASES_STORE_NAME = 'cases';
 const SETTINGS_STORE_NAME = 'settings';
 
@@ -30,7 +30,7 @@ function getDB(): Promise<IDBDatabase> {
       const db = (event.target as IDBOpenDBRequest).result;
       
       // CLEAN SLATE PROTOCOL:
-      // If stores exist from a previous buggy version, delete them to prevent schema mismatch crashes.
+      // Delete existing stores to prevent schema corruption or stale data
       if (db.objectStoreNames.contains(CASES_STORE_NAME)) {
           db.deleteObjectStore(CASES_STORE_NAME);
       }
@@ -42,7 +42,7 @@ function getDB(): Promise<IDBDatabase> {
       const caseStore = db.createObjectStore(CASES_STORE_NAME, { keyPath: 'id' });
       caseStore.createIndex('createdAt', 'createdAt', { unique: false });
       caseStore.createIndex('title', 'title', { unique: false });
-      caseStore.createIndex('caseType', 'caseType', { unique: false }); // New Index for filtering
+      caseStore.createIndex('caseType', 'caseType', { unique: false });
 
       const settingsStore = db.createObjectStore(SETTINGS_STORE_NAME, { keyPath: 'key' });
     };
@@ -87,7 +87,6 @@ export async function getSetting<T>(key: string): Promise<T | null> {
         const result = await performTransaction<Setting>(SETTINGS_STORE_NAME, 'readonly', store => store.get(key));
         return result ? result.value : null;
     } catch (e) {
-        // Return null if setting doesn't exist yet
         return null;
     }
 }

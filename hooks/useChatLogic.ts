@@ -43,6 +43,7 @@ export const useChatLogic = (caseId?: string) => {
     
     const isNewCase = !caseId;
 
+    // Data Loading Effect
     useEffect(() => {
         const loadData = async () => {
             setIsLoading(true); 
@@ -88,17 +89,22 @@ export const useChatLogic = (caseId?: string) => {
                 }
 
                 if (!isNewCase) {
-                    const loadedCase = await dbService.getCase(caseId);
-                    if (loadedCase) {
-                        setCaseData(loadedCase);
-                        setChatHistory(loadedCase.chatHistory);
-                        setPinnedMessages(loadedCase.pinnedMessages || []);
-                        if (storedApiSource !== 'openrouter') {
-                            countTokensForGemini(loadedCase.chatHistory).then(setTokenCount);
+                    // Try to load case
+                    try {
+                        const loadedCase = await dbService.getCase(caseId);
+                        if (loadedCase) {
+                            setCaseData(loadedCase);
+                            setChatHistory(loadedCase.chatHistory);
+                            setPinnedMessages(loadedCase.pinnedMessages || []);
+                            if (storedApiSource !== 'openrouter') {
+                                countTokensForGemini(loadedCase.chatHistory).then(setTokenCount);
+                            }
+                        } else {
+                            console.warn("Case not found in DB", caseId);
+                            // Important: Don't set partial state if not found
                         }
-                    } else {
-                        // Case not found (maybe deleted or bad ID)
-                        console.warn("Case not found in DB");
+                    } catch (dbError) {
+                        console.error("DB Read Error:", dbError);
                     }
                 } else {
                     setChatHistory([]);
@@ -374,7 +380,6 @@ export const useChatLogic = (caseId?: string) => {
             const initialTitle = messageContent.substring(0, 50) + (messageContent.length > 50 ? '...' : '') || 'قضية جديدة';
             const initialSummary = messageContent.substring(0, 150) + (messageContent.length > 150 ? '...' : '');
 
-            // We save the history WITH the empty model message so the user sees something loading if they reload
             if (isNewCase) {
                 const newCase: Case = {
                     id: targetCaseId,
@@ -384,10 +389,13 @@ export const useChatLogic = (caseId?: string) => {
                     pinnedMessages: [],
                     createdAt: Date.now(),
                     status: 'جديدة',
-                    caseType: 'chat' // Default type
+                    caseType: 'chat'
                 };
+                
+                // Crucial: Await the save fully before continuing
                 await dbService.addCase(newCase);
                 currentCaseData = newCase;
+                setCaseData(newCase); // Update local state immediately so we don't depend on fetch
             } else if (caseData) {
                 const updatedCase = {
                     ...caseData,
@@ -395,11 +403,12 @@ export const useChatLogic = (caseId?: string) => {
                 };
                 await dbService.updateCase(updatedCase);
                 currentCaseData = updatedCase;
+                setCaseData(updatedCase);
             }
         } catch (saveError) {
             console.error("Failed to save initial case state:", saveError);
             setIsLoading(false);
-            return;
+            return; // Stop if we can't save
         }
 
         // --- API CALL ---
@@ -479,6 +488,7 @@ export const useChatLogic = (caseId?: string) => {
                     await dbService.updateCase(finalCaseUpdate);
                     setCaseData(finalCaseUpdate);
 
+                    // Navigate ONLY after everything is done and saved
                     if (isNewCase) {
                         navigate(`/case/${targetCaseId}`, { replace: true });
                     }
