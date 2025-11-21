@@ -313,7 +313,8 @@ export async function* streamChatResponseFromGemini(
 ): AsyncGenerator<{ text: string; model: string; groundingMetadata?: GroundingMetadata }> {
   try {
     const ai = await getGoogleGenAI();
-    const model = thinkingMode ? 'gemini-2.5-pro' : 'gemini-2.5-flash';
+    // Use gemini-2.5-flash for basic tasks, and gemini-3-pro-preview for complex/thinking tasks
+    const model = thinkingMode ? 'gemini-3-pro-preview' : 'gemini-2.5-flash';
     const systemInstruction = getInstruction(actionMode, region);
     const historyToSend = history.slice(-MAX_HISTORY_MESSAGES);
     const contents = chatHistoryToGeminiContents(historyToSend);
@@ -382,7 +383,8 @@ export async function analyzeImageWithGemini(
 export async function extractInheritanceFromCase(caseText: string): Promise<Partial<InheritanceInput>> {
     try {
         const ai = await getGoogleGenAI();
-        const model = 'gemini-2.5-flash';
+        // Inheritance extraction is a complex task, prefer Pro model for accuracy
+        const model = 'gemini-3-pro-preview';
 
         const prompt = `
             أنت مساعد قانوني ذكي متخصص في قضايا الميراث وتوزيع التركات.
