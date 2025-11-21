@@ -18,7 +18,10 @@ const App: React.FC = () => {
         <main className="flex-grow container mx-auto flex flex-col overflow-y-auto">
           <Routes>
             <Route path="/" element={<ChatPage key="new-case" />} />
-            <Route path="/sharia" element={<ShariaPage key="new-sharia" />} /> {/* New Route */}
+            <Route path="/sharia" element={<ShariaPage key="new-sharia" />} />
+            {/* New Route for existing Sharia cases */}
+            <Route path="/sharia/:caseId" element={<ShariaPageWrapper />} />
+            
             <Route path="/case" element={<Navigate to="/" replace />} />
             <Route path="/case/:caseId" element={<ChatPageWrapper />} />
             <Route path="/cases" element={<CasesListPage />} />
@@ -33,12 +36,16 @@ const App: React.FC = () => {
   );
 };
 
-// Wrapper to pass caseId as a key, forcing re-mount when navigating between cases
+// Wrapper to pass caseId as a key for Civil Cases
 const ChatPageWrapper: React.FC = () => {
     const { caseId } = useParams<{ caseId: string }>();
-    // We could potentially detect if it's a Sharia case here and render ShariaPage
-    // But for now, let's keep standard view for history, or use caseType check inside ChatPage
     return <ChatPage key={caseId} caseId={caseId} />;
+};
+
+// Wrapper to pass caseId as a key for Sharia Cases
+const ShariaPageWrapper: React.FC = () => {
+    const { caseId } = useParams<{ caseId: string }>();
+    return <ShariaPage key={caseId} caseId={caseId} />;
 };
 
 

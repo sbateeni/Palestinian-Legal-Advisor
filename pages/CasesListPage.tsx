@@ -35,6 +35,8 @@ const CasesListPage: React.FC = () => {
         const caseItem = cases.find(c => c.id === id);
         if (caseItem?.caseType === 'inheritance') {
             navigate(`/inheritance?caseId=${id}`);
+        } else if (caseItem?.caseType === 'sharia') {
+            navigate(`/sharia/${id}`);
         } else {
             navigate(`/case/${id}`);
         }

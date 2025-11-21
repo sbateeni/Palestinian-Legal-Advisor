@@ -14,7 +14,8 @@ interface ShariaPageProps {
 
 const ShariaPage: React.FC<ShariaPageProps> = ({ caseId }) => {
     const navigate = useNavigate();
-    const logic = useChatLogic(caseId);
+    // Pass 'sharia' as the intended case type
+    const logic = useChatLogic(caseId, 'sharia');
     
     // Set default mode to sharia_advisor when mounting this page
     useEffect(() => {

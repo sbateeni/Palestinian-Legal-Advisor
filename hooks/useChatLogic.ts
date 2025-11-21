@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { v4 as uuidv4 } from 'uuid';
-import { Case, ChatMessage, ApiSource, OpenRouterModel, GroundingMetadata, ActionMode, LegalRegion } from '../types';
+import { Case, ChatMessage, ApiSource, OpenRouterModel, GroundingMetadata, ActionMode, LegalRegion, CaseType } from '../types';
 import * as dbService from '../services/dbService';
 import { streamChatResponseFromGemini, countTokensForGemini, proofreadTextWithGemini, summarizeChatHistory } from '../pages/geminiService';
 import { streamChatResponseFromOpenRouter } from '../services/openRouterService';
@@ -13,7 +13,7 @@ import Tesseract from 'tesseract.js';
 // Configure worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://aistudiocdn.com/pdfjs-dist@5.4.394/build/pdf.worker.js';
 
-export const useChatLogic = (caseId?: string) => {
+export const useChatLogic = (caseId?: string, initialCaseType: CaseType = 'chat') => {
     const navigate = useNavigate();
     // Initialize loading to true if we are loading a specific case
     const [isLoading, setIsLoading] = useState(!!caseId);
@@ -417,7 +417,7 @@ export const useChatLogic = (caseId?: string) => {
                     pinnedMessages: [],
                     createdAt: Date.now(),
                     status: 'جديدة',
-                    caseType: 'chat'
+                    caseType: initialCaseType // Use the passed type (sharia or chat)
                 };
                 
                 await dbService.addCase(newCase);
@@ -516,9 +516,10 @@ export const useChatLogic = (caseId?: string) => {
                     setCaseData(finalCaseUpdate);
 
                     // Navigate ONLY if it was a new case and we successfully completed the cycle
-                    // We use replace: true to avoid back-button looping
+                    // Determine correct route based on caseType
                     if (isNewCase) {
-                        navigate(`/case/${targetCaseId}`, { replace: true });
+                        const routePrefix = initialCaseType === 'sharia' ? '/sharia' : '/case';
+                        navigate(`${routePrefix}/${targetCaseId}`, { replace: true });
                     }
                 }
             } catch (dbError) {

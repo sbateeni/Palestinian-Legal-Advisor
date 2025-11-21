@@ -36,17 +36,17 @@ const CaseGridItem: React.FC<CaseGridItemProps> = ({
     onNavigate,
     statusMenuRef
 }) => {
-    const isInheritance = caseItem.caseType === 'inheritance';
+    const isIslamic = caseItem.caseType === 'inheritance' || caseItem.caseType === 'sharia';
     // Safe fallback for status style
     const statusStyle = STATUS_MAP[caseItem.status] || { label: caseItem.status || 'غير محدد', color: 'bg-gray-500' };
     const isYellow = statusStyle.color.includes('yellow');
     
     return (
-        <div className={`rounded-lg shadow-lg p-5 flex flex-col justify-between transition-all duration-300 hover:scale-[1.02] ${isInheritance ? 'bg-gray-800 border-b-4 border-emerald-600 hover:shadow-emerald-500/20' : 'bg-gray-800 border-b-4 border-blue-600 hover:shadow-blue-500/20'}`}>
+        <div className={`rounded-lg shadow-lg p-5 flex flex-col justify-between transition-all duration-300 hover:scale-[1.02] ${isIslamic ? 'bg-gray-800 border-b-4 border-emerald-600 hover:shadow-emerald-500/20' : 'bg-gray-800 border-b-4 border-blue-600 hover:shadow-blue-500/20'}`}>
             <div>
                 <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center gap-2 w-full">
-                        {isInheritance ? (
+                        {isIslamic ? (
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-emerald-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
                         ) : (
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-blue-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3" /></svg>
@@ -72,7 +72,7 @@ const CaseGridItem: React.FC<CaseGridItemProps> = ({
                         {editingCaseId === caseItem.id ? (
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
                         ) : (
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.5L15.232 5.232z" /></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.5L15.232 5.232z" /></svg>
                         )}
                     </button>
                 </div>
@@ -107,10 +107,10 @@ const CaseGridItem: React.FC<CaseGridItemProps> = ({
                 </p>
             </div>
             <div className="flex justify-between items-center mt-2">
-                {isInheritance ? (
+                {isIslamic ? (
                      <button onClick={() => onNavigate(caseItem.id)} className="px-4 py-2 bg-emerald-600 text-white text-sm font-semibold rounded-md hover:bg-emerald-700 transition-colors flex items-center">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 me-2" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" /></svg>
-                        فتح الحاسبة
+                        فتح
                     </button>
                 ) : (
                     <button onClick={() => onNavigate(caseItem.id)} className="px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-md hover:bg-blue-700 transition-colors">

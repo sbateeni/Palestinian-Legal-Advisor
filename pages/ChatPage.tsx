@@ -46,7 +46,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
         handleFileChange,
         handlePinMessage,
         handleUnpinMessage
-    } = useChatLogic(caseId);
+    } = useChatLogic(caseId, 'chat');
 
     // 1. Loading State: Show spinner if fetching existing case
     if (isLoading && !caseData && caseId) {
