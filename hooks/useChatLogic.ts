@@ -15,10 +15,13 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://aistudiocdn.com/pdfjs-dist@5.4
 
 export const useChatLogic = (caseId?: string) => {
     const navigate = useNavigate();
+    // Initialize loading to true if we are loading a specific case
+    const [isLoading, setIsLoading] = useState(!!caseId);
+    const [isNotFound, setIsNotFound] = useState(false);
+    
     const [caseData, setCaseData] = useState<Case | null>(null);
     const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
     const [userInput, setUserInput] = useState('');
-    const [isLoading, setIsLoading] = useState(false);
     const [isApiKeyReady, setIsApiKeyReady] = useState<boolean | null>(null);
     const [apiSource, setApiSource] = useState<ApiSource>('gemini');
     const [region, setRegion] = useState<LegalRegion>('westbank'); 
@@ -46,8 +49,16 @@ export const useChatLogic = (caseId?: string) => {
     // Data Loading Effect
     useEffect(() => {
         const loadData = async () => {
-            setIsLoading(true); 
+            if (!caseId) {
+                setIsLoading(false);
+                return;
+            }
+
+            setIsLoading(true);
+            setIsNotFound(false);
+            
             try {
+                // Settings Loading
                 const storedApiSource = await dbService.getSetting<ApiSource>('apiSource');
                 if (storedApiSource) setApiSource(storedApiSource);
 
@@ -88,28 +99,23 @@ export const useChatLogic = (caseId?: string) => {
                     setIsApiKeyReady(hasStoredKey || hasEnvKey || hasAiStudioKey);
                 }
 
-                if (!isNewCase) {
-                    // Try to load case
-                    try {
-                        const loadedCase = await dbService.getCase(caseId);
-                        if (loadedCase) {
-                            setCaseData(loadedCase);
-                            setChatHistory(loadedCase.chatHistory);
-                            setPinnedMessages(loadedCase.pinnedMessages || []);
-                            if (storedApiSource !== 'openrouter') {
-                                countTokensForGemini(loadedCase.chatHistory).then(setTokenCount);
-                            }
-                        } else {
-                            console.warn("Case not found in DB", caseId);
-                            // Important: Don't set partial state if not found
+                // Case Loading
+                try {
+                    const loadedCase = await dbService.getCase(caseId);
+                    if (loadedCase) {
+                        setCaseData(loadedCase);
+                        setChatHistory(loadedCase.chatHistory || []);
+                        setPinnedMessages(loadedCase.pinnedMessages || []);
+                        if (storedApiSource !== 'openrouter') {
+                            countTokensForGemini(loadedCase.chatHistory).then(setTokenCount);
                         }
-                    } catch (dbError) {
-                        console.error("DB Read Error:", dbError);
+                    } else {
+                        console.warn("Case not found in DB", caseId);
+                        setIsNotFound(true);
                     }
-                } else {
-                    setChatHistory([]);
-                    setPinnedMessages([]);
-                    setTokenCount(0);
+                } catch (dbError) {
+                    console.error("DB Read Error:", dbError);
+                    setIsNotFound(true);
                 }
             } catch (error) {
                 console.error("Failed to load initial data:", error);
@@ -118,11 +124,31 @@ export const useChatLogic = (caseId?: string) => {
             }
         };
         loadData();
-    }, [caseId, isNewCase, navigate]);
+    }, [caseId]); // Only re-run if caseId changes
 
     useEffect(() => {
         chatContainerRef.current?.scrollTo(0, chatContainerRef.current.scrollHeight);
     }, [chatHistory]);
+
+    // Helper to ensure API key check on new case creation without ID
+    useEffect(() => {
+        if (isNewCase) {
+            const checkKeys = async () => {
+                const storedApiSource = await dbService.getSetting<ApiSource>('apiSource') || 'gemini';
+                if (storedApiSource === 'gemini') {
+                    const storedGeminiKey = await dbService.getSetting<string>('geminiApiKey');
+                    const hasEnvKey = !!process.env.API_KEY;
+                    let hasAiStudioKey = false;
+                    try { if (window.aistudio) hasAiStudioKey = await window.aistudio.hasSelectedApiKey(); } catch {}
+                    setIsApiKeyReady(!!storedGeminiKey || hasEnvKey || hasAiStudioKey);
+                } else {
+                    const storedOpenRouterKey = await dbService.getSetting<string>('openRouterApiKey');
+                    setIsApiKeyReady(!!storedOpenRouterKey);
+                }
+            }
+            checkKeys();
+        }
+    }, [isNewCase]);
 
     const handleSelectApiKey = async () => {
         if (apiSource === 'gemini' && window.aistudio && typeof window.aistudio.openSelectKey === 'function') {
@@ -380,6 +406,8 @@ export const useChatLogic = (caseId?: string) => {
             const initialTitle = messageContent.substring(0, 50) + (messageContent.length > 50 ? '...' : '') || 'قضية جديدة';
             const initialSummary = messageContent.substring(0, 150) + (messageContent.length > 150 ? '...' : '');
 
+            // We create the case object representing the state *before* the AI answers
+            // This ensures if the browser crashes, the user query is saved.
             if (isNewCase) {
                 const newCase: Case = {
                     id: targetCaseId,
@@ -392,10 +420,9 @@ export const useChatLogic = (caseId?: string) => {
                     caseType: 'chat'
                 };
                 
-                // Crucial: Await the save fully before continuing
                 await dbService.addCase(newCase);
                 currentCaseData = newCase;
-                setCaseData(newCase); // Update local state immediately so we don't depend on fetch
+                setCaseData(newCase);
             } else if (caseData) {
                 const updatedCase = {
                     ...caseData,
@@ -408,7 +435,7 @@ export const useChatLogic = (caseId?: string) => {
         } catch (saveError) {
             console.error("Failed to save initial case state:", saveError);
             setIsLoading(false);
-            return; // Stop if we can't save
+            return; 
         }
 
         // --- API CALL ---
@@ -488,7 +515,8 @@ export const useChatLogic = (caseId?: string) => {
                     await dbService.updateCase(finalCaseUpdate);
                     setCaseData(finalCaseUpdate);
 
-                    // Navigate ONLY after everything is done and saved
+                    // Navigate ONLY if it was a new case and we successfully completed the cycle
+                    // We use replace: true to avoid back-button looping
                     if (isNewCase) {
                         navigate(`/case/${targetCaseId}`, { replace: true });
                     }
@@ -514,6 +542,7 @@ export const useChatLogic = (caseId?: string) => {
         userInput,
         setUserInput,
         isLoading,
+        isNotFound, // Return explicit not found state
         isApiKeyReady,
         apiSource,
         thinkingMode,

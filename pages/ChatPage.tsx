@@ -19,6 +19,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
         userInput,
         setUserInput,
         isLoading,
+        isNotFound, // Use explicit not found state
         isApiKeyReady,
         apiSource,
         thinkingMode,
@@ -47,13 +48,8 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
         handleUnpinMessage
     } = useChatLogic(caseId);
 
-    // CRITICAL FIX: Determine loading state correctly.
-    // If we have a caseId, but no data yet, AND the hook says it's still loading, then show spinner.
-    // If hook says NOT loading, and we still have no data, it means case not found.
-    const isInitializing = !!caseId && !caseData && isLoading;
-    const isCaseNotFound = !!caseId && !caseData && !isLoading;
-
-    if (isInitializing) {
+    // 1. Loading State: Show spinner if fetching existing case
+    if (isLoading && !caseData && caseId) {
         return (
             <div className="w-full flex-grow flex items-center justify-center p-8 text-lg">
                 <svg className="animate-spin h-6 w-6 text-white me-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
@@ -62,7 +58,8 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
         );
     }
 
-    if (isCaseNotFound) {
+    // 2. Not Found State
+    if (isNotFound) {
         return (
             <div className="w-full flex-grow flex flex-col items-center justify-center text-center p-4">
                 <h2 className="text-2xl font-bold mb-4 text-red-400">عذراً، لم يتم العثور على القضية</h2>
@@ -74,11 +71,9 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
         );
     }
 
-    // Only block access if:
-    // 1. API Key check has finished (isApiKeyReady is not null)
-    // 2. API Key is NOT ready
-    // 3. It is a NEW case (no history to show)
-    // This allows viewing existing cases even without a key
+    // 3. New Case / API Key Check
+    // Only show "API Key Required" screen if it's a NEW case (empty history) and we have no key.
+    // If it's an existing case, we show the history (Read-Only mode handled in ChatInput).
     const isNewCaseWithoutKey = isApiKeyReady === false && chatHistory.length === 0;
 
     if (isNewCaseWithoutKey) {
