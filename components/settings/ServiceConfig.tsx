@@ -47,7 +47,19 @@ const ServiceConfig: React.FC<ServiceConfigProps> = ({
                     <h3 className="text-xl font-semibold text-gray-200 mb-2">إعدادات Google Gemini</h3>
                     <p className="text-sm text-gray-400 mb-3">يمكنك إما استخدام نافذة Google AI Studio المنبثقة (إذا كانت متاحة) أو إدخال مفتاح API الخاص بك يدويًا هنا.</p>
                     <div className="mb-4">
-                        <label htmlFor="gemini-api-key" className="block text-lg font-medium text-gray-200 mb-2">Google Gemini API Key</label>
+                        <div className="flex justify-between items-end mb-2">
+                            <label htmlFor="gemini-api-key" className="block text-lg font-medium text-gray-200">Google Gemini API Key</label>
+                            <a 
+                                href="https://aistudio.google.com/app/apikey" 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="px-3 py-1 text-xs font-medium bg-blue-900/30 text-blue-300 border border-blue-500/30 rounded hover:bg-blue-900/50 hover:text-blue-200 transition-colors flex items-center shadow-sm"
+                            >
+                                <span className="me-1">🔑</span>
+                                <span>احصل على المفتاح من هنا</span>
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 ms-1 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                            </a>
+                        </div>
                         <input type="password" id="gemini-api-key" value={geminiInputValue} onChange={(e) => setGeminiInputValue(e.target.value)} className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="أدخل مفتاح Gemini API هنا..." />
                     </div>
                     <div className="flex items-center justify-end">
@@ -61,7 +73,19 @@ const ServiceConfig: React.FC<ServiceConfigProps> = ({
                 <div className="border-t border-gray-700 pt-6">
                     <h3 className="text-xl font-semibold text-gray-200 mb-2">إعدادات OpenRouter</h3>
                     <div className="mb-6">
-                        <label htmlFor="openrouter-api-key" className="block text-lg font-medium text-gray-200 mb-2">OpenRouter API Key</label>
+                        <div className="flex justify-between items-end mb-2">
+                             <label htmlFor="openrouter-api-key" className="block text-lg font-medium text-gray-200">OpenRouter API Key</label>
+                             <a 
+                                href="https://openrouter.ai/keys" 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="px-3 py-1 text-xs font-medium bg-indigo-900/30 text-indigo-300 border border-indigo-500/30 rounded hover:bg-indigo-900/50 hover:text-indigo-200 transition-colors flex items-center shadow-sm"
+                            >
+                                <span className="me-1">🔑</span>
+                                <span>احصل على المفتاح</span>
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 ms-1 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                            </a>
+                        </div>
                         <input type="password" id="openrouter-api-key" value={openRouterInputValue} onChange={(e) => setOpenRouterInputValue(e.target.value)} className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="sk-or-..." />
                     </div>
                     <div className="flex items-center justify-end mb-6">
