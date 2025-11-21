@@ -117,65 +117,93 @@ const InheritancePage: React.FC = () => {
                 </div>
 
                 {/* Results Section */}
-                <div className="lg:col-span-2 bg-gray-800 rounded-xl shadow-lg p-6 flex flex-col">
-                    <h3 className="text-xl font-bold text-gray-100 mb-6 flex items-center justify-between">
-                        <span>نتائج القسمة الشرعية/القانونية</span>
-                        {results && <span className="text-sm font-normal text-gray-400 bg-gray-700 px-3 py-1 rounded-full">إجمالي التركة: {results.totalValue.toLocaleString()} {inputs.currency}</span>}
-                    </h3>
+                <div className="lg:col-span-2 space-y-6">
+                    <div className="bg-gray-800 rounded-xl shadow-lg p-6 flex flex-col">
+                        <h3 className="text-xl font-bold text-gray-100 mb-6 flex items-center justify-between">
+                            <span>نتائج القسمة الشرعية/القانونية</span>
+                            {results && <span className="text-sm font-normal text-gray-400 bg-gray-700 px-3 py-1 rounded-full">إجمالي التركة: {results.totalValue.toLocaleString()} {inputs.currency}</span>}
+                        </h3>
 
-                    {!results ? (
-                        <div className="flex-grow flex flex-col items-center justify-center text-gray-500 min-h-[300px]">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mb-4 opacity-20" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
-                            <p>أدخل البيانات واضغط "احسب" لعرض الجدول</p>
-                        </div>
-                    ) : (
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-right border-collapse">
-                                <thead>
-                                    <tr className="bg-gray-700 text-gray-300">
-                                        <th className="p-3 rounded-tr-lg">الوارث</th>
-                                        <th className="p-3">العدد</th>
-                                        <th className="p-3">الفرض/السهم</th>
-                                        <th className="p-3">النسبة (%)</th>
-                                        <th className="p-3 rounded-tl-lg">القيمة ({inputs.currency})</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-700">
-                                    {results.heirs.map((heir, idx) => (
-                                        <tr key={idx} className="hover:bg-gray-700/30 transition-colors">
-                                            <td className="p-3 font-medium text-blue-200">
-                                                {heir.type}
-                                                {heir.notes && <span className="block text-[10px] text-gray-500">{heir.notes}</span>}
-                                            </td>
-                                            <td className="p-3 text-gray-300">{heir.count}</td>
-                                            <td className="p-3 text-amber-400 font-mono dir-ltr text-end">{heir.shareFraction}</td>
-                                            <td className="p-3 text-gray-300">{heir.sharePercentage.toFixed(2)}%</td>
-                                            <td className="p-3 font-bold text-emerald-400">{heir.amount.toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
+                        {!results ? (
+                            <div className="flex-grow flex flex-col items-center justify-center text-gray-500 min-h-[300px]">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mb-4 opacity-20" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+                                <p>أدخل البيانات واضغط "احسب" لعرض الجدول</p>
+                            </div>
+                        ) : (
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-right border-collapse">
+                                    <thead>
+                                        <tr className="bg-gray-700 text-gray-300">
+                                            <th className="p-3 rounded-tr-lg">اسم الوريث</th>
+                                            <th className="p-3">الصفة الشرعية</th>
+                                            <th className="p-3">الحصة (الفرض)</th>
+                                            <th className="p-3 rounded-tl-lg">المبلغ ({inputs.currency})</th>
                                         </tr>
-                                    ))}
-                                    {results.heirs.length === 0 && (
-                                        <tr><td colSpan={5} className="p-4 text-center text-gray-500">لا يوجد ورثة مستحقين وفقاً للبيانات المدخلة</td></tr>
-                                    )}
-                                </tbody>
-                                <tfoot className="border-t-2 border-gray-600">
-                                    <tr>
-                                        <td colSpan={4} className="p-3 font-bold text-gray-200">المجموع الموزع</td>
-                                        <td className="p-3 font-bold text-emerald-400">
-                                            {results.heirs.reduce((acc, h) => acc + h.amount, 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}
-                                        </td>
-                                    </tr>
-                                </tfoot>
-                            </table>
-                            {inputs.religion === 'muslim' && (
-                                <p className="mt-4 text-xs text-gray-500 bg-gray-900/30 p-2 rounded border border-gray-700">
-                                    * تنبيه: هذه الحسابات تقديرية وفق المذهب السني المعمول به غالباً في المحاكم الشرعية الفلسطينية. قد توجد حالات خاصة (العول، الرد، الوصية الواجبة) تتطلب تدقيقاً من قاضٍ شرعي.
-                                </p>
-                            )}
-                             {inputs.religion === 'christian' && (
-                                <p className="mt-4 text-xs text-gray-500 bg-gray-900/30 p-2 rounded border border-gray-700">
-                                    * تنبيه: تم تطبيق مبدأ المساواة المدنية أو التوزيع الشائع. قوانين الطوائف المسيحية في فلسطين قد تختلف حسب الكنيسة (لاتين، روم أرثوذكس، إلخ). يرجى مراجعة المحكمة الكنسية المختصة.
-                                </p>
-                            )}
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-700">
+                                        {results.heirs.map((heir, idx) => (
+                                            <tr key={idx} className="hover:bg-gray-700/30 transition-colors">
+                                                <td className="p-3 text-white font-medium">
+                                                    {heir.name || '-'}
+                                                </td>
+                                                <td className="p-3 font-medium text-blue-200">
+                                                    {heir.type} <span className="text-gray-500 text-xs">({heir.count})</span>
+                                                    {heir.notes && <span className="block text-[10px] text-gray-500">{heir.notes}</span>}
+                                                </td>
+                                                <td className="p-3 text-amber-400 font-mono dir-ltr text-end">
+                                                    {heir.shareFraction} 
+                                                    <span className="text-gray-500 text-xs ms-2">({heir.sharePercentage.toFixed(2)}%)</span>
+                                                </td>
+                                                <td className="p-3 font-bold text-emerald-400">{heir.amount.toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
+                                            </tr>
+                                        ))}
+                                        {results.heirs.length === 0 && (
+                                            <tr><td colSpan={4} className="p-4 text-center text-gray-500">لا يوجد ورثة مستحقين وفقاً للبيانات المدخلة</td></tr>
+                                        )}
+                                    </tbody>
+                                    <tfoot className="border-t-2 border-gray-600">
+                                        <tr>
+                                            <td colSpan={3} className="p-3 font-bold text-gray-200">المجموع الموزع</td>
+                                            <td className="p-3 font-bold text-emerald-400">
+                                                {results.heirs.reduce((acc, h) => acc + h.amount, 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                                            </td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Detailed Analysis Section */}
+                    {results && results.context && (results.context.notes || results.context.disputes || results.context.conclusion) && (
+                        <div className="bg-gray-800 rounded-xl shadow-lg p-6 border-t-4 border-amber-500">
+                            <h3 className="text-lg font-bold text-gray-100 mb-4 flex items-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-amber-500 me-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                الملاحظات والخلاصة القانونية
+                            </h3>
+                            
+                            <div className="space-y-6">
+                                {results.context.notes && (
+                                    <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-700">
+                                        <h4 className="text-sm font-semibold text-red-300 mb-2">ملاحظات حرجة / ديون / وصايا</h4>
+                                        <p className="text-sm text-gray-300 whitespace-pre-line leading-relaxed">{results.context.notes}</p>
+                                    </div>
+                                )}
+                                
+                                {results.context.disputes && (
+                                    <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-700">
+                                        <h4 className="text-sm font-semibold text-amber-300 mb-2">أموال متنازع عليها / معلقة</h4>
+                                        <p className="text-sm text-gray-300 whitespace-pre-line leading-relaxed">{results.context.disputes}</p>
+                                    </div>
+                                )}
+
+                                {results.context.conclusion && (
+                                    <div className="bg-emerald-900/20 p-4 rounded-lg border border-emerald-500/20">
+                                        <h4 className="text-sm font-semibold text-emerald-300 mb-2">الخلاصة النهائية والتوصيات</h4>
+                                        <p className="text-sm text-emerald-100 whitespace-pre-line leading-relaxed">{results.context.conclusion}</p>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     )}
                 </div>

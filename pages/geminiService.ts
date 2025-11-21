@@ -60,11 +60,22 @@ const getInstruction = (mode: ActionMode, region: LegalRegion) => {
         
         case 'strategy':
             return `${base}
-**دورك: المخطط الاستراتيجي (The Strategist)**
-مهمتك هي "الفوز" أو تحقيق "أفضل خسارة ممكنة".
-- قدم خطة عملية (Action Plan) مرقمة.
-- انصح المستخدم بناءً على الواقع العملي في محاكم ${region === 'gaza' ? 'غزة' : 'الضفة'}.
-- اقترح تكتيكات تفاوضية أو قانونية (مثل الحجز التحفظي، المنع من السفر).`;
+**دورك: المخطط الاستراتيجي (The Chief Legal Strategist - Orchestrator)**
+أنت لا تعمل وحدك، بل تقود فريقاً من الخبراء (وهم: صائد الثغرات، والمدقق التشريعي، والمحقق).
+مهمتك هي **دمج** آرائهم لتقديم "خطة فوز" متكاملة وشاملة.
+
+**آلية العمل الداخلية (Chain of Thought):**
+قبل صياغة الإجابة النهائية، قم بإجراء المحاكاة الذهنية التالية داخلياً:
+1.  **استدعاء "صائد الثغرات":** ابحث عن نقاط ضعف الخصم أو الإجراءات الشكلية الباطلة التي يمكن استغلالها.
+2.  **استدعاء "المدقق التشريعي":** تأكد من أن القوانين التي ستبني عليها الخطة ما زالت سارية في ${region === 'gaza' ? 'قطاع غزة' : 'الضفة الغربية'} ولم تلغَ بقرار بقانون.
+3.  **استدعاء "المحقق":** هل توجد سوابق قضائية أو اجتهادات لمحكمة النقض الفلسطينية تدعم هذا الموقف؟
+
+**المخرجات المطلوبة:**
+قدم "خطة عمل استراتيجية" شاملة تحتوي على:
+1.  **تقييم الموقف:** (نقاط القوة والضعف بناءً على تحليل الثغرات).
+2.  **الهجوم المضاد:** (الدفوع القانونية الحاسمة).
+3.  **خارطة الطريق:** (الخطوات العملية 1، 2، 3).
+4.  **توصية التفاوض:** (ما هو سقف المطالب الواقعي؟).`;
 
         case 'interrogator':
             return `${base}
@@ -365,18 +376,18 @@ export async function extractInheritanceFromCase(caseText: string): Promise<Part
 
         const prompt = `
             أنت مساعد قانوني ذكي متخصص في قضايا الميراث.
-            مهمتك: تحليل نص القضية التالي واستخراج بيانات الورثة والتركة.
-            المخرجات يجب أن تكون بتنسيق JSON فقط.
+            مهمتك: تحليل نص القضية التالي واستخراج بيانات الورثة والتركة بدقة متناهية، مع استخراج أسماء الورثة إذا وجدت، وكتابة تحليل قانوني للسياق (الديون، النزاعات، التوصيات).
 
             القواعد:
-            - استخرج عدد الزوجات، الأبناء الذكور، البنات، الأب، الأم، الأخوة الأشقاء، الأخوات الشقيقات.
-            - استخرج قيمة التركة (Estate Value) والعملة إذا وجدت (افترض JOD إذا لم تذكر).
-            - حدد الديانة (religion) بناءً على السياق (muslim أو christian). الافتراضي muslim.
-            - إذا لم يتم ذكر وارث معين، ضع قيمته 0.
-            - لا تضف أي نص خارج الـ JSON.
+            1. **الأرقام:** استخرج عدد الورثة لكل فئة (زوج، زوجة، ابن، بنت، إلخ). إذا لم يذكر، ضع 0.
+            2. **الأسماء:** حاول استخراج "أسماء الورثة" إن وجدت في النص (مثلاً: الزوجة: فاطمة، الأبناء: أحمد وعلي). ضعها كسلسلة نصية.
+            3. **التحليل (Context):**
+               - **notes**: ديون مستحقة، وصايا، أو أي موانع إرث.
+               - **disputes**: عقارات أو أموال متنازع عليها (مثل الأرض الزراعية المعلقة).
+               - **conclusion**: الخلاصة النهائية، المبالغ الجاهزة للتوزيع، والمبالغ المعلقة، والتوصية بالإجراءات. اكتبها كنص عربي احترافي.
 
             النص:
-            "${caseText.substring(0, 10000)}"
+            "${caseText.substring(0, 12000)}"
         `;
         
         // Define strict schema for reliable extraction
@@ -386,6 +397,7 @@ export async function extractInheritanceFromCase(caseText: string): Promise<Part
                 religion: { type: Type.STRING, enum: ["muslim", "christian"] },
                 estateValue: { type: Type.NUMBER },
                 currency: { type: Type.STRING },
+                // Counts
                 husband: { type: Type.INTEGER },
                 wife: { type: Type.INTEGER },
                 son: { type: Type.INTEGER },
@@ -394,8 +406,25 @@ export async function extractInheritanceFromCase(caseText: string): Promise<Part
                 mother: { type: Type.INTEGER },
                 brotherFull: { type: Type.INTEGER },
                 sisterFull: { type: Type.INTEGER },
+                // Names
+                husbandName: { type: Type.STRING },
+                wifeName: { type: Type.STRING },
+                sonNames: { type: Type.STRING },
+                daughterNames: { type: Type.STRING },
+                fatherName: { type: Type.STRING },
+                motherName: { type: Type.STRING },
+                // Context
+                context: {
+                    type: Type.OBJECT,
+                    properties: {
+                        notes: { type: Type.STRING, description: "ملاحظات حرجة، ديون، وصايا" },
+                        disputes: { type: Type.STRING, description: "أموال متنازع عليها أو معلقة" },
+                        conclusion: { type: Type.STRING, description: "الخلاصة النهائية للمبالغ والتوصيات" },
+                    },
+                    required: ["notes", "disputes", "conclusion"]
+                }
             },
-            required: ["religion", "estateValue", "wife", "son", "daughter"],
+            required: ["religion", "estateValue", "wife", "son", "daughter", "context"],
         };
 
         const response = await ai.models.generateContent({

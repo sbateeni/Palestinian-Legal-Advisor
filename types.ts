@@ -92,25 +92,42 @@ declare global {
 // --- Inheritance Types ---
 export type Religion = 'muslim' | 'christian';
 
+export interface InheritanceContext {
+    notes: string; // Critical notes (debts, disputes)
+    disputes: string; // Specific disputed assets
+    conclusion: string; // Final summary
+}
+
 export interface InheritanceInput {
     religion: Religion;
     estateValue: number;
     currency: string;
     
     // Heirs Counts
-    husband: number; // 0 or 1
-    wife: number; // 0 to 4
+    husband: number; 
+    wife: number; 
     son: number;
     daughter: number;
-    father: number; // 0 or 1
-    mother: number; // 0 or 1
-    brotherFull: number; // Brother (Same parents)
+    father: number; 
+    mother: number; 
+    brotherFull: number; 
     sisterFull: number;
-    // We can add more extended family later (grandfather, etc.)
+
+    // Heir Names (Optional strings extracted from text)
+    husbandName?: string;
+    wifeName?: string;
+    sonNames?: string;
+    daughterNames?: string;
+    fatherName?: string;
+    motherName?: string;
+
+    // Contextual Analysis
+    context?: InheritanceContext;
 }
 
 export interface HeirResult {
     type: string; // 'الزوجة', 'الابن', etc.
+    name?: string; // Extracted name(s)
     count: number;
     shareFraction: string; // "1/8"
     sharePercentage: number; // 12.5
@@ -123,4 +140,5 @@ export interface InheritanceResult {
     heirs: HeirResult[];
     remainder?: number; // If any (Radd)
     isAwl?: boolean; // If shares > 1
+    context?: InheritanceContext; // Passed through from input
 }
