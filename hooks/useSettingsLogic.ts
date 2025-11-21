@@ -61,15 +61,19 @@ export const useSettingsLogic = () => {
     }, []);
 
     const handleSaveGeminiKey = async () => {
-        await dbService.setSetting({ key: 'geminiApiKey', value: geminiInputValue });
-        setGeminiApiKey(geminiInputValue);
+        const cleanKey = geminiInputValue.trim();
+        await dbService.setSetting({ key: 'geminiApiKey', value: cleanKey });
+        setGeminiApiKey(cleanKey);
+        setGeminiInputValue(cleanKey); // Update input to show cleaned value
         setGeminiSaved(true);
         setTimeout(() => setGeminiSaved(false), 3000);
     };
 
     const handleSaveOpenRouterKey = async () => {
-        await dbService.setSetting({ key: 'openRouterApiKey', value: openRouterInputValue });
-        setOpenRouterApiKey(openRouterInputValue);
+        const cleanKey = openRouterInputValue.trim();
+        await dbService.setSetting({ key: 'openRouterApiKey', value: cleanKey });
+        setOpenRouterApiKey(cleanKey);
+        setOpenRouterInputValue(cleanKey); // Update input to show cleaned value
         setOpenRouterSaved(true);
         setTimeout(() => setOpenRouterSaved(false), 3000);
     };

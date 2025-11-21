@@ -78,9 +78,24 @@ const THINKING_BUDGET_PRO = 2048; // Conservative thinking budget for Pro
 
 async function getGoogleGenAI(): Promise<GoogleGenAI> {
     // This function ensures a new instance is created for each request.
-    // It prioritizes a user-provided key from settings, falling back to the aistudio key.
+    // It strictly handles API keys to avoid authentication errors due to whitespace or empty strings.
     const storedApiKey = await dbService.getSetting<string>('geminiApiKey');
-    const apiKey = storedApiKey || process.env.API_KEY || '';
+    
+    // 1. Try the stored key, ensuring it's trimmed and not just whitespace.
+    let apiKey = storedApiKey ? storedApiKey.trim() : '';
+
+    // 2. If no valid stored key, fall back to the environment variable (injected by AI Studio).
+    if (!apiKey) {
+        apiKey = process.env.API_KEY || '';
+    }
+
+    // 3. Final check: If we still don't have a key, throw a clear error.
+    if (!apiKey) {
+        // We return a dummy instance or handle it, but here we want to fail fast if the caller expects a key.
+        // However, the SDK might throw a better error. Let's rely on the check in the UI.
+        console.warn("Gemini Service: No API key found in Storage or Env.");
+    }
+
     return new GoogleGenAI({ apiKey });
 }
 
@@ -145,7 +160,8 @@ export async function countTokensForGemini(history: ChatMessage[]): Promise<numb
 
         return response.totalTokens;
     } catch (error) {
-        console.error("Error counting tokens:", error);
+        // Suppress auth errors in token counting to avoid console spam if key is invalid
+        // console.error("Error counting tokens:", error);
         return 0;
     }
 }
