@@ -48,6 +48,8 @@ const MessageList: React.FC<MessageListProps> = ({ messages, isLoading, pinnedMe
         <div className="space-y-6 pb-4">
             {messages.map((msg) => {
                 const isPinned = pinnedMessages.some(p => p.id === msg.id);
+                const hasGrounding = msg.groundingMetadata?.groundingChunks && msg.groundingMetadata.groundingChunks.length > 0;
+                
                 return (
                     <div key={msg.id} className={`flex flex-col group ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
                         <div className={`max-w-xl lg:max-w-3xl px-5 py-4 rounded-2xl relative shadow-md ${msg.isError ? 'bg-red-500/20 text-red-200 border border-red-500/30' : msg.role === 'user' ? 'bg-blue-600 text-white rounded-br-sm' : 'bg-gray-700 text-gray-200 rounded-bl-sm'}`}>
@@ -80,25 +82,43 @@ const MessageList: React.FC<MessageListProps> = ({ messages, isLoading, pinnedMe
                             <ChatMessageItem content={msg.content || '...'} isModel={msg.role === 'model'} />
 
                             {/* Render Grounding Sources if available */}
-                            {msg.groundingMetadata?.groundingChunks && msg.groundingMetadata.groundingChunks.length > 0 && (
-                                <div className="mt-4 pt-3 border-t border-white/10">
-                                    <p className="text-[10px] uppercase tracking-wider text-blue-300/80 mb-2 font-bold flex items-center">
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 me-1" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" /></svg>
-                                        المصادر والمراجع
-                                    </p>
-                                    <div className="flex flex-wrap gap-2">
-                                        {msg.groundingMetadata.groundingChunks.map((chunk, idx) => (
+                            {hasGrounding && (
+                                <div className="mt-5 pt-4 border-t border-gray-600/50 bg-gray-800/30 rounded-lg p-3 -mx-2">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <p className="text-[11px] uppercase tracking-wider text-blue-300 font-bold flex items-center">
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 me-1.5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" /></svg>
+                                            المصادر والمراجع (تم التحقق)
+                                        </p>
+                                        {/* Show search queries if available */}
+                                        {msg.groundingMetadata?.webSearchQueries && msg.groundingMetadata.webSearchQueries.length > 0 && (
+                                            <span className="text-[10px] text-gray-400 truncate max-w-[150px]" title={`تم البحث عن: ${msg.groundingMetadata.webSearchQueries.join(', ')}`}>
+                                                بحث: {msg.groundingMetadata.webSearchQueries[0]}
+                                            </span>
+                                        )}
+                                    </div>
+                                    
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                        {msg.groundingMetadata?.groundingChunks.map((chunk, idx) => (
                                             chunk.web && (
                                                 <a
                                                     key={idx}
                                                     href={chunk.web.uri}
                                                     target="_blank"
                                                     rel="noopener noreferrer"
-                                                    className="text-xs bg-black/20 hover:bg-blue-600/20 text-blue-200 px-2 py-1 rounded border border-white/10 transition-colors flex items-center max-w-[200px] hover:border-blue-400/30"
-                                                    title={chunk.web.title}
+                                                    className="flex items-center p-2 rounded bg-gray-900/50 hover:bg-blue-600/10 border border-gray-700 hover:border-blue-500/50 transition-all group/link"
                                                 >
-                                                    <span className="truncate">{chunk.web.title || chunk.web.uri}</span>
-                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 ms-1 flex-shrink-0 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                                                    <div className="flex-shrink-0 h-6 w-6 rounded-full bg-blue-900/30 text-blue-400 flex items-center justify-center text-xs font-mono me-2 border border-blue-500/20 group-hover/link:bg-blue-600 group-hover/link:text-white group-hover/link:border-blue-500">
+                                                        {idx + 1}
+                                                    </div>
+                                                    <div className="flex-grow min-w-0">
+                                                        <p className="text-xs font-medium text-blue-200 truncate group-hover/link:text-blue-100">
+                                                            {chunk.web.title || "مصدر ويب"}
+                                                        </p>
+                                                        <p className="text-[10px] text-gray-500 truncate font-mono group-hover/link:text-blue-300/70">
+                                                            {new URL(chunk.web.uri).hostname.replace('www.', '')}
+                                                        </p>
+                                                    </div>
+                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-gray-600 ms-1 group-hover/link:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
                                                 </a>
                                             )
                                         ))}
