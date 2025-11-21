@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { v4 as uuidv4 } from 'uuid';
-import { Case, ChatMessage, ApiSource, OpenRouterModel, GroundingMetadata, ActionMode } from '../types';
+import { Case, ChatMessage, ApiSource, OpenRouterModel, GroundingMetadata, ActionMode, LegalRegion } from '../types';
 import * as dbService from '../services/dbService';
 import { streamChatResponseFromGemini, countTokensForGemini, proofreadTextWithGemini, summarizeChatHistory } from '../pages/geminiService';
 import { streamChatResponseFromOpenRouter } from '../services/openRouterService';
@@ -21,6 +21,7 @@ export const useChatLogic = (caseId?: string) => {
     const [isLoading, setIsLoading] = useState(false);
     const [isApiKeyReady, setIsApiKeyReady] = useState<boolean | null>(null);
     const [apiSource, setApiSource] = useState<ApiSource>('gemini');
+    const [region, setRegion] = useState<LegalRegion>('westbank'); // Default Region
     const [openRouterApiKey, setOpenRouterApiKey] = useState<string>('');
     const [openRouterModel, setOpenRouterModel] = useState<string>(DEFAULT_OPENROUTER_MODELS[0].id);
     const [openRouterModels, setOpenRouterModels] = useState<OpenRouterModel[]>(DEFAULT_OPENROUTER_MODELS);
@@ -48,6 +49,9 @@ export const useChatLogic = (caseId?: string) => {
             try {
                 const storedApiSource = await dbService.getSetting<ApiSource>('apiSource');
                 if (storedApiSource) setApiSource(storedApiSource);
+
+                const storedRegion = await dbService.getSetting<LegalRegion>('legalRegion');
+                if (storedRegion) setRegion(storedRegion);
 
                 const storedCustomModels = await dbService.getSetting<OpenRouterModel[]>('openRouterModels');
                 const availableModels = storedCustomModels && storedCustomModels.length > 0 ? storedCustomModels : DEFAULT_OPENROUTER_MODELS;
@@ -378,10 +382,11 @@ export const useChatLogic = (caseId?: string) => {
 
         try {
             let stream;
+            // PASS THE REGION TO THE SERVICES
             if (apiSource === 'openrouter') {
-                stream = streamChatResponseFromOpenRouter(openRouterApiKey, currentChatHistory, openRouterModel, actionMode, abortControllerRef.current.signal);
+                stream = streamChatResponseFromOpenRouter(openRouterApiKey, currentChatHistory, openRouterModel, actionMode, region, abortControllerRef.current.signal);
             } else {
-                stream = streamChatResponseFromGemini(currentChatHistory, thinkingMode, actionMode, abortControllerRef.current.signal);
+                stream = streamChatResponseFromGemini(currentChatHistory, thinkingMode, actionMode, region, abortControllerRef.current.signal);
             }
 
             const { fullResponse, responseModel, groundingMetadata } = await processStream(stream, tempModelMessage.id);

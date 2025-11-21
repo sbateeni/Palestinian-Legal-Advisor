@@ -1,85 +1,53 @@
 
-import { ChatMessage, GroundingMetadata, ActionMode } from '../types';
+import { ChatMessage, GroundingMetadata, ActionMode, LegalRegion } from '../types';
 
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 const DEFAULT_MODEL_NAME = 'google/gemini-flash-1.5';
 
-// --- Agent Instructions ---
-// BASE INSTRUCTION: Injected with "Legislative Auditor" logic to apply strictly across ALL agents.
-const BASE_INSTRUCTION = `أنت "المستشار القانوني الفلسطيني".
-**المرجعية الإلزامية:** القوانين السارية في الأراضي الفلسطينية فقط (الضفة الغربية وقطاع غزة).
+// --- Agent Instructions Builder ---
+const getBaseInstruction = (region: LegalRegion) => {
+    const regionSpecifics = region === 'gaza' 
+        ? `
+    **الاختصاص المكاني: قطاع غزة**
+    1. **القانون المدني:** المرجع الأساسي هو **القانون المدني المصري رقم (131) لسنة 1948**.
+    2. **قانون الإيجارات:** قانون إيجار العقارات المصري رقم (20) لسنة 1960.
+    3. **أصول المحاكمات:** قانون أصول المحاكمات الحقوقية رقم 2 لسنة 2001.
+    4. **قوانين الانتداب:** القوانين السارية قبل 1948.
+    ` 
+        : `
+    **الاختصاص المكاني: الضفة الغربية**
+    1. **القانون المدني:** المرجع الأساسي هو **القانون المدني الأردني رقم (43) لسنة 1976**.
+    2. **قانون الإيجارات:** قرار بقانون رقم (14) لسنة 2011 بشأن المالكين والمستأجرين.
+    3. **أصول المحاكمات:** قانون أصول المحاكمات المدنية والتجارية رقم 2 لسنة 2001.
+    4. **الأوامر العسكرية:** السارية وغير الملغاة.
+    `;
+
+    return `أنت "المستشار القانوني الفلسطيني".
+**المرجعية الإلزامية:** القوانين السارية في الأراضي الفلسطينية (${region === 'gaza' ? 'قطاع غزة' : 'الضفة الغربية'}).
+
+${regionSpecifics}
 
 **عقيدة التدقيق التشريعي (Strict Audit Protocol):**
-عليك الالتزام بهذه القواعد الصارمة في كل إجابة مهما كان دورك:
-1.  **أولوية القرارات بقانون:** انتبه جيداً إلى أن العديد من القوانين القديمة (مثل قانون أصول المحاكمات 1936 أو المدني الأردني 1976) قد تم تعديلها أو إلغاء أجزاء منها بموجب "قرارات بقانون" صادرة عن الرئيس الفلسطيني.
-2.  **حظر القوانين الملغاة:** يمنع منعاً باتاً الاستناد إلى قانون أردني أو أمر عسكري تم إلغاؤه.
-3.  **التسمية الدقيقة:** عند ذكر قانون أردني ساري، يجب كتابة عبارة "(المطبق في الضفة الغربية)".
-4.  **النطاق الزمني:** تجاهل أي تعديلات قانونية تمت في الأردن بعد 1988 أو في مصر بعد 1967.
-5.  لغتك العربية الفصحى القانونية الرصينة.`;
+عليك الالتزام بهذه القواعد الصارمة في كل إجابة:
+1.  **أولوية القرارات بقانون:** انتبه جيداً إلى أن العديد من القوانين القديمة قد تم تعديلها.
+2.  **حظر القوانين الملغاة:** يمنع الاستناد إلى قانون غير ساري في المنطقة المختارة.
+3.  **التسمية الدقيقة:** عند ذكر قانون أردني أو مصري ساري، اكتب عبارة "(المطبق في ${region === 'gaza' ? 'قطاع غزة' : 'الضفة الغربية'})".
+4.  لغتك العربية الفصحى القانونية الرصينة.`;
+};
 
-const INSTRUCTION_ANALYST = `${BASE_INSTRUCTION}
-دورك: المحلل القانوني.
-- حلل القضية بموضوعية بناءً على التشريعات الفلسطينية.
-- اذكر المواد القانونية السارية (تأكد من سريانها في فلسطين).
-- لا تقدم وعوداً زائفة.`;
+const getInstruction = (mode: ActionMode, region: LegalRegion) => {
+    const base = getBaseInstruction(region);
+    switch (mode) {
+        case 'loopholes': return `${base}\nدورك: صائد الثغرات. ابحث عن الدفوع الشكلية في قوانين ${region === 'gaza' ? 'غزة' : 'الضفة'}.`;
+        case 'drafting': return `${base}\nدورك: الصائغ القانوني. اكتب وثائق رسمية باستخدام ديباجة المحاكم الفلسطينية.`;
+        case 'strategy': return `${base}\nدورك: المخطط الاستراتيجي. قدم خطة فوز تناسب الواقع العملي في ${region === 'gaza' ? 'غزة' : 'الضفة'}.`;
+        case 'research': return `${base}\nدورك: المحقق القانوني. ابحث في المصادر الفلسطينية حصراً. تأكد من سريان القانون في ${region === 'gaza' ? 'غزة' : 'الضفة'}.`;
+        case 'interrogator': return `${base}\nدورك: المستجوب. استكمل الوقائع الناقصة بأسئلة ذكية.`;
+        case 'verifier': return `${base}\nدورك: المدقق التشريعي. تأكد من أن المواد القانونية سارية في ${region === 'gaza' ? 'قطاع غزة' : 'الضفة الغربية'} ولم تلغَ.`;
+        case 'analysis': default: return `${base}\nدورك: المحلل القانوني. حلل القضية بناءً على تشريعات ${region === 'gaza' ? 'غزة' : 'الضفة'}.`;
+    }
+};
 
-const INSTRUCTION_INTERROGATOR = `${BASE_INSTRUCTION}
-**دورك: المستجوب (The Interrogator)**
-مهمتك ليست إعطاء رأي قانوني الآن، بل "استكمال الوقائع".
-- لا تقدم حلاً قانونياً في هذه المرحلة.
-- اطرح 3-5 أسئلة قصيرة ومحددة جداً لاستيضاح التواريخ، العقود، والشهود.
-- برر سبب سؤالك ليفهم المستخدم أهميته.`;
-
-const INSTRUCTION_VERIFIER = `${BASE_INSTRUCTION}
-**دورك: المدقق التشريعي (The Legislative Auditor)**
-مهمتك هي "التدقيق الصارم" على النصوص القانونية فقط.
-- هدفك: التأكد من أن المواد القانونية سارية ولم تلغَ بقرار بقانون.
-- ابحث عن أي تعديلات دستورية أو قرارات بقانون.
-- أكد سريان المادة أو حذر من إلغائها بوضوح.`;
-
-const INSTRUCTION_LOOPHOLE = `${BASE_INSTRUCTION}
-دورك: صائد الثغرات (محامي الخصم).
-- هاجم القضية وابحث عن الأخطاء الإجرائية في القانون الفلسطيني.
-- شكك في الأدلة وفق قانون البينات الفلسطيني.
-- هدفك: إسقاط الدعوى.`;
-
-const INSTRUCTION_DRAFTER = `${BASE_INSTRUCTION}
-دورك: الصائغ القانوني.
-- اكتب وثائق رسمية (لوائح، مذكرات، عقود).
-- استخدم الديباجة الفلسطينية الرسمية واستند لقانون أصول المحاكمات الفلسطيني.
-- اترك فراغات للبيانات الناقصة.`;
-
-const INSTRUCTION_STRATEGIST = `${BASE_INSTRUCTION}
-دورك: المخطط الاستراتيجي.
-- ضع خطة فوز (خطوات 1، 2، 3).
-- قدم نصائح تفاوضية وتكتيكية تناسب المحاكم الفلسطينية.
-- ركز على تحقيق أفضل نتيجة عملية.`;
-
-const INSTRUCTION_RESEARCHER = `${BASE_INSTRUCTION}
-**دورك: المحقق القانوني (The Legal Researcher)**
-مهمتك حصرية ودقيقة جداً: العثور على النصوص القانونية الدقيقة من المصادر الفلسطينية الرسمية حصراً.
-
-**تعليمات البحث الصارمة:**
-1.  **نطاق البحث:** اعتمد فقط على المصادر الفلسطينية التالية، وتجاهل أي مصادر أخرى:
-    *   "منظومة المقتفي - جامعة بيرزيت" (muqtafi.birzeit.edu)
-    *   "ديوان الفتوى والتشريع الفلسطيني" (dftp.gov.ps / dft.pna.ps)
-    *   "مجلس القضاء الأعلى الفلسطيني" (courts.gov.ps)
-    *   "وزارة العدل الفلسطينية" (moj.pna.ps)
-    *   "النيابة العامة الفلسطينية" (pgp.ps / gp.gov.ps)
-    *   "موسوعة مقام" (maqam.najah.edu)
-    *   "نقابة المحامين الفلسطينيين" (palestinebar.ps)
-
-2.  **فلترة النتائج:**
-    *   لا تستخدم القوانين الأردنية أو المصرية إلا إذا كانت سارية المفعول في فلسطين (مثل القانون المدني 1976).
-    *   تأكد من أن التشريع "ساري المفعول".
-
-3.  **منهجية الإجابة:**
-    *   اقتبس نص المادة حرفياً.
-    *   اذكر المرجع بدقة (اسم التشريع، رقمه، سنته).
-    *   اشرح انطباق النص على وقائع القضية بدقة.`;
-
-// A list of models known to not support the 'system' role.
-// For these, the system prompt will be prepended to the first user message.
 const MODELS_WITHOUT_SYSTEM_PROMPT: string[] = [
     'mistralai/mistral-7b-instruct',
     'nousresearch/nous-hermes-2-mistral-7b-dpo'
@@ -173,7 +141,6 @@ export async function proofreadTextWithOpenRouter(
 
       } catch (error) {
           console.error("Error proofreading text with OpenRouter:", error);
-          // Fallback to original text if correction fails
           return textToProofread;
       }
 }
@@ -184,37 +151,24 @@ export async function* streamChatResponseFromOpenRouter(
   history: ChatMessage[],
   modelName: string = DEFAULT_MODEL_NAME,
   actionMode: ActionMode,
+  region: LegalRegion, // Added region parameter
   signal: AbortSignal
 ): AsyncGenerator<{ text: string; model: string; groundingMetadata?: GroundingMetadata }> {
   
-  // Select Agent Instruction
-  let systemInstruction = INSTRUCTION_ANALYST;
-  switch (actionMode) {
-      case 'loopholes': systemInstruction = INSTRUCTION_LOOPHOLE; break;
-      case 'drafting': systemInstruction = INSTRUCTION_DRAFTER; break;
-      case 'strategy': systemInstruction = INSTRUCTION_STRATEGIST; break;
-      case 'research': systemInstruction = INSTRUCTION_RESEARCHER; break;
-      case 'interrogator': systemInstruction = INSTRUCTION_INTERROGATOR; break;
-      case 'verifier': systemInstruction = INSTRUCTION_VERIFIER; break;
-      case 'analysis': default: systemInstruction = INSTRUCTION_ANALYST; break;
-  }
+  // Select Agent Instruction based on Mode and Region
+  const systemInstruction = getInstruction(actionMode, region);
 
   const messagesForApi = history.map(msg => {
     const role = msg.role === 'model' ? 'assistant' : 'user';
 
-    // For user messages with an image, format content as an array of parts
     if (role === 'user' && msg.images && msg.images.length > 0) {
       const content: any[] = [];
-      
-      // Add text part if it exists
       if (msg.content) {
         content.push({
           type: 'text',
           text: msg.content,
         });
       }
-      
-      // Add image parts
       msg.images.forEach(image => {
         content.push({
           type: 'image_url',
@@ -223,33 +177,24 @@ export async function* streamChatResponseFromOpenRouter(
           },
         });
       });
-
       return { role, content };
     }
-    
-    // For text-only messages, content is a simple string
-    return {
-        role,
-        content: msg.content
-    };
+    return { role, content: msg.content };
   });
 
   let finalMessages;
   if (MODELS_WITHOUT_SYSTEM_PROMPT.includes(modelName)) {
-      // Prepend system prompt to the first user message for specific models
       finalMessages = [...messagesForApi];
       const firstUserMessageIndex = finalMessages.findIndex(msg => msg.role === 'user');
 
       if (firstUserMessageIndex !== -1) {
           const firstUserMessage = finalMessages[firstUserMessageIndex];
-          // These models are text-only, so content is expected to be a string
           if (typeof firstUserMessage.content === 'string') {
             const newContent = `${systemInstruction}\n\n---\n\n${firstUserMessage.content}`;
             finalMessages[firstUserMessageIndex] = { ...firstUserMessage, content: newContent };
           }
       }
   } else {
-      // Use a separate system message for all other models
       finalMessages = [
         { role: 'system', content: systemInstruction },
         ...messagesForApi
@@ -261,8 +206,8 @@ export async function* streamChatResponseFromOpenRouter(
     headers: {
       'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
-      'HTTP-Referer': 'https://aistudio.google.com', // Recommended by OpenRouter
-      'X-Title': encodeURIComponent('المستشار القانوني الفلسطيني'), // Recommended by OpenRouter
+      'HTTP-Referer': 'https://aistudio.google.com',
+      'X-Title': encodeURIComponent('المستشار القانوني الفلسطيني'),
     },
     body: JSON.stringify({
       model: modelName,
@@ -294,7 +239,7 @@ export async function* streamChatResponseFromOpenRouter(
 
       buffer += decoder.decode(value, { stream: true });
       const lines = buffer.split('\n');
-      buffer = lines.pop() || ''; // Keep the last, possibly incomplete line
+      buffer = lines.pop() || '';
 
       for (const line of lines) {
         if (line.trim() === '' || !line.startsWith('data: ')) continue;

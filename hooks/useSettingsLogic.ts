@@ -1,11 +1,12 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { ApiSource, Case, OpenRouterModel } from '../types';
+import { ApiSource, Case, OpenRouterModel, LegalRegion } from '../types';
 import * as dbService from '../services/dbService';
 import { DEFAULT_OPENROUTER_MODELS } from '../constants';
 
 export const useSettingsLogic = () => {
     const [apiSource, setApiSource] = useState<ApiSource>('gemini');
+    const [region, setRegion] = useState<LegalRegion>('westbank'); // Default to West Bank
     
     // Gemini states
     const [geminiApiKey, setGeminiApiKey] = useState('');
@@ -29,6 +30,9 @@ export const useSettingsLogic = () => {
         const loadSettings = async () => {
             const storedApiSource = await dbService.getSetting<ApiSource>('apiSource');
             if (storedApiSource) setApiSource(storedApiSource);
+
+            const storedRegion = await dbService.getSetting<LegalRegion>('legalRegion');
+            if (storedRegion) setRegion(storedRegion);
 
             const storedGeminiKey = await dbService.getSetting<string>('geminiApiKey');
             if (storedGeminiKey) {
@@ -59,6 +63,12 @@ export const useSettingsLogic = () => {
         };
         loadSettings();
     }, []);
+
+    const handleRegionChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const newRegion = e.target.value as LegalRegion;
+        await dbService.setSetting({ key: 'legalRegion', value: newRegion });
+        setRegion(newRegion);
+    };
 
     const handleSaveGeminiKey = async () => {
         const cleanKey = geminiInputValue.trim();
@@ -178,6 +188,7 @@ export const useSettingsLogic = () => {
 
     return {
         apiSource, handleApiSourceChange,
+        region, handleRegionChange,
         geminiApiKey, geminiInputValue, setGeminiInputValue, handleSaveGeminiKey, geminiSaved,
         openRouterApiKey, openRouterInputValue, setOpenRouterInputValue, handleSaveOpenRouterKey, openRouterSaved,
         openRouterModels, openRouterModelId, handleModelChange,

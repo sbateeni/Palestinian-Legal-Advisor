@@ -46,6 +46,9 @@ export interface Case {
 
 export type ApiSource = 'gemini' | 'openrouter';
 
+// Define the legal jurisdiction regions
+export type LegalRegion = 'westbank' | 'gaza';
+
 export interface OpenRouterModel {
   id: string;
   name: string;
