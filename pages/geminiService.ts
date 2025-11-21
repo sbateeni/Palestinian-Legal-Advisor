@@ -128,10 +128,14 @@ const THINKING_BUDGET_PRO = 2048;
 
 async function getGoogleGenAI(): Promise<GoogleGenAI> {
     const storedApiKey = await dbService.getSetting<string>('geminiApiKey');
-    let apiKey = storedApiKey ? storedApiKey.trim() : '';
-    if (!apiKey) {
-        apiKey = process.env.API_KEY || '';
+    // AGGRESSIVE SANITIZATION: Remove quotes, spaces, and common paste errors
+    let apiKey = storedApiKey ? storedApiKey.replace(/["']/g, '').trim() : '';
+    
+    if (!apiKey || apiKey.length < 10) {
+        // Fallback to Env if stored is missing or obviously invalid
+        apiKey = process.env.API_KEY ? process.env.API_KEY.replace(/["']/g, '').trim() : '';
     }
+    
     if (!apiKey) {
         console.warn("Gemini Service: No API key found in Storage or Env.");
     }

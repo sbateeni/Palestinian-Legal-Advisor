@@ -71,7 +71,8 @@ export const useSettingsLogic = () => {
     };
 
     const handleSaveGeminiKey = async () => {
-        const cleanKey = geminiInputValue.trim();
+        // Sanitize input: remove quotes and extra whitespace
+        const cleanKey = geminiInputValue.replace(/["']/g, '').trim();
         await dbService.setSetting({ key: 'geminiApiKey', value: cleanKey });
         setGeminiApiKey(cleanKey);
         setGeminiInputValue(cleanKey); // Update input to show cleaned value
@@ -80,7 +81,7 @@ export const useSettingsLogic = () => {
     };
 
     const handleSaveOpenRouterKey = async () => {
-        const cleanKey = openRouterInputValue.trim();
+        const cleanKey = openRouterInputValue.replace(/["']/g, '').trim();
         await dbService.setSetting({ key: 'openRouterApiKey', value: cleanKey });
         setOpenRouterApiKey(cleanKey);
         setOpenRouterInputValue(cleanKey); // Update input to show cleaned value

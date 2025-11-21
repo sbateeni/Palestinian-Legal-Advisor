@@ -343,7 +343,7 @@ export const useChatLogic = (caseId?: string) => {
         return { fullResponse, responseModel, groundingMetadata };
     }, []);
 
-    // 7. Send Message Logic
+    // 7. Send Message Logic (REFACTORED TO ENSURE SAVING)
     const handleSendMessage = async (prompt?: string) => {
         setAuthError(null);
         const messageContent = (prompt || userInput).trim();
@@ -372,61 +372,42 @@ export const useChatLogic = (caseId?: string) => {
             textareaRef.current.style.height = 'auto';
         }
 
-        const currentChatHistory = [...chatHistory, userMessage];
-        setChatHistory(currentChatHistory);
-
+        // Prepare initial history state
         const tempModelMessage: ChatMessage = { role: 'model', content: '', id: uuidv4() };
-        setChatHistory(prev => [...prev, tempModelMessage]);
+        const newHistory = [...chatHistory, userMessage, tempModelMessage];
+        setChatHistory(newHistory);
 
         abortControllerRef.current = new AbortController();
 
+        // These vars will be updated by the stream/error and used for final save
+        let finalResponseText = '';
+        let finalModelName = '';
+        let finalMetadata: GroundingMetadata | undefined;
+        let finalIsError = false;
+
+        // Use a stable ID for the case. If it's new, we generate one now.
+        // This ensures we can save to the same case ID even if it was created inside the try block.
+        const targetCaseId = caseId || uuidv4(); 
+
         try {
             let stream;
-            // PASS THE REGION TO THE SERVICES
+            const historyToSend = [...chatHistory, userMessage]; // Don't send empty model msg
+
             if (apiSource === 'openrouter') {
-                stream = streamChatResponseFromOpenRouter(openRouterApiKey, currentChatHistory, openRouterModel, actionMode, region, abortControllerRef.current.signal);
+                stream = streamChatResponseFromOpenRouter(openRouterApiKey, historyToSend, openRouterModel, actionMode, region, abortControllerRef.current.signal);
             } else {
-                stream = streamChatResponseFromGemini(currentChatHistory, thinkingMode, actionMode, region, abortControllerRef.current.signal);
+                stream = streamChatResponseFromGemini(historyToSend, thinkingMode, actionMode, region, abortControllerRef.current.signal);
             }
 
             const { fullResponse, responseModel, groundingMetadata } = await processStream(stream, tempModelMessage.id);
-
-            const finalModelMessage: ChatMessage = {
-                id: tempModelMessage.id,
-                role: 'model',
-                content: fullResponse,
-                model: responseModel,
-                groundingMetadata: groundingMetadata
-            };
-
-            const finalMsgs = [...currentChatHistory, finalModelMessage];
-            setChatHistory(finalMsgs);
-
-            if (isNewCase) {
-                const newCase: Case = {
-                    id: uuidv4(),
-                    title: messageContent.substring(0, 50) + (messageContent.length > 50 ? '...' : ''),
-                    summary: fullResponse.substring(0, 150) + (fullResponse.length > 150 ? '...' : ''),
-                    chatHistory: finalMsgs,
-                    pinnedMessages: pinnedMessages,
-                    createdAt: Date.now(),
-                    status: 'جديدة',
-                };
-                await dbService.addCase(newCase);
-                navigate(`/case/${newCase.id}`, { replace: true });
-            } else if (caseData) {
-                const updatedCase = {
-                    ...caseData,
-                    summary: fullResponse.substring(0, 150) + (fullResponse.length > 150 ? '...' : ''),
-                    chatHistory: finalMsgs,
-                    pinnedMessages: pinnedMessages,
-                };
-                await dbService.updateCase(updatedCase);
-                setCaseData(updatedCase);
-            }
+            
+            finalResponseText = fullResponse;
+            finalModelName = responseModel;
+            finalMetadata = groundingMetadata;
 
             if (apiSource === 'gemini') {
-                countTokensForGemini(finalMsgs).then(setTokenCount);
+                // Fire and forget token count update for UI
+                countTokensForGemini([...historyToSend, { ...tempModelMessage, content: fullResponse }]).then(setTokenCount);
             }
 
         } catch (error: any) {
@@ -444,12 +425,62 @@ export const useChatLogic = (caseId?: string) => {
                 chatErrorMessage = `حدث خطأ: ${error.message}`;
             }
 
+            finalResponseText = chatErrorMessage;
+            finalIsError = true;
+
             setChatHistory(prev =>
                 prev.map(msg =>
                     msg.id === tempModelMessage.id ? { ...msg, content: chatErrorMessage, isError: true } : msg
                 )
             );
         } finally {
+            // CRITICAL: Save the case to DB regardless of success or error
+            // This ensures the user input is never lost.
+            try {
+                const finalModelMsgObject: ChatMessage = {
+                    id: tempModelMessage.id,
+                    role: 'model',
+                    content: finalResponseText,
+                    model: finalModelName,
+                    groundingMetadata: finalMetadata,
+                    isError: finalIsError
+                };
+
+                const messagesToSave = [...chatHistory, userMessage, finalModelMsgObject];
+                // Update snippet for summary if successful, else keep old summary or use user input
+                const summarySnippet = finalIsError 
+                    ? messageContent.substring(0, 150) 
+                    : finalResponseText.substring(0, 150) + (finalResponseText.length > 150 ? '...' : '');
+
+                if (isNewCase) {
+                    const newCase: Case = {
+                        id: targetCaseId,
+                        title: messageContent.substring(0, 50) + (messageContent.length > 50 ? '...' : ''),
+                        summary: summarySnippet,
+                        chatHistory: messagesToSave,
+                        pinnedMessages: pinnedMessages,
+                        createdAt: Date.now(),
+                        status: 'جديدة',
+                    };
+                    await dbService.addCase(newCase);
+                    // Navigate to the new case URL so the user is in the correct context
+                    navigate(`/case/${targetCaseId}`, { replace: true });
+                } else if (caseData) {
+                    const updatedCase = {
+                        ...caseData,
+                        summary: summarySnippet, // Update summary with latest interaction
+                        chatHistory: messagesToSave,
+                        pinnedMessages: pinnedMessages,
+                    };
+                    await dbService.updateCase(updatedCase);
+                    setCaseData(updatedCase);
+                }
+            } catch (dbError) {
+                console.error("Failed to save case to database:", dbError);
+                // Fallback: alert user if saving fails completely
+                alert("تحذير: فشل حفظ المحادثة في قاعدة البيانات المحلية.");
+            }
+
             setIsLoading(false);
             abortControllerRef.current = null;
         }
