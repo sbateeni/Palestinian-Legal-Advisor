@@ -18,6 +18,10 @@ const CaseListItem: React.FC<CaseListItemProps> = ({
 }) => {
     const isInheritance = caseItem.caseType === 'inheritance';
     const handleNav = () => isInheritance ? onNavigate(`/inheritance`) : onNavigate(`/case/${caseItem.id}`);
+    
+    // Safe fallback for status style
+    const statusStyle = STATUS_MAP[caseItem.status] || { label: caseItem.status || 'غير محدد', color: 'bg-gray-500' };
+    const isYellow = statusStyle.color.includes('yellow');
 
     return (
         <div onClick={handleNav} className={`rounded-md p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between hover:bg-gray-700/60 cursor-pointer transition-colors duration-200 ${isInheritance ? 'border-s-4 border-emerald-500' : 'border-s-4 border-blue-500'}`}>
@@ -41,8 +45,8 @@ const CaseListItem: React.FC<CaseListItemProps> = ({
                     value={caseItem.status}
                     onChange={(e) => handleStatusChange(caseItem.id, e.target.value as CaseStatus)}
                     onClick={(e) => e.stopPropagation()}
-                    className={`bg-gray-700 border-none rounded p-1 text-xs focus:ring-2 focus:ring-blue-500 ${STATUS_MAP[caseItem.status]?.color.includes('yellow') ? 'text-gray-900' : 'text-white'}`}
-                    style={{ backgroundColor: STATUS_MAP[caseItem.status]?.color.startsWith('bg-') ? '' : STATUS_MAP[caseItem.status]?.color }}
+                    className={`bg-gray-700 border-none rounded p-1 text-xs focus:ring-2 focus:ring-blue-500 ${isYellow ? 'text-gray-900' : 'text-white'}`}
+                    style={{ backgroundColor: statusStyle.color.startsWith('bg-') ? '' : statusStyle.color }}
                 >
                     {STATUS_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
                 </select>

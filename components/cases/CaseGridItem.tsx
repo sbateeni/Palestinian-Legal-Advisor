@@ -37,6 +37,9 @@ const CaseGridItem: React.FC<CaseGridItemProps> = ({
     statusMenuRef
 }) => {
     const isInheritance = caseItem.caseType === 'inheritance';
+    // Safe fallback for status style
+    const statusStyle = STATUS_MAP[caseItem.status] || { label: caseItem.status || 'غير محدد', color: 'bg-gray-500' };
+    const isYellow = statusStyle.color.includes('yellow');
     
     return (
         <div className={`rounded-lg shadow-lg p-5 flex flex-col justify-between transition-all duration-300 hover:scale-[1.02] ${isInheritance ? 'bg-gray-800 border-b-4 border-emerald-600 hover:shadow-emerald-500/20' : 'bg-gray-800 border-b-4 border-blue-600 hover:shadow-blue-500/20'}`}>
@@ -76,9 +79,9 @@ const CaseGridItem: React.FC<CaseGridItemProps> = ({
                 <div className="relative inline-block text-left mb-3 ms-8">
                     <button 
                         onClick={(e) => { e.stopPropagation(); setOpenStatusMenu(openStatusMenu === caseItem.id ? null : caseItem.id); }} 
-                        className={`px-2.5 py-1 text-xs font-semibold rounded-full flex items-center space-x-1.5 space-x-reverse ${STATUS_MAP[caseItem.status]?.color || 'bg-gray-500'} ${STATUS_MAP[caseItem.status]?.color.includes('yellow') ? 'text-gray-900' : 'text-white'}`}
+                        className={`px-2.5 py-1 text-xs font-semibold rounded-full flex items-center space-x-1.5 space-x-reverse ${statusStyle.color} ${isYellow ? 'text-gray-900' : 'text-white'}`}
                     >
-                        <span>{STATUS_MAP[caseItem.status]?.label}</span>
+                        <span>{statusStyle.label}</span>
                         <svg className="h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                     </button>
                     {openStatusMenu === caseItem.id && (

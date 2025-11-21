@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Case, CaseStatus } from '../types';
 import * as dbService from '../services/dbService';
+import { STATUS_MAP } from '../constants';
 
 export const useCasesListLogic = () => {
     const [cases, setCases] = useState<Case[]>([]);
@@ -27,7 +28,14 @@ export const useCasesListLogic = () => {
         const fetchCases = async () => {
             try {
                 const allCases = await dbService.getAllCases();
-                setCases(allCases.map(c => ({...c, status: c.status || 'جديدة'})));
+                // Sanitize data: Ensure valid status and title to prevent UI crashes
+                const sanitizedCases = allCases.map(c => ({
+                    ...c,
+                    title: c.title || 'قضية بدون عنوان',
+                    // Check if status exists in our map, otherwise default to 'جديدة'
+                    status: (c.status && STATUS_MAP[c.status]) ? c.status : 'جديدة'
+                }));
+                setCases(sanitizedCases);
             } catch (error) {
                 console.error("Failed to load cases:", error);
             } finally {
