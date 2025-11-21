@@ -127,15 +127,19 @@ const MAX_OUTPUT_TOKENS_FLASH = 8192;
 const THINKING_BUDGET_PRO = 2048;
 
 async function getGoogleGenAI(): Promise<GoogleGenAI> {
+    // 1. Try to get the key from IndexedDB first
     const storedApiKey = await dbService.getSetting<string>('geminiApiKey');
+    
     // AGGRESSIVE SANITIZATION: Remove quotes, spaces, and common paste errors
+    // Only use stored key if it's not null/undefined
     let apiKey = storedApiKey ? storedApiKey.replace(/["']/g, '').trim() : '';
     
+    // 2. If DB key is missing or looks invalid (too short), try Env
     if (!apiKey || apiKey.length < 10) {
-        // Fallback to Env if stored is missing or obviously invalid
         apiKey = process.env.API_KEY ? process.env.API_KEY.replace(/["']/g, '').trim() : '';
     }
     
+    // 3. If still missing, log warning (the call will fail, caught by caller)
     if (!apiKey) {
         console.warn("Gemini Service: No API key found in Storage or Env.");
     }

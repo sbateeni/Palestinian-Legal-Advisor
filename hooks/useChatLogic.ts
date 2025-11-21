@@ -40,12 +40,15 @@ export const useChatLogic = (caseId?: string) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const abortControllerRef = useRef<AbortController | null>(null);
+    
+    // Determine if it's a new case based on ID availability
     const isNewCase = !caseId;
 
     // 1. Initialization Effect
     useEffect(() => {
         const loadData = async () => {
-            setIsLoading(true);
+            // Start with loading state to prevent premature "No API Key" screens
+            setIsLoading(true); 
             try {
                 const storedApiSource = await dbService.getSetting<ApiSource>('apiSource');
                 if (storedApiSource) setApiSource(storedApiSource);
@@ -57,6 +60,7 @@ export const useChatLogic = (caseId?: string) => {
                 const availableModels = storedCustomModels && storedCustomModels.length > 0 ? storedCustomModels : DEFAULT_OPENROUTER_MODELS;
                 setOpenRouterModels(availableModels);
 
+                // API Key Validation Logic
                 if (storedApiSource === 'openrouter') {
                     const storedApiKey = await dbService.getSetting<string>('openRouterApiKey');
                     const storedModel = await dbService.getSetting<string>('openRouterModel');
@@ -66,21 +70,30 @@ export const useChatLogic = (caseId?: string) => {
                         setOpenRouterModel(availableModels[0].id);
                     }
 
-                    if (storedApiKey) {
-                        setOpenRouterApiKey(storedApiKey);
+                    if (storedApiKey && storedApiKey.trim().length > 0) {
+                        setOpenRouterApiKey(storedApiKey.trim());
                         setIsApiKeyReady(true);
                     } else {
                         setIsApiKeyReady(false);
                     }
                 } else {
+                    // Gemini Key Check
                     const storedGeminiKey = await dbService.getSetting<string>('geminiApiKey');
-                    const hasAiStudioKey = window.aistudio && typeof window.aistudio.hasSelectedApiKey === 'function'
-                        ? await window.aistudio.hasSelectedApiKey()
-                        : false;
+                    // Check DB first, then Global Env, then AI Studio
+                    const hasStoredKey = !!storedGeminiKey && storedGeminiKey.trim().length > 0;
+                    const hasEnvKey = !!process.env.API_KEY && process.env.API_KEY.trim().length > 0;
+                    
+                    let hasAiStudioKey = false;
+                    try {
+                        if (window.aistudio && typeof window.aistudio.hasSelectedApiKey === 'function') {
+                            hasAiStudioKey = await window.aistudio.hasSelectedApiKey();
+                        }
+                    } catch (e) { console.warn("AI Studio check failed", e); }
 
-                    setIsApiKeyReady(!!storedGeminiKey || hasAiStudioKey);
+                    setIsApiKeyReady(hasStoredKey || hasEnvKey || hasAiStudioKey);
                 }
 
+                // Case Loading Logic
                 if (!isNewCase) {
                     const loadedCase = await dbService.getCase(caseId);
                     if (loadedCase) {
@@ -91,8 +104,9 @@ export const useChatLogic = (caseId?: string) => {
                             countTokensForGemini(loadedCase.chatHistory).then(setTokenCount);
                         }
                     } else {
-                        console.error("Case not found");
-                        navigate('/');
+                        console.error("Case not found in DB");
+                        // Don't navigate automatically here to avoid loop, just show empty state
+                        setIsLoading(false); 
                     }
                 } else {
                     setChatHistory([]);
@@ -119,7 +133,9 @@ export const useChatLogic = (caseId?: string) => {
         if (apiSource === 'gemini' && window.aistudio && typeof window.aistudio.openSelectKey === 'function') {
             try {
                 await window.aistudio.openSelectKey();
-                setIsApiKeyReady(true);
+                // Re-check immediately
+                const hasKey = await window.aistudio.hasSelectedApiKey();
+                if (hasKey) setIsApiKeyReady(true);
             } catch (error) {
                 console.error("Error opening Gemini API key selector:", error);
             }
@@ -183,20 +199,9 @@ export const useChatLogic = (caseId?: string) => {
             );
             setChatHistory(finalHistory);
 
-            if (isNewCase) {
-                const newCase: Case = {
-                    id: uuidv4(),
-                    title: 'قضية جديدة (مع ملخص)',
-                    summary: summaryText.substring(0, 150) + (summaryText.length > 150 ? '...' : ''),
-                    chatHistory: finalHistory,
-                    pinnedMessages: pinnedMessages,
-                    createdAt: Date.now(),
-                    status: 'جديدة',
-                };
-                await dbService.addCase(newCase);
-                navigate(`/case/${newCase.id}`, { replace: true });
-            } else if (caseData) {
-                const updatedCase = { ...caseData, chatHistory: finalHistory };
+            // Update DB with summary
+            if (caseData) {
+                const updatedCase = { ...caseData, chatHistory: finalHistory, summary: summaryText.substring(0, 150) };
                 await dbService.updateCase(updatedCase);
                 setCaseData(updatedCase);
             }
@@ -343,7 +348,7 @@ export const useChatLogic = (caseId?: string) => {
         return { fullResponse, responseModel, groundingMetadata };
     }, []);
 
-    // 7. Send Message Logic (REFACTORED TO ENSURE SAVING)
+    // 7. Send Message Logic (REFACTORED TO SAVE IMMEDIATELY)
     const handleSendMessage = async (prompt?: string) => {
         setAuthError(null);
         const messageContent = (prompt || userInput).trim();
@@ -372,26 +377,66 @@ export const useChatLogic = (caseId?: string) => {
             textareaRef.current.style.height = 'auto';
         }
 
-        // Prepare initial history state
+        // Prepare temp model message
         const tempModelMessage: ChatMessage = { role: 'model', content: '', id: uuidv4() };
         const newHistory = [...chatHistory, userMessage, tempModelMessage];
         setChatHistory(newHistory);
 
         abortControllerRef.current = new AbortController();
 
-        // These vars will be updated by the stream/error and used for final save
+        // --- STEP 1: IMMEDIATE SAVE (PERSISTENCE) ---
+        // Save to DB *before* API call to ensure user input is never lost.
+        const targetCaseId = caseId || uuidv4();
+        let currentCaseData = caseData;
+
+        try {
+            // Initial title is prompt or generic
+            const initialTitle = messageContent.substring(0, 50) + (messageContent.length > 50 ? '...' : '') || 'قضية جديدة';
+            const initialSummary = messageContent.substring(0, 150) + (messageContent.length > 150 ? '...' : '');
+
+            if (isNewCase) {
+                const newCase: Case = {
+                    id: targetCaseId,
+                    title: initialTitle,
+                    summary: initialSummary,
+                    chatHistory: newHistory, // Save with empty model message for now
+                    pinnedMessages: [],
+                    createdAt: Date.now(),
+                    status: 'جديدة',
+                };
+                await dbService.addCase(newCase);
+                currentCaseData = newCase;
+                // IMPORTANT: Update URL silently to avoid unmounting if possible, 
+                // but since we use React Router, we might need to navigate.
+                // However, navigating unmounts this component. 
+                // To prevent stream interruption, we won't navigate *yet* if it's a new case,
+                // or we accept the unmount and reload from DB (but that stops stream).
+                // Strategy: We are already in the "chat" view conceptually. 
+                // We will navigate at the END, but data is safe in DB now.
+            } else if (caseData) {
+                const updatedCase = {
+                    ...caseData,
+                    chatHistory: newHistory,
+                };
+                await dbService.updateCase(updatedCase);
+                currentCaseData = updatedCase;
+            }
+        } catch (saveError) {
+            console.error("Failed to save initial case state:", saveError);
+            alert("تحذير: فشل حفظ القضية. يرجى التحقق من المتصفح.");
+            setIsLoading(false);
+            return; // Stop if we can't save
+        }
+
+        // --- STEP 2: API CALL ---
         let finalResponseText = '';
         let finalModelName = '';
         let finalMetadata: GroundingMetadata | undefined;
         let finalIsError = false;
 
-        // Use a stable ID for the case. If it's new, we generate one now.
-        // This ensures we can save to the same case ID even if it was created inside the try block.
-        const targetCaseId = caseId || uuidv4(); 
-
         try {
             let stream;
-            const historyToSend = [...chatHistory, userMessage]; // Don't send empty model msg
+            const historyToSend = [...chatHistory, userMessage];
 
             if (apiSource === 'openrouter') {
                 stream = streamChatResponseFromOpenRouter(openRouterApiKey, historyToSend, openRouterModel, actionMode, region, abortControllerRef.current.signal);
@@ -406,7 +451,6 @@ export const useChatLogic = (caseId?: string) => {
             finalMetadata = groundingMetadata;
 
             if (apiSource === 'gemini') {
-                // Fire and forget token count update for UI
                 countTokensForGemini([...historyToSend, { ...tempModelMessage, content: fullResponse }]).then(setTokenCount);
             }
 
@@ -434,51 +478,46 @@ export const useChatLogic = (caseId?: string) => {
                 )
             );
         } finally {
-            // CRITICAL: Save the case to DB regardless of success or error
-            // This ensures the user input is never lost.
+            // --- STEP 3: FINAL SAVE (UPDATE CONTENT) ---
             try {
-                const finalModelMsgObject: ChatMessage = {
-                    id: tempModelMessage.id,
-                    role: 'model',
-                    content: finalResponseText,
-                    model: finalModelName,
-                    groundingMetadata: finalMetadata,
-                    isError: finalIsError
-                };
-
-                const messagesToSave = [...chatHistory, userMessage, finalModelMsgObject];
-                // Update snippet for summary if successful, else keep old summary or use user input
-                const summarySnippet = finalIsError 
-                    ? messageContent.substring(0, 150) 
-                    : finalResponseText.substring(0, 150) + (finalResponseText.length > 150 ? '...' : '');
-
-                if (isNewCase) {
-                    const newCase: Case = {
-                        id: targetCaseId,
-                        title: messageContent.substring(0, 50) + (messageContent.length > 50 ? '...' : ''),
-                        summary: summarySnippet,
-                        chatHistory: messagesToSave,
-                        pinnedMessages: pinnedMessages,
-                        createdAt: Date.now(),
-                        status: 'جديدة',
+                if (currentCaseData) {
+                    const finalModelMsgObject: ChatMessage = {
+                        id: tempModelMessage.id,
+                        role: 'model',
+                        content: finalResponseText,
+                        model: finalModelName,
+                        groundingMetadata: finalMetadata,
+                        isError: finalIsError
                     };
-                    await dbService.addCase(newCase);
-                    // Navigate to the new case URL so the user is in the correct context
-                    navigate(`/case/${targetCaseId}`, { replace: true });
-                } else if (caseData) {
-                    const updatedCase = {
-                        ...caseData,
-                        summary: summarySnippet, // Update summary with latest interaction
-                        chatHistory: messagesToSave,
-                        pinnedMessages: pinnedMessages,
+
+                    // Reconstruct history with the *final* content
+                    // (chatHistory state might be stale inside closure, so strictly map the newHistory we created)
+                    const finalHistory = newHistory.map(msg => 
+                        msg.id === tempModelMessage.id ? finalModelMsgObject : msg
+                    );
+
+                    // Update summary if success
+                    const summarySnippet = finalIsError 
+                        ? currentCaseData.summary 
+                        : finalResponseText.substring(0, 150) + (finalResponseText.length > 150 ? '...' : '');
+
+                    const finalCaseUpdate: Case = {
+                        ...currentCaseData,
+                        chatHistory: finalHistory,
+                        summary: summarySnippet
                     };
-                    await dbService.updateCase(updatedCase);
-                    setCaseData(updatedCase);
+
+                    await dbService.updateCase(finalCaseUpdate);
+                    setCaseData(finalCaseUpdate);
+
+                    // If it was a new case, NOW we navigate to the permalink
+                    // We do this at the end to avoid unmounting during stream
+                    if (isNewCase) {
+                        navigate(`/case/${targetCaseId}`, { replace: true });
+                    }
                 }
             } catch (dbError) {
-                console.error("Failed to save case to database:", dbError);
-                // Fallback: alert user if saving fails completely
-                alert("تحذير: فشل حفظ المحادثة في قاعدة البيانات المحلية.");
+                console.error("Failed to save final response:", dbError);
             }
 
             setIsLoading(false);

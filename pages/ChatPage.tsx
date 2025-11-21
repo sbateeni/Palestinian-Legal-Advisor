@@ -47,18 +47,25 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
         handleUnpinMessage
     } = useChatLogic(caseId);
 
-    if (isApiKeyReady === null) {
+    // Determine if we are in a "loading" state where we shouldn't show errors yet
+    // If it's an existing case (caseId exists) but we haven't loaded data yet, show spinner
+    const isCaseLoading = !!caseId && !caseData;
+
+    if (isCaseLoading) {
         return (
             <div className="w-full flex-grow flex items-center justify-center p-8 text-lg">
                 <svg className="animate-spin h-6 w-6 text-white me-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                <span>جاري التحقق من الإعدادات...</span>
+                <span>جاري تحميل القضية...</span>
             </div>
         );
     }
 
-    // Only block access if there is NO API key AND it's a completely new case (no history)
-    // This allows users to view saved cases even if the key is invalid/missing
-    const isNewCaseWithoutKey = !isApiKeyReady && chatHistory.length === 0;
+    // Only block access if:
+    // 1. API Key check has finished (isApiKeyReady is not null)
+    // 2. API Key is NOT ready
+    // 3. It is a NEW case (no history to show)
+    // This allows viewing existing cases even without a key
+    const isNewCaseWithoutKey = isApiKeyReady === false && chatHistory.length === 0;
 
     if (isNewCaseWithoutKey) {
         const isGemini = apiSource === 'gemini';
