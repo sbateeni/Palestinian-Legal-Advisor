@@ -51,3 +51,26 @@ export interface OpenRouterModel {
   name: string;
   supportsImages: boolean;
 }
+
+// Define the allowed Legal Action Modes
+export type ActionMode = 'analysis' | 'loopholes' | 'drafting' | 'strategy';
+
+// --- OCR & Analysis Types ---
+
+export type AnalysisType = 'ai' | 'ocr';
+export type AnalysisProvider = 'gemini' | 'openrouter';
+export type AnalysisProcessState = 'idle' | 'running' | 'paused' | 'done';
+
+export interface SelectedImage {
+    id: string;
+    file: File;
+    dataUrl: string;
+}
+
+export interface AnalysisResult {
+    isLoading: boolean;
+    status: string | null;
+    result: string | null;
+    error: string | null;
+    tags?: string[];
+}

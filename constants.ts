@@ -1,3 +1,6 @@
+
+import { CaseStatus } from './types';
+
 export const SUGGESTED_PROMPTS = [
   // التحليل الأساسي
   "حلل الموقف القانوني لأطراف هذه القضية.",
@@ -36,3 +39,15 @@ export const DEFAULT_OPENROUTER_MODELS = [
   { id: 'mistralai/mistral-7b-instruct', name: 'Mistral 7B Instruct', supportsImages: false },
   { id: 'nousresearch/nous-hermes-2-mistral-7b-dpo', name: 'Nous Hermes 2 Mistral 7B', supportsImages: false }
 ];
+
+export const STATUS_OPTIONS: { value: CaseStatus; label: string; color: string }[] = [
+  { value: 'جديدة', label: 'جديدة', color: 'bg-blue-500' },
+  { value: 'قيد النظر', label: 'قيد النظر', color: 'bg-yellow-500' },
+  { value: 'مؤجلة', label: 'مؤجلة', color: 'bg-gray-500' },
+  { value: 'مغلقة', label: 'مغلقة', color: 'bg-green-500' },
+  { value: 'استئناف', label: 'استئناف', color: 'bg-purple-500' },
+  { value: 'أخرى', label: 'أخرى', color: 'bg-indigo-500' },
+];
+
+export const STATUS_MAP: Record<CaseStatus, { label: string; color: string }> = 
+    Object.fromEntries(STATUS_OPTIONS.map(opt => [opt.value, { label: opt.label, color: opt.color }])) as any;

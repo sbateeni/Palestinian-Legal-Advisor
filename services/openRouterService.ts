@@ -1,23 +1,35 @@
 
-import { ChatMessage, GroundingMetadata } from '../types';
+import { ChatMessage, GroundingMetadata, ActionMode } from '../types';
 
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 const DEFAULT_MODEL_NAME = 'google/gemini-flash-1.5';
 
-const SYSTEM_INSTRUCTION = `أنت "المستشار القانوني الفلسطيني"، نظام ذكاء اصطناعي متطور مخصص للفوز بالقضايا القانونية.
-مرجعيتك هي القانون الفلسطيني حصراً.
+// --- Agent Instructions ---
+const BASE_INSTRUCTION = `أنت "المستشار القانوني الفلسطيني". مرجعيتك القانونية هي القوانين الفلسطينية السارية (الضفة الغربية وقطاع غزة). لغتك العربية الفصحى.`;
 
-**أدوارك التكتيكية:**
+const INSTRUCTION_ANALYST = `${BASE_INSTRUCTION}
+دورك: المحلل القانوني.
+- حلل القضية بموضوعية.
+- اذكر المواد القانونية.
+- لا تقدم وعوداً زائفة.`;
 
-1.  **🔍 المحلل القانوني (الوضع الافتراضي):** تحليل دقيق ومحايد.
-2.  **🛡️ كاشف الثغرات (Devil's Advocate):** تصرف كمحامي الخصم. ابحث عن الأخطاء الإجرائية، التقادم، وتناقض الأدلة. لا تجامل.
-3.  **📝 الصائغ القانوني (Drafting):** اكتب مذكرات، لوائح دعاوى، وعقود بصيغة قانونية فلسطينية رسمية جاهزة للطباعة.
-4.  **🚀 المخطط الاستراتيجي (Strategy):** ضع خطة عملية للفوز (خطوات 1، 2، 3). ركز على كيفية إدارة الأدلة والتفاوض.
+const INSTRUCTION_LOOPHOLE = `${BASE_INSTRUCTION}
+دورك: صائد الثغرات (محامي الخصم).
+- هاجم القضية وابحث عن الأخطاء الإجرائية (تقادم، عدم اختصاص).
+- شكك في الأدلة.
+- هدفك: إسقاط الدعوى.`;
 
-**قواعد:**
-- استند حصرياً للقانون الفلسطيني.
-- اللغة العربية الفصحى فقط.
-- لا تفترض معلومات غير موجودة.`;
+const INSTRUCTION_DRAFTER = `${BASE_INSTRUCTION}
+دورك: الصائغ القانوني.
+- اكتب وثائق رسمية (لوائح، مذكرات، عقود).
+- استخدم الديباجة الفلسطينية الرسمية.
+- اترك فراغات للبيانات الناقصة.`;
+
+const INSTRUCTION_STRATEGIST = `${BASE_INSTRUCTION}
+دورك: المخطط الاستراتيجي.
+- ضع خطة فوز (خطوات 1، 2، 3).
+- قدم نصائح تفاوضية وتكتيكية.
+- ركز على تحقيق أفضل نتيجة عملية.`;
 
 // A list of models known to not support the 'system' role.
 // For these, the system prompt will be prepended to the first user message.
@@ -125,9 +137,19 @@ export async function* streamChatResponseFromOpenRouter(
   apiKey: string,
   history: ChatMessage[],
   modelName: string = DEFAULT_MODEL_NAME,
+  actionMode: ActionMode,
   signal: AbortSignal
 ): AsyncGenerator<{ text: string; model: string; groundingMetadata?: GroundingMetadata }> {
   
+  // Select Agent Instruction
+  let systemInstruction = INSTRUCTION_ANALYST;
+  switch (actionMode) {
+      case 'loopholes': systemInstruction = INSTRUCTION_LOOPHOLE; break;
+      case 'drafting': systemInstruction = INSTRUCTION_DRAFTER; break;
+      case 'strategy': systemInstruction = INSTRUCTION_STRATEGIST; break;
+      case 'analysis': default: systemInstruction = INSTRUCTION_ANALYST; break;
+  }
+
   const messagesForApi = history.map(msg => {
     const role = msg.role === 'model' ? 'assistant' : 'user';
 
@@ -173,14 +195,14 @@ export async function* streamChatResponseFromOpenRouter(
           const firstUserMessage = finalMessages[firstUserMessageIndex];
           // These models are text-only, so content is expected to be a string
           if (typeof firstUserMessage.content === 'string') {
-            const newContent = `${SYSTEM_INSTRUCTION}\n\n---\n\n${firstUserMessage.content}`;
+            const newContent = `${systemInstruction}\n\n---\n\n${firstUserMessage.content}`;
             finalMessages[firstUserMessageIndex] = { ...firstUserMessage, content: newContent };
           }
       }
   } else {
       // Use a separate system message for all other models
       finalMessages = [
-        { role: 'system', content: SYSTEM_INSTRUCTION },
+        { role: 'system', content: systemInstruction },
         ...messagesForApi
       ];
   }
