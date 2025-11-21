@@ -122,34 +122,23 @@ const getInstruction = (mode: ActionMode, region: LegalRegion) => {
 
 
 // Constants for Token Management
-const MAX_HISTORY_MESSAGES = 25; // Limit history to the last N messages to save context
+const MAX_HISTORY_MESSAGES = 25;
 const MAX_OUTPUT_TOKENS_FLASH = 8192;
-const THINKING_BUDGET_PRO = 2048; // Conservative thinking budget for Pro
+const THINKING_BUDGET_PRO = 2048;
 
 async function getGoogleGenAI(): Promise<GoogleGenAI> {
-    // This function ensures a new instance is created for each request.
-    // It strictly handles API keys to avoid authentication errors due to whitespace or empty strings.
     const storedApiKey = await dbService.getSetting<string>('geminiApiKey');
-    
-    // 1. Try the stored key, ensuring it's trimmed and not just whitespace.
     let apiKey = storedApiKey ? storedApiKey.trim() : '';
-
-    // 2. If no valid stored key, fall back to the environment variable (injected by AI Studio).
     if (!apiKey) {
         apiKey = process.env.API_KEY || '';
     }
-
-    // 3. Final check: If we still don't have a key, throw a clear error.
     if (!apiKey) {
         console.warn("Gemini Service: No API key found in Storage or Env.");
     }
-
     return new GoogleGenAI({ apiKey });
 }
 
-// Helper to convert chat history for the API
 function chatHistoryToGeminiContents(history: ChatMessage[]): Content[] {
-    // Manual implementation of findLastIndex for compatibility
     let lastUserMessageIndex = -1;
     for (let i = history.length - 1; i >= 0; i--) {
         const msg = history[i];
@@ -191,15 +180,12 @@ export async function countTokensForGemini(history: ChatMessage[]): Promise<numb
     try {
         const ai = await getGoogleGenAI();
         const model = 'gemini-2.5-flash';
-        
         const historyToCount = history.slice(-MAX_HISTORY_MESSAGES);
         const contents = chatHistoryToGeminiContents(historyToCount);
-
         const response = await ai.models.countTokens({
             model: model,
             contents: contents,
         });
-
         return response.totalTokens;
     } catch (error) {
         return 0;
@@ -207,23 +193,16 @@ export async function countTokensForGemini(history: ChatMessage[]): Promise<numb
 }
 
 export async function proofreadTextWithGemini(textToProofread: string): Promise<string> {
-    if (!textToProofread.trim()) {
-        return textToProofread;
-    }
-
+    if (!textToProofread.trim()) return textToProofread;
     try {
         const ai = await getGoogleGenAI();
         const model = 'gemini-2.5-flash';
-        
         const prompt = `أنت مدقق لغوي عربي خبير ومتخصص في تنقيح النصوص المستخرجة عبر تقنية OCR. مهمتك هي مراجعة النص التالي وتصحيح أي أخطاء إملائية أو نحوية مع الحفاظ الدقيق على المعنى الأصلي وهيكل التنسيق. انتبه بشكل خاص للحفاظ على فواصل الأسطر والفقرات كما هي في النص الأصلي. لا تضف أي معلومات أو تفسيرات جديدة. أعد النص المصحح باللغة العربية فقط.\n\النص الأصلي:\n---\n${textToProofread}\n---`;
-
         const response = await ai.models.generateContent({
             model: model,
             contents: prompt,
         });
-
-        const correctedText = response.text;
-        return correctedText || textToProofread;
+        return response.text || textToProofread;
     } catch (error) {
         console.error("Error proofreading text with Gemini:", error);
         return textToProofread;
@@ -231,34 +210,24 @@ export async function proofreadTextWithGemini(textToProofread: string): Promise<
 }
 
 export async function summarizeChatHistory(history: ChatMessage[]): Promise<string> {
-    if (!history || history.length === 0) {
-        return "لا يوجد محتوى لتلخيصه.";
-    }
+    if (!history || history.length === 0) return "لا يوجد محتوى لتلخيصه.";
     try {
         const ai = await getGoogleGenAI();
         const model = 'gemini-2.5-flash'; 
-
         const contents = history.map(msg => ({
             role: msg.role,
             parts: [{ text: msg.content }]
         }));
-        
         contents.push({
             role: 'user',
             parts: [{ text: 'بناءً على المحادثة السابقة بأكملها، قم بتقديم ملخص شامل وواضح. يجب أن يركز الملخص على النقاط القانونية الرئيسية، الوقائع الأساسية، الاستراتيجيات المقترحة، والاستنتاجات التي تم التوصل إليها حتى الآن. قدم الملخص في نقاط منظمة. يجب أن يكون ردك باللغة العربية فقط.' }]
         });
-
-        // Default to West Bank for summary as it's generic
         const baseInstruction = getBaseInstruction('westbank');
-
         const response = await ai.models.generateContent({
             model: model,
             contents: contents,
-            config: {
-                systemInstruction: baseInstruction
-            }
+            config: { systemInstruction: baseInstruction }
         });
-
         return response.text || "فشل في إنشاء الملخص.";
     } catch (error) {
         console.error("Error summarizing chat history:", error);
@@ -270,58 +239,43 @@ export async function* streamChatResponseFromGemini(
   history: ChatMessage[],
   thinkingMode: boolean,
   actionMode: ActionMode,
-  region: LegalRegion, // Added region parameter
+  region: LegalRegion,
   signal: AbortSignal
 ): AsyncGenerator<{ text: string; model: string; groundingMetadata?: GroundingMetadata }> {
   try {
     const ai = await getGoogleGenAI();
     const model = thinkingMode ? 'gemini-2.5-pro' : 'gemini-2.5-flash';
-    
-    // Select the correct "Agent" (System Instruction) based on the mode and region
     const systemInstruction = getInstruction(actionMode, region);
-
     const historyToSend = history.slice(-MAX_HISTORY_MESSAGES);
     const contents = chatHistoryToGeminiContents(historyToSend);
-
     const tools = [{ googleSearch: {} }];
-
     const config: any = {
         systemInstruction: systemInstruction,
         tools: tools,
         maxOutputTokens: MAX_OUTPUT_TOKENS_FLASH,
     };
-
     if (thinkingMode) {
         config.thinkingConfig = { thinkingBudget: THINKING_BUDGET_PRO };
         config.maxOutputTokens = Math.max(MAX_OUTPUT_TOKENS_FLASH, THINKING_BUDGET_PRO + 4000);
     }
-
     const response = await ai.models.generateContentStream({
         model: model,
         contents: contents,
         config: config
     });
-
     for await (const chunk of response) {
-        if (signal.aborted) {
-            break;
-        }
+        if (signal.aborted) break;
         const text = chunk.text;
-        
         let groundingMetadata: GroundingMetadata | undefined;
         if (chunk.candidates && chunk.candidates[0]?.groundingMetadata) {
             groundingMetadata = chunk.candidates[0].groundingMetadata as unknown as GroundingMetadata;
         }
-
         if (text || groundingMetadata) {
             yield { text, model, groundingMetadata };
         }
     }
   } catch (error) {
-    if (signal.aborted) {
-        console.log("Gemini stream cancelled by user.");
-        return;
-    }
+    if (signal.aborted) return;
     console.error("Error in Gemini chat stream:", error);
     throw error;
   }
@@ -332,27 +286,15 @@ export async function analyzeImageWithGemini(
   mimeType: string,
   prompt: string
 ): Promise<string> {
-  if (!base64ImageDataUrl || !mimeType) {
-    throw new Error("Image data and mime type are required.");
-  }
+  if (!base64ImageDataUrl || !mimeType) throw new Error("Image data and mime type are required.");
   try {
     const ai = await getGoogleGenAI();
     const model = 'gemini-2.5-flash';
-    
     const base64Data = base64ImageDataUrl.split(',')[1];
-    if (!base64Data) {
-      throw new Error("Invalid base64 image data URL.");
-    }
-
     const imagePart = {
-      inlineData: {
-        data: base64Data,
-        mimeType: mimeType
-      }
+      inlineData: { data: base64Data, mimeType: mimeType }
     };
-
     const textPart = { text: prompt };
-
     const response = await ai.models.generateContent({
         model: model,
         contents: { parts: [imagePart, textPart] },
@@ -361,7 +303,6 @@ export async function analyzeImageWithGemini(
              maxOutputTokens: 4000,
         }
     });
-
     return response.text || "لم يتم إنشاء أي نص.";
   } catch (error) {
     console.error("Error analyzing image with Gemini:", error);
@@ -375,19 +316,19 @@ export async function extractInheritanceFromCase(caseText: string): Promise<Part
         const model = 'gemini-2.5-flash';
 
         const prompt = `
-            أنت مساعد قانوني ذكي متخصص في قضايا الميراث.
-            مهمتك: تحليل نص القضية التالي واستخراج بيانات الورثة والتركة بدقة متناهية، مع استخراج أسماء الورثة إذا وجدت، وكتابة تحليل قانوني للسياق (الديون، النزاعات، التوصيات).
+            أنت مساعد قانوني ذكي متخصص في قضايا الميراث وتوزيع التركات.
+            مهمتك: تحليل نص القضية التالي واستخراج بيانات الورثة والتركة بدقة متناهية، مع استخراج **أسماء الورثة** إذا وجدت، وكتابة **تحليل قانوني ومالي** مفصل للسياق (الديون، النزاعات، التوصيات).
 
-            القواعد:
-            1. **الأرقام:** استخرج عدد الورثة لكل فئة (زوج، زوجة، ابن، بنت، إلخ). إذا لم يذكر، ضع 0.
-            2. **الأسماء:** حاول استخراج "أسماء الورثة" إن وجدت في النص (مثلاً: الزوجة: فاطمة، الأبناء: أحمد وعلي). ضعها كسلسلة نصية.
+            القواعد الصارمة للاستخراج:
+            1. **الأرقام:** استخرج عدد الورثة لكل فئة.
+            2. **الأسماء:** استخرج أسماء الورثة وضعها كنص (مثل: "محمد، علي، خالد" أو "الزوجة فاطمة").
             3. **التحليل (Context):**
-               - **notes**: ديون مستحقة، وصايا، أو أي موانع إرث.
-               - **disputes**: عقارات أو أموال متنازع عليها (مثل الأرض الزراعية المعلقة).
-               - **conclusion**: الخلاصة النهائية، المبالغ الجاهزة للتوزيع، والمبالغ المعلقة، والتوصية بالإجراءات. اكتبها كنص عربي احترافي.
+               - **notes**: أي ديون مستحقة على الميت، وصايا واجبة التنفيذ، مصاريف جنازة لم تخصم.
+               - **disputes**: أي عقارات أو أموال متنازع عليها في المحاكم، أراضي غير مفرزة، أو أموال محجوزة.
+               - **conclusion**: الخلاصة النهائية للموقف المالي. ما هو المبلغ الجاهز للتوزيع فوراً؟ وما هو المبلغ المعلق؟ وما هي النصيحة القانونية (مثل: رفع دعوى إزالة شيوع).
 
-            النص:
-            "${caseText.substring(0, 12000)}"
+            النص القانوني للقضية:
+            "${caseText.substring(0, 15000)}"
         `;
         
         // Define strict schema for reliable extraction
@@ -406,20 +347,20 @@ export async function extractInheritanceFromCase(caseText: string): Promise<Part
                 mother: { type: Type.INTEGER },
                 brotherFull: { type: Type.INTEGER },
                 sisterFull: { type: Type.INTEGER },
-                // Names
+                // Names (Strings containing comma separated names)
                 husbandName: { type: Type.STRING },
                 wifeName: { type: Type.STRING },
                 sonNames: { type: Type.STRING },
                 daughterNames: { type: Type.STRING },
                 fatherName: { type: Type.STRING },
                 motherName: { type: Type.STRING },
-                // Context
+                // Context - Detailed Analysis
                 context: {
                     type: Type.OBJECT,
                     properties: {
-                        notes: { type: Type.STRING, description: "ملاحظات حرجة، ديون، وصايا" },
-                        disputes: { type: Type.STRING, description: "أموال متنازع عليها أو معلقة" },
-                        conclusion: { type: Type.STRING, description: "الخلاصة النهائية للمبالغ والتوصيات" },
+                        notes: { type: Type.STRING, description: "الديون، الوصايا، ومصاريف التجهيز" },
+                        disputes: { type: Type.STRING, description: "الأموال المتنازع عليها أو المعلقة" },
+                        conclusion: { type: Type.STRING, description: "الخلاصة النهائية للمبالغ والتوصيات القانونية" },
                     },
                     required: ["notes", "disputes", "conclusion"]
                 }

@@ -85,6 +85,64 @@
       height: 100%;
       overflow: hidden;
     }
+
+    /* PRINT STYLES */
+    @media print {
+        @page { margin: 1cm; }
+        
+        body, html, #root {
+            height: auto;
+            overflow: visible;
+            background-color: white !important;
+            color: black !important;
+        }
+
+        /* Hide UI elements not needed for report */
+        header, nav, .no-print, button, input, select, label {
+            display: none !important;
+        }
+
+        /* Ensure the inheritance report container is visible and styled for paper */
+        .print-content {
+            display: block !important;
+            width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            box-shadow: none !important;
+            background-color: white !important;
+            color: black !important;
+        }
+
+        .print-content h1, .print-content h2, .print-content h3 {
+            color: black !important;
+            border-bottom: 2px solid #000 !important;
+        }
+
+        .print-content table {
+            width: 100% !important;
+            border-collapse: collapse !important;
+            border: 1px solid #000 !important;
+        }
+
+        .print-content th, .print-content td {
+            border: 1px solid #000 !important;
+            padding: 8px !important;
+            color: black !important;
+        }
+        
+        .print-content th {
+            background-color: #f0f0f0 !important;
+            font-weight: bold !important;
+        }
+        
+        /* Analysis boxes in print */
+        .print-analysis-box {
+            border: 1px solid #000 !important;
+            padding: 10px !important;
+            margin-bottom: 10px !important;
+            background-color: transparent !important;
+        }
+    }
   </style>
 <script type="importmap">
 {

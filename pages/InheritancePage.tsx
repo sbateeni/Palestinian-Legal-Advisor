@@ -15,15 +15,53 @@ const InheritancePage: React.FC = () => {
         error
     } = useInheritanceLogic();
 
+    const handlePrint = () => {
+        window.print();
+    };
+
+    const handleExport = () => {
+        if (!results) return;
+        let text = `تقرير توزيع المواريث\n`;
+        text += `التاريخ: ${new Date().toLocaleDateString('ar-EG')}\n`;
+        text += `إجمالي التركة: ${results.totalValue} ${inputs.currency}\n\n`;
+        text += `--- جدول التوزيع ---\n`;
+        text += `الاسم | الصفة | الحصة | المبلغ\n`;
+        results.heirs.forEach(h => {
+            text += `${h.name || '-'} | ${h.type} | ${h.shareFraction} | ${h.amount.toFixed(2)}\n`;
+        });
+        if (results.context) {
+            text += `\n--- ملاحظات وخلاصة ---\n`;
+            if (results.context.notes) text += `ملاحظات: ${results.context.notes}\n`;
+            if (results.context.disputes) text += `نزاعات: ${results.context.disputes}\n`;
+            if (results.context.conclusion) text += `الخلاصة: ${results.context.conclusion}\n`;
+        }
+
+        const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `inheritance-report-${new Date().toISOString().slice(0,10)}.txt`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
     return (
-        <div className="w-full max-w-6xl mx-auto p-4 sm:p-6">
-            <h1 className="text-3xl font-bold mb-6 text-gray-100 border-b border-gray-700 pb-3 flex items-center">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-emerald-500 me-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
-                حاسبة المواريث الذكية
+        <div className="w-full max-w-6xl mx-auto p-4 sm:p-6 print-content">
+            {/* Title - Visible in print but styled */}
+            <h1 className="text-3xl font-bold mb-6 text-gray-100 border-b border-gray-700 pb-3 flex items-center justify-between">
+                <div className="flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-emerald-500 me-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
+                    حاسبة المواريث الذكية
+                </div>
+                <div className="flex gap-2 no-print">
+                    <button onClick={handlePrint} className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded text-sm text-gray-200">طباعة</button>
+                    <button onClick={handleExport} disabled={!results} className="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded text-sm text-white disabled:opacity-50">تصدير TXT</button>
+                </div>
             </h1>
 
-            {/* AI Extraction Section */}
-            <div className="bg-gray-800 rounded-xl shadow-lg p-6 mb-8 border border-emerald-500/30">
+            {/* AI Extraction Section - Hidden in Print */}
+            <div className="bg-gray-800 rounded-xl shadow-lg p-6 mb-8 border border-emerald-500/30 no-print">
                 <div className="flex items-center justify-between mb-4">
                     <h2 className="text-lg font-semibold text-emerald-300 flex items-center">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 me-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
@@ -57,8 +95,8 @@ const InheritancePage: React.FC = () => {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* Input Form */}
-                <div className="lg:col-span-1 space-y-6">
+                {/* Input Form - Hidden in Print */}
+                <div className="lg:col-span-1 space-y-6 no-print">
                     <div className="bg-gray-800 rounded-xl shadow p-6">
                         <h3 className="text-lg font-medium text-gray-200 mb-4 border-b border-gray-700 pb-2">بيانات التركة</h3>
                         <div className="space-y-4">
@@ -116,16 +154,16 @@ const InheritancePage: React.FC = () => {
                     </button>
                 </div>
 
-                {/* Results Section */}
+                {/* Results Section - Full width in print */}
                 <div className="lg:col-span-2 space-y-6">
-                    <div className="bg-gray-800 rounded-xl shadow-lg p-6 flex flex-col">
+                    <div className="bg-gray-800 rounded-xl shadow-lg p-6 flex flex-col print-analysis-box">
                         <h3 className="text-xl font-bold text-gray-100 mb-6 flex items-center justify-between">
                             <span>نتائج القسمة الشرعية/القانونية</span>
-                            {results && <span className="text-sm font-normal text-gray-400 bg-gray-700 px-3 py-1 rounded-full">إجمالي التركة: {results.totalValue.toLocaleString()} {inputs.currency}</span>}
+                            {results && <span className="text-sm font-normal text-gray-400 bg-gray-700 px-3 py-1 rounded-full print:text-black print:border print:bg-white">إجمالي التركة: {results.totalValue.toLocaleString()} {inputs.currency}</span>}
                         </h3>
 
                         {!results ? (
-                            <div className="flex-grow flex flex-col items-center justify-center text-gray-500 min-h-[300px]">
+                            <div className="flex-grow flex flex-col items-center justify-center text-gray-500 min-h-[300px] no-print">
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mb-4 opacity-20" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
                                 <p>أدخل البيانات واضغط "احسب" لعرض الجدول</p>
                             </div>
@@ -133,38 +171,34 @@ const InheritancePage: React.FC = () => {
                             <div className="overflow-x-auto">
                                 <table className="w-full text-right border-collapse">
                                     <thead>
-                                        <tr className="bg-gray-700 text-gray-300">
-                                            <th className="p-3 rounded-tr-lg">اسم الوريث</th>
-                                            <th className="p-3">الصفة الشرعية</th>
-                                            <th className="p-3">الحصة (الفرض)</th>
-                                            <th className="p-3 rounded-tl-lg">المبلغ ({inputs.currency})</th>
+                                        <tr className="bg-gray-700 text-gray-300 print:bg-gray-200 print:text-black">
+                                            <th className="p-3 rounded-tr-lg print:rounded-none border border-gray-600 print:border-black">اسم الوريث</th>
+                                            <th className="p-3 border border-gray-600 print:border-black">الصفة الشرعية</th>
+                                            <th className="p-3 border border-gray-600 print:border-black">الحصة (الفرض/السهم)</th>
+                                            <th className="p-3 rounded-tl-lg print:rounded-none border border-gray-600 print:border-black">المبلغ ({inputs.currency})</th>
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-gray-700">
+                                    <tbody className="divide-y divide-gray-700 print:divide-black">
                                         {results.heirs.map((heir, idx) => (
-                                            <tr key={idx} className="hover:bg-gray-700/30 transition-colors">
-                                                <td className="p-3 text-white font-medium">
+                                            <tr key={idx} className="hover:bg-gray-700/30 transition-colors print:bg-white">
+                                                <td className="p-3 text-white font-medium border border-gray-600 print:border-black print:text-black">
                                                     {heir.name || '-'}
                                                 </td>
-                                                <td className="p-3 font-medium text-blue-200">
-                                                    {heir.type} <span className="text-gray-500 text-xs">({heir.count})</span>
-                                                    {heir.notes && <span className="block text-[10px] text-gray-500">{heir.notes}</span>}
+                                                <td className="p-3 font-medium text-blue-200 border border-gray-600 print:border-black print:text-black">
+                                                    {heir.type}
                                                 </td>
-                                                <td className="p-3 text-amber-400 font-mono dir-ltr text-end">
+                                                <td className="p-3 text-amber-400 font-mono dir-ltr text-end border border-gray-600 print:border-black print:text-black">
                                                     {heir.shareFraction} 
-                                                    <span className="text-gray-500 text-xs ms-2">({heir.sharePercentage.toFixed(2)}%)</span>
+                                                    <span className="text-gray-500 text-xs ms-2 print:text-gray-700">({heir.sharePercentage.toFixed(2)}%)</span>
                                                 </td>
-                                                <td className="p-3 font-bold text-emerald-400">{heir.amount.toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
+                                                <td className="p-3 font-bold text-emerald-400 border border-gray-600 print:border-black print:text-black">{heir.amount.toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
                                             </tr>
                                         ))}
-                                        {results.heirs.length === 0 && (
-                                            <tr><td colSpan={4} className="p-4 text-center text-gray-500">لا يوجد ورثة مستحقين وفقاً للبيانات المدخلة</td></tr>
-                                        )}
                                     </tbody>
-                                    <tfoot className="border-t-2 border-gray-600">
+                                    <tfoot className="border-t-2 border-gray-600 print:border-black">
                                         <tr>
-                                            <td colSpan={3} className="p-3 font-bold text-gray-200">المجموع الموزع</td>
-                                            <td className="p-3 font-bold text-emerald-400">
+                                            <td colSpan={3} className="p-3 font-bold text-gray-200 print:text-black border border-gray-600 print:border-black">المجموع الموزع</td>
+                                            <td className="p-3 font-bold text-emerald-400 print:text-black border border-gray-600 print:border-black">
                                                 {results.heirs.reduce((acc, h) => acc + h.amount, 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}
                                             </td>
                                         </tr>
@@ -176,31 +210,31 @@ const InheritancePage: React.FC = () => {
 
                     {/* Detailed Analysis Section */}
                     {results && results.context && (results.context.notes || results.context.disputes || results.context.conclusion) && (
-                        <div className="bg-gray-800 rounded-xl shadow-lg p-6 border-t-4 border-amber-500">
-                            <h3 className="text-lg font-bold text-gray-100 mb-4 flex items-center">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-amber-500 me-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        <div className="bg-gray-800 rounded-xl shadow-lg p-6 border-t-4 border-amber-500 print-analysis-box">
+                            <h3 className="text-lg font-bold text-gray-100 mb-4 flex items-center print:text-black">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-amber-500 me-2 print:text-black" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                                 الملاحظات والخلاصة القانونية
                             </h3>
                             
                             <div className="space-y-6">
                                 {results.context.notes && (
-                                    <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-700">
-                                        <h4 className="text-sm font-semibold text-red-300 mb-2">ملاحظات حرجة / ديون / وصايا</h4>
-                                        <p className="text-sm text-gray-300 whitespace-pre-line leading-relaxed">{results.context.notes}</p>
+                                    <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-700 print:bg-white print:border-black">
+                                        <h4 className="text-sm font-semibold text-red-300 mb-2 print:text-black print:font-bold">ملاحظات حرجة / ديون / وصايا</h4>
+                                        <p className="text-sm text-gray-300 whitespace-pre-line leading-relaxed print:text-black">{results.context.notes}</p>
                                     </div>
                                 )}
                                 
                                 {results.context.disputes && (
-                                    <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-700">
-                                        <h4 className="text-sm font-semibold text-amber-300 mb-2">أموال متنازع عليها / معلقة</h4>
-                                        <p className="text-sm text-gray-300 whitespace-pre-line leading-relaxed">{results.context.disputes}</p>
+                                    <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-700 print:bg-white print:border-black">
+                                        <h4 className="text-sm font-semibold text-amber-300 mb-2 print:text-black print:font-bold">أموال متنازع عليها / معلقة</h4>
+                                        <p className="text-sm text-gray-300 whitespace-pre-line leading-relaxed print:text-black">{results.context.disputes}</p>
                                     </div>
                                 )}
 
                                 {results.context.conclusion && (
-                                    <div className="bg-emerald-900/20 p-4 rounded-lg border border-emerald-500/20">
-                                        <h4 className="text-sm font-semibold text-emerald-300 mb-2">الخلاصة النهائية والتوصيات</h4>
-                                        <p className="text-sm text-emerald-100 whitespace-pre-line leading-relaxed">{results.context.conclusion}</p>
+                                    <div className="bg-emerald-900/20 p-4 rounded-lg border border-emerald-500/20 print:bg-white print:border-black">
+                                        <h4 className="text-sm font-semibold text-emerald-300 mb-2 print:text-black print:font-bold">الخلاصة النهائية والتوصيات</h4>
+                                        <p className="text-sm text-emerald-100 whitespace-pre-line leading-relaxed print:text-black">{results.context.conclusion}</p>
                                     </div>
                                 )}
                             </div>

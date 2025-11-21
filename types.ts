@@ -56,9 +56,6 @@ export interface OpenRouterModel {
 }
 
 // Define the allowed Legal Action Modes
-// Added 'research' mode for the dedicated Legal Researcher agent
-// Added 'interrogator' for fact-finding
-// Added 'verifier' for legislative auditing
 export type ActionMode = 'analysis' | 'loopholes' | 'drafting' | 'strategy' | 'research' | 'interrogator' | 'verifier';
 
 // --- OCR & Analysis Types ---
@@ -127,8 +124,8 @@ export interface InheritanceInput {
 
 export interface HeirResult {
     type: string; // 'الزوجة', 'الابن', etc.
-    name?: string; // Extracted name(s)
-    count: number;
+    name?: string; // Extracted name (e.g., "Ahmed")
+    count: number; // Should be 1 for unrolled rows
     shareFraction: string; // "1/8"
     sharePercentage: number; // 12.5
     amount: number; // Cash value
