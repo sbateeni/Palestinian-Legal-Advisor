@@ -33,6 +33,7 @@ export interface ChatMessage {
 }
 
 export type CaseStatus = 'جديدة' | 'قيد النظر' | 'مؤجلة' | 'مغلقة' | 'استئناف' | 'أخرى';
+export type CaseType = 'chat' | 'inheritance';
 
 export interface Case {
   id: string;
@@ -42,6 +43,11 @@ export interface Case {
   createdAt: number;
   status: CaseStatus;
   pinnedMessages?: ChatMessage[];
+  caseType?: CaseType; // Distinguish between standard chat cases and inheritance files
+  inheritanceData?: {
+      inputs: InheritanceInput;
+      results: InheritanceResult;
+  };
 }
 
 export type ApiSource = 'gemini' | 'openrouter';

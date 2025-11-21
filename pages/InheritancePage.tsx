@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useInheritanceLogic } from '../hooks/useInheritanceLogic';
 import { InheritanceInput } from '../types';
 
@@ -12,8 +12,13 @@ const InheritancePage: React.FC = () => {
         isExtracting,
         calculate,
         results,
-        error
+        error,
+        saveInheritanceCase,
+        isSaving
     } = useInheritanceLogic();
+
+    const [isNameModalOpen, setIsNameModalOpen] = useState(false);
+    const [newCaseName, setNewCaseName] = useState('');
 
     const handlePrint = () => {
         window.print();
@@ -44,10 +49,31 @@ const InheritancePage: React.FC = () => {
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    };
+
+    const handleSaveClick = () => {
+        if (!results) return;
+        if (selectedCaseId) {
+            // Update existing
+            saveInheritanceCase();
+        } else {
+            // Prompt for new name
+            setNewCaseName(`توزيع تركة - ${new Date().toLocaleDateString('ar-EG')}`);
+            setIsNameModalOpen(true);
+        }
+    };
+
+    const confirmSaveNew = () => {
+        if (newCaseName.trim()) {
+            saveInheritanceCase(newCaseName);
+            setIsNameModalOpen(false);
+        }
     };
 
     return (
-        <div className="w-full max-w-6xl mx-auto p-4 sm:p-6 print-content">
+        <div className="w-full max-w-6xl mx-auto p-4 sm:p-6 print-content relative">
+            
             {/* Title - Visible in print but styled */}
             <h1 className="text-3xl font-bold mb-6 text-gray-100 border-b border-gray-700 pb-3 flex items-center justify-between">
                 <div className="flex items-center">
@@ -75,8 +101,8 @@ const InheritancePage: React.FC = () => {
                         onChange={(e) => setSelectedCaseId(e.target.value)}
                         className="flex-grow p-3 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 focus:ring-2 focus:ring-emerald-500 outline-none"
                     >
-                        <option value="">-- اختر قضية سابقة لملء البيانات تلقائياً --</option>
-                        {cases.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
+                        <option value="">-- اختر قضية سابقة لملء البيانات (أو أنشئ جديداً) --</option>
+                        {cases.map(c => <option key={c.id} value={c.id}>{c.title} {c.caseType === 'inheritance' ? '(ملف ميراث)' : ''}</option>)}
                     </select>
                     <button 
                         onClick={handleExtractFromCase} 
@@ -240,8 +266,49 @@ const InheritancePage: React.FC = () => {
                             </div>
                         </div>
                     )}
+                    
+                    {/* Save Result Button - Hidden in Print */}
+                    {results && (
+                        <div className="flex justify-end no-print mt-4">
+                            <button 
+                                onClick={handleSaveClick} 
+                                disabled={isSaving}
+                                className="px-6 py-3 bg-emerald-700 hover:bg-emerald-600 text-white font-semibold rounded-lg shadow-lg flex items-center transition-colors disabled:opacity-50"
+                            >
+                                {isSaving ? (
+                                    <span>جاري الحفظ...</span>
+                                ) : (
+                                    <>
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 me-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" /></svg>
+                                        {selectedCaseId ? 'تحديث القضية الحالية' : 'حفظ كملف ميراث جديد'}
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    )}
                 </div>
             </div>
+
+            {/* Name Input Modal */}
+            {isNameModalOpen && (
+                <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 no-print">
+                    <div className="bg-gray-800 rounded-xl shadow-2xl p-6 w-full max-w-md border border-gray-600">
+                        <h3 className="text-xl font-bold text-white mb-4">تسمية ملف الميراث</h3>
+                        <input 
+                            type="text" 
+                            value={newCaseName}
+                            onChange={(e) => setNewCaseName(e.target.value)}
+                            placeholder="أدخل اسم الملف..."
+                            className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-emerald-500 outline-none mb-6"
+                            autoFocus
+                        />
+                        <div className="flex justify-end gap-3">
+                            <button onClick={() => setIsNameModalOpen(false)} className="px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-lg">إلغاء</button>
+                            <button onClick={confirmSaveNew} disabled={!newCaseName.trim()} className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg disabled:opacity-50">حفظ</button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
