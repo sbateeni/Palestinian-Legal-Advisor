@@ -35,7 +35,31 @@ ${regionSpecifics}
 4.  لغتك العربية الفصحى القانونية الرصينة.`;
 };
 
+// Helper for Sharia-specific context
+const getShariaInstruction = (mode: ActionMode, region: LegalRegion) => {
+    const shariaLaw = region === 'gaza' 
+        ? "قانون حقوق العائلة رقم (303) لسنة 1954 (المطبق في غزة) والقرارات بقانون المعدلة له" 
+        : "قانون الأحوال الشخصية الأردني رقم (61) لسنة 1976 (المطبق في الضفة الغربية) والقرارات بقانون المعدلة له";
+
+    const shariaBase = `أنت "المستشار الشرعي الفلسطيني".
+**المرجعية الإلزامية:** القضاء الشرعي الفلسطيني.
+**القانون الأساسي:** ${shariaLaw}.
+**مصادر أخرى:** تعاميم ديوان قاضي القضاة الفلسطيني، الراجح في المذهب الحنفي (عند غياب النص)، وأصول المحاكمات الشرعية.`;
+
+    switch (mode) {
+        case 'reconciliation': return `${shariaBase}\nدورك: المصلح الأسري. ركز على الآية: "فابعثوا حكماً من أهله". قدم نصائح للصلح قبل المحكمة.`;
+        case 'custody': return `${shariaBase}\nدورك: خبير الحضانة. ركز على سن الحضانة وترتيب الحاضنات ومصلحة المحضون في ${region}.`;
+        case 'alimony': return `${shariaBase}\nدورك: خبير النفقات. احسب نفقة الزوجة والصغار والمهر المؤجل بدقة.`;
+        case 'sharia_advisor': default: return `${shariaBase}\nدورك: المستشار الشرعي العام. أفتِ في الزواج والطلاق والنسب.`;
+    }
+};
+
 const getInstruction = (mode: ActionMode, region: LegalRegion) => {
+    // If mode is one of the Sharia modes, delegate to Sharia handler
+    if (['sharia_advisor', 'reconciliation', 'custody', 'alimony'].includes(mode)) {
+        return getShariaInstruction(mode, region);
+    }
+
     const base = getBaseInstruction(region);
     switch (mode) {
         case 'loopholes': return `${base}\nدورك: صائد الثغرات. ابحث عن الدفوع الشكلية في قوانين ${region === 'gaza' ? 'غزة' : 'الضفة'}.`;

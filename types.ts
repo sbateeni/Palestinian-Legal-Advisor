@@ -33,7 +33,7 @@ export interface ChatMessage {
 }
 
 export type CaseStatus = 'جديدة' | 'قيد النظر' | 'مؤجلة' | 'مغلقة' | 'استئناف' | 'أخرى';
-export type CaseType = 'chat' | 'inheritance';
+export type CaseType = 'chat' | 'inheritance' | 'sharia';
 
 export interface Case {
   id: string;
@@ -62,7 +62,10 @@ export interface OpenRouterModel {
 }
 
 // Define the allowed Legal Action Modes
-export type ActionMode = 'analysis' | 'loopholes' | 'drafting' | 'strategy' | 'research' | 'interrogator' | 'verifier';
+// Added Sharia modes: sharia_advisor, reconciliation, custody, alimony
+export type ActionMode = 
+    | 'analysis' | 'loopholes' | 'drafting' | 'strategy' | 'research' | 'interrogator' | 'verifier'
+    | 'sharia_advisor' | 'reconciliation' | 'custody' | 'alimony';
 
 // --- OCR & Analysis Types ---
 
