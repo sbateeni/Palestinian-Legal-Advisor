@@ -1,6 +1,7 @@
 
 import { useState, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
+import { useSearchParams } from 'react-router-dom';
 import { Case, InheritanceInput, InheritanceResult, HeirResult, ApiSource } from '../types';
 import * as dbService from '../services/dbService';
 import { extractInheritanceFromCase } from '../pages/geminiService';
@@ -39,18 +40,23 @@ export const useInheritanceLogic = () => {
     const [results, setResults] = useState<InheritanceResult | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [isSaving, setIsSaving] = useState(false);
+    const [searchParams] = useSearchParams();
 
     useEffect(() => {
         dbService.getAllCases().then(setCases);
     }, []);
 
+    // Auto-select case if URL param exists
+    useEffect(() => {
+        const urlCaseId = searchParams.get('caseId');
+        if (urlCaseId) {
+            setSelectedCaseId(urlCaseId);
+        }
+    }, [searchParams]);
+
     // Auto-load saved inheritance data when a case is selected
     useEffect(() => {
-        if (!selectedCaseId) {
-            // Reset if no case selected (optional, maybe user wants to keep data?)
-            // keeping data allows switching from standalone to a case context
-            return;
-        }
+        if (!selectedCaseId) return;
 
         const selectedCase = cases.find(c => c.id === selectedCaseId);
         if (selectedCase && selectedCase.inheritanceData) {
@@ -106,7 +112,6 @@ export const useInheritanceLogic = () => {
     };
 
     // Helper to distribute names like "Ahmed, Ali" into an array ["Ahmed", "Ali"]
-    // If names string is empty or not enough names, generate generic "Son 1", "Son 2" etc.
     const distributeHeirs = (count: number, typeLabel: string, namesStr?: string): { name: string }[] => {
         if (count <= 0) return [];
         
@@ -243,7 +248,7 @@ export const useInheritanceLogic = () => {
                          name: b.name,
                          count: 1,
                          shareFraction: 'عصبة',
-                         sharePercentage: ((unitValue * 2) / 24) * 100,
+                         sharePercentage: ((unitValue * 2) / 24) * 100, 
                          amount: 0
                      });
                  });
@@ -255,7 +260,7 @@ export const useInheritanceLogic = () => {
                          name: s.name,
                          count: 1,
                          shareFraction: 'عصبة',
-                         sharePercentage: (unitValue / 24) * 100,
+                         sharePercentage: (unitValue / 24) * 100, 
                          amount: 0
                      });
                  });
@@ -353,10 +358,10 @@ export const useInheritanceLogic = () => {
                 if (caseToUpdate) {
                     const updatedCase: Case = {
                         ...caseToUpdate,
-                        inheritanceData: { inputs, results }
+                        inheritanceData: { inputs, results },
+                        // If it was a pure inheritance placeholder, switch type if needed, but usually keep as is
                     };
                     await dbService.updateCase(updatedCase);
-                    // Update local state
                     setCases(prev => prev.map(c => c.id === updatedCase.id ? updatedCase : c));
                     alert("تم تحديث بيانات الميراث للقضية بنجاح.");
                 }

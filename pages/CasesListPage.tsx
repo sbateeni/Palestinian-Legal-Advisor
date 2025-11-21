@@ -9,6 +9,7 @@ import CaseListItem from '../components/cases/CaseListItem';
 const CasesListPage: React.FC = () => {
     const navigate = useNavigate();
     const {
+        cases,
         isLoading,
         searchTerm, setSearchTerm,
         viewMode, setViewMode,
@@ -29,6 +30,15 @@ const CasesListPage: React.FC = () => {
         handleTitleKeyDown,
         clearFilters
     } = useCasesListLogic();
+
+    const handleCaseNavigation = (id: string) => {
+        const caseItem = cases.find(c => c.id === id);
+        if (caseItem?.caseType === 'inheritance') {
+            navigate(`/inheritance?caseId=${id}`);
+        } else {
+            navigate(`/case/${id}`);
+        }
+    };
 
     if (isLoading) {
         return (
@@ -82,7 +92,7 @@ const CasesListPage: React.FC = () => {
                                 setOpenStatusMenu={setOpenStatusMenu}
                                 handleStatusChange={handleStatusChange}
                                 deleteCase={deleteCase}
-                                onNavigate={(id) => navigate(`/case/${id}`)}
+                                onNavigate={handleCaseNavigation}
                                 statusMenuRef={statusMenuRef}
                             />
                         ))}
@@ -95,7 +105,7 @@ const CasesListPage: React.FC = () => {
                                 caseItem={caseItem}
                                 handleStatusChange={handleStatusChange}
                                 deleteCase={deleteCase}
-                                onNavigate={(id) => navigate(`/case/${id}`)}
+                                onNavigate={handleCaseNavigation}
                             />
                         ))}
                     </div>

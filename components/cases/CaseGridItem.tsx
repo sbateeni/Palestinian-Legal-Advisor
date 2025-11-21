@@ -63,7 +63,7 @@ const CaseGridItem: React.FC<CaseGridItemProps> = ({
                                 className="w-full bg-gray-600 text-gray-100 p-1 rounded text-xl font-semibold"
                             />
                         ) : (
-                            <h2 className="text-xl font-semibold text-gray-100 break-words w-full me-2 cursor-pointer hover:text-blue-400" onClick={() => isInheritance ? onNavigate(`/inheritance`) : onNavigate(`/case/${caseItem.id}`)}>
+                            <h2 className="text-xl font-semibold text-gray-100 break-words w-full me-2 cursor-pointer hover:text-blue-400" onClick={() => onNavigate(caseItem.id)}>
                                 {caseItem.title}
                             </h2>
                         )}
@@ -108,12 +108,12 @@ const CaseGridItem: React.FC<CaseGridItemProps> = ({
             </div>
             <div className="flex justify-between items-center mt-2">
                 {isInheritance ? (
-                     <button onClick={() => onNavigate(`/inheritance`)} className="px-4 py-2 bg-emerald-600 text-white text-sm font-semibold rounded-md hover:bg-emerald-700 transition-colors flex items-center">
+                     <button onClick={() => onNavigate(caseItem.id)} className="px-4 py-2 bg-emerald-600 text-white text-sm font-semibold rounded-md hover:bg-emerald-700 transition-colors flex items-center">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 me-2" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" /></svg>
                         فتح الحاسبة
                     </button>
                 ) : (
-                    <button onClick={() => onNavigate(`/case/${caseItem.id}`)} className="px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-md hover:bg-blue-700 transition-colors">
+                    <button onClick={() => onNavigate(caseItem.id)} className="px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-md hover:bg-blue-700 transition-colors">
                         فتح
                     </button>
                 )}

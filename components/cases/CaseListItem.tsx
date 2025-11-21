@@ -17,7 +17,8 @@ const CaseListItem: React.FC<CaseListItemProps> = ({
     onNavigate
 }) => {
     const isInheritance = caseItem.caseType === 'inheritance';
-    const handleNav = () => isInheritance ? onNavigate(`/inheritance`) : onNavigate(`/case/${caseItem.id}`);
+    // Pass ID only, let parent decide URL
+    const handleNav = () => onNavigate(caseItem.id);
     
     // Safe fallback for status style
     const statusStyle = STATUS_MAP[caseItem.status] || { label: caseItem.status || 'غير محدد', color: 'bg-gray-500' };
