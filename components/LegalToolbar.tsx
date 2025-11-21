@@ -17,11 +17,25 @@ export const ACTION_MODES: { id: ActionMode; label: string; icon: React.ReactNod
         color: 'bg-blue-600 hover:bg-blue-500',
     },
     {
+        id: 'interrogator',
+        label: 'المستجوب',
+        description: 'طرح أسئلة ذكية لاستكمال وقائع القضية الناقصة',
+        icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" /></svg>,
+        color: 'bg-indigo-600 hover:bg-indigo-500',
+    },
+    {
         id: 'research',
-        label: 'المحقق القانوني',
+        label: 'المحقق',
         description: 'البحث في المصادر الرسمية (المقتفي، ديوان الفتوى) ومطابقة النصوص',
         icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M9 4.804A7.968 7.968 0 005.5 4c-1.255 0-2.443.29-3.5.804v10A7.969 7.969 0 015.5 14c1.669 0 3.218.51 4.5 1.385A7.962 7.962 0 0114.5 14c1.255 0 2.443.29 3.5.804v-10A7.968 7.968 0 0014.5 4c-1.255 0-2.443.29-3.5.804V12a1 1 0 11-2 0V4.804z" /></svg>,
         color: 'bg-purple-600 hover:bg-purple-500',
+    },
+    {
+        id: 'verifier',
+        label: 'المدقق التشريعي',
+        description: 'التأكد من سريان القانون وعدم إلغائه بقرار بقانون',
+        icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>,
+        color: 'bg-cyan-600 hover:bg-cyan-500',
     },
     {
         id: 'loopholes',

@@ -54,7 +54,9 @@ export interface OpenRouterModel {
 
 // Define the allowed Legal Action Modes
 // Added 'research' mode for the dedicated Legal Researcher agent
-export type ActionMode = 'analysis' | 'loopholes' | 'drafting' | 'strategy' | 'research';
+// Added 'interrogator' for fact-finding
+// Added 'verifier' for legislative auditing
+export type ActionMode = 'analysis' | 'loopholes' | 'drafting' | 'strategy' | 'research' | 'interrogator' | 'verifier';
 
 // --- OCR & Analysis Types ---
 
