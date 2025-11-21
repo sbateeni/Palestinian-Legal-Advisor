@@ -6,7 +6,8 @@ import ChatPage from './pages/ChatPage';
 import CasesListPage from './pages/CasesListPage';
 import SettingsPage from './pages/SettingsPage';
 import OcrPage from './pages/OcrPage';
-import ToolsPage from './pages/ToolsPage'; // Import the new ToolsPage
+import ToolsPage from './pages/ToolsPage';
+import InheritancePage from './pages/InheritancePage'; // Import
 
 const App: React.FC = () => {
   return (
@@ -20,7 +21,8 @@ const App: React.FC = () => {
             <Route path="/case/:caseId" element={<ChatPageWrapper />} />
             <Route path="/cases" element={<CasesListPage />} />
             <Route path="/ocr" element={<OcrPage />} />
-            <Route path="/tools" element={<ToolsPage />} /> {/* Add the new route */}
+            <Route path="/tools" element={<ToolsPage />} />
+            <Route path="/inheritance" element={<InheritancePage />} /> {/* New Route */}
             <Route path="/settings" element={<SettingsPage />} />
           </Routes>
         </main>

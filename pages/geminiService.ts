@@ -1,6 +1,6 @@
 
-import { GoogleGenAI, Content } from "@google/genai";
-import { ChatMessage, GroundingMetadata, ActionMode, LegalRegion } from '../types';
+import { GoogleGenAI, Content, Schema, Type } from "@google/genai";
+import { ChatMessage, GroundingMetadata, ActionMode, LegalRegion, InheritanceInput } from '../types';
 import * as dbService from '../services/dbService';
 
 // --- Specialized Agent Personas (Instructions) ---
@@ -356,4 +356,63 @@ export async function analyzeImageWithGemini(
     console.error("Error analyzing image with Gemini:", error);
     throw error;
   }
+}
+
+export async function extractInheritanceFromCase(caseText: string): Promise<Partial<InheritanceInput>> {
+    try {
+        const ai = await getGoogleGenAI();
+        const model = 'gemini-2.5-flash';
+
+        const prompt = `
+            أنت مساعد قانوني ذكي متخصص في قضايا الميراث.
+            مهمتك: تحليل نص القضية التالي واستخراج بيانات الورثة والتركة.
+            المخرجات يجب أن تكون بتنسيق JSON فقط.
+
+            القواعد:
+            - استخرج عدد الزوجات، الأبناء الذكور، البنات، الأب، الأم، الأخوة الأشقاء، الأخوات الشقيقات.
+            - استخرج قيمة التركة (Estate Value) والعملة إذا وجدت (افترض JOD إذا لم تذكر).
+            - حدد الديانة (religion) بناءً على السياق (muslim أو christian). الافتراضي muslim.
+            - إذا لم يتم ذكر وارث معين، ضع قيمته 0.
+            - لا تضف أي نص خارج الـ JSON.
+
+            النص:
+            "${caseText.substring(0, 10000)}"
+        `;
+        
+        // Define strict schema for reliable extraction
+        const schema: Schema = {
+            type: Type.OBJECT,
+            properties: {
+                religion: { type: Type.STRING, enum: ["muslim", "christian"] },
+                estateValue: { type: Type.NUMBER },
+                currency: { type: Type.STRING },
+                husband: { type: Type.INTEGER },
+                wife: { type: Type.INTEGER },
+                son: { type: Type.INTEGER },
+                daughter: { type: Type.INTEGER },
+                father: { type: Type.INTEGER },
+                mother: { type: Type.INTEGER },
+                brotherFull: { type: Type.INTEGER },
+                sisterFull: { type: Type.INTEGER },
+            },
+            required: ["religion", "estateValue", "wife", "son", "daughter"],
+        };
+
+        const response = await ai.models.generateContent({
+            model: model,
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: schema
+            }
+        });
+
+        const jsonText = response.text;
+        if (!jsonText) throw new Error("No JSON returned");
+        
+        return JSON.parse(jsonText);
+    } catch (error) {
+        console.error("Inheritance Extraction Error:", error);
+        throw error;
+    }
 }

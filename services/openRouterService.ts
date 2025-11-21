@@ -1,5 +1,5 @@
 
-import { ChatMessage, GroundingMetadata, ActionMode, LegalRegion } from '../types';
+import { ChatMessage, GroundingMetadata, ActionMode, LegalRegion, InheritanceInput } from '../types';
 
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 const DEFAULT_MODEL_NAME = 'google/gemini-flash-1.5';
@@ -267,4 +267,50 @@ export async function* streamChatResponseFromOpenRouter(
   } finally {
     reader.releaseLock();
   }
+}
+
+export async function extractInheritanceFromCaseWithOpenRouter(apiKey: string, model: string, caseText: string): Promise<Partial<InheritanceInput>> {
+    const prompt = `
+        أنت مساعد قانوني ذكي متخصص في قضايا الميراث.
+        مهمتك: تحليل نص القضية التالي واستخراج بيانات الورثة والتركة.
+        المخرجات يجب أن تكون بتنسيق JSON فقط.
+
+        القواعد:
+        - استخرج عدد الزوجات، الأبناء الذكور، البنات، الأب، الأم، الأخوة الأشقاء، الأخوات الشقيقات.
+        - استخرج قيمة التركة (Estate Value) والعملة إذا وجدت (افترض JOD إذا لم تذكر).
+        - حدد الديانة (religion) بناءً على السياق (muslim أو christian). الافتراضي muslim.
+        - إذا لم يتم ذكر وارث معين، ضع قيمته 0.
+        - لا تضف أي نص خارج الـ JSON.
+
+        النص:
+        "${caseText.substring(0, 5000)}"
+    `;
+
+    const response = await fetch(OPENROUTER_API_URL, {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            model: model,
+            messages: [{ role: 'user', content: prompt }],
+            response_format: { type: "json_object" } // Try to force JSON mode if model supports it
+        }),
+    });
+
+    if (!response.ok) throw new Error("OpenRouter extraction failed");
+    
+    const result = await response.json();
+    const content = result.choices[0]?.message?.content;
+    if (!content) throw new Error("No content returned");
+
+    try {
+        return JSON.parse(content);
+    } catch (e) {
+        // Fallback: Try to find JSON in markdown block
+        const match = content.match(/```json([\s\S]*?)```/);
+        if (match) return JSON.parse(match[1]);
+        throw e;
+    }
 }

@@ -88,3 +88,39 @@ declare global {
         SpeechRecognition: any;
     }
 }
+
+// --- Inheritance Types ---
+export type Religion = 'muslim' | 'christian';
+
+export interface InheritanceInput {
+    religion: Religion;
+    estateValue: number;
+    currency: string;
+    
+    // Heirs Counts
+    husband: number; // 0 or 1
+    wife: number; // 0 to 4
+    son: number;
+    daughter: number;
+    father: number; // 0 or 1
+    mother: number; // 0 or 1
+    brotherFull: number; // Brother (Same parents)
+    sisterFull: number;
+    // We can add more extended family later (grandfather, etc.)
+}
+
+export interface HeirResult {
+    type: string; // 'الزوجة', 'الابن', etc.
+    count: number;
+    shareFraction: string; // "1/8"
+    sharePercentage: number; // 12.5
+    amount: number; // Cash value
+    notes?: string; // "لوجود الفرع الوارث"
+}
+
+export interface InheritanceResult {
+    totalValue: number;
+    heirs: HeirResult[];
+    remainder?: number; // If any (Radd)
+    isAwl?: boolean; // If shares > 1
+}
