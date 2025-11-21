@@ -21,7 +21,7 @@ export const useChatLogic = (caseId?: string) => {
     const [isLoading, setIsLoading] = useState(false);
     const [isApiKeyReady, setIsApiKeyReady] = useState<boolean | null>(null);
     const [apiSource, setApiSource] = useState<ApiSource>('gemini');
-    const [region, setRegion] = useState<LegalRegion>('westbank'); // Default Region
+    const [region, setRegion] = useState<LegalRegion>('westbank'); 
     const [openRouterApiKey, setOpenRouterApiKey] = useState<string>('');
     const [openRouterModel, setOpenRouterModel] = useState<string>(DEFAULT_OPENROUTER_MODELS[0].id);
     const [openRouterModels, setOpenRouterModels] = useState<OpenRouterModel[]>(DEFAULT_OPENROUTER_MODELS);
@@ -41,13 +41,10 @@ export const useChatLogic = (caseId?: string) => {
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const abortControllerRef = useRef<AbortController | null>(null);
     
-    // Determine if it's a new case based on ID availability
     const isNewCase = !caseId;
 
-    // 1. Initialization Effect
     useEffect(() => {
         const loadData = async () => {
-            // Start with loading state to prevent premature "No API Key" screens
             setIsLoading(true); 
             try {
                 const storedApiSource = await dbService.getSetting<ApiSource>('apiSource');
@@ -60,7 +57,6 @@ export const useChatLogic = (caseId?: string) => {
                 const availableModels = storedCustomModels && storedCustomModels.length > 0 ? storedCustomModels : DEFAULT_OPENROUTER_MODELS;
                 setOpenRouterModels(availableModels);
 
-                // API Key Validation Logic
                 if (storedApiSource === 'openrouter') {
                     const storedApiKey = await dbService.getSetting<string>('openRouterApiKey');
                     const storedModel = await dbService.getSetting<string>('openRouterModel');
@@ -77,9 +73,7 @@ export const useChatLogic = (caseId?: string) => {
                         setIsApiKeyReady(false);
                     }
                 } else {
-                    // Gemini Key Check
                     const storedGeminiKey = await dbService.getSetting<string>('geminiApiKey');
-                    // Check DB first, then Global Env, then AI Studio
                     const hasStoredKey = !!storedGeminiKey && storedGeminiKey.trim().length > 0;
                     const hasEnvKey = !!process.env.API_KEY && process.env.API_KEY.trim().length > 0;
                     
@@ -93,7 +87,6 @@ export const useChatLogic = (caseId?: string) => {
                     setIsApiKeyReady(hasStoredKey || hasEnvKey || hasAiStudioKey);
                 }
 
-                // Case Loading Logic
                 if (!isNewCase) {
                     const loadedCase = await dbService.getCase(caseId);
                     if (loadedCase) {
@@ -104,9 +97,8 @@ export const useChatLogic = (caseId?: string) => {
                             countTokensForGemini(loadedCase.chatHistory).then(setTokenCount);
                         }
                     } else {
-                        console.error("Case not found in DB");
-                        // Don't navigate automatically here to avoid loop, just show empty state
-                        setIsLoading(false); 
+                        // Case not found (maybe deleted or bad ID)
+                        console.warn("Case not found in DB");
                     }
                 } else {
                     setChatHistory([]);
@@ -122,18 +114,14 @@ export const useChatLogic = (caseId?: string) => {
         loadData();
     }, [caseId, isNewCase, navigate]);
 
-    // 2. Auto-scroll Effect
     useEffect(() => {
         chatContainerRef.current?.scrollTo(0, chatContainerRef.current.scrollHeight);
     }, [chatHistory]);
 
-
-    // 3. Helper Functions
     const handleSelectApiKey = async () => {
         if (apiSource === 'gemini' && window.aistudio && typeof window.aistudio.openSelectKey === 'function') {
             try {
                 await window.aistudio.openSelectKey();
-                // Re-check immediately
                 const hasKey = await window.aistudio.hasSelectedApiKey();
                 if (hasKey) setIsApiKeyReady(true);
             } catch (error) {
@@ -169,7 +157,6 @@ export const useChatLogic = (caseId?: string) => {
         }
     };
 
-    // 4. Summarization Logic
     const handleSummarize = async () => {
         if (isSummaryLoading || isLoading || chatHistory.length === 0) return;
 
@@ -199,7 +186,6 @@ export const useChatLogic = (caseId?: string) => {
             );
             setChatHistory(finalHistory);
 
-            // Update DB with summary
             if (caseData) {
                 const updatedCase = { ...caseData, chatHistory: finalHistory, summary: summaryText.substring(0, 150) };
                 await dbService.updateCase(updatedCase);
@@ -217,7 +203,6 @@ export const useChatLogic = (caseId?: string) => {
         }
     };
 
-    // 5. File Handling Logic
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (!file) return;
@@ -295,7 +280,6 @@ export const useChatLogic = (caseId?: string) => {
         event.target.value = '';
     };
 
-    // 6. Streaming Logic
     const processStream = useCallback(async (
         stream: AsyncGenerator<{ text: string; model: string; groundingMetadata?: GroundingMetadata }>,
         tempModelMessageId: string
@@ -348,7 +332,6 @@ export const useChatLogic = (caseId?: string) => {
         return { fullResponse, responseModel, groundingMetadata };
     }, []);
 
-    // 7. Send Message Logic (REFACTORED TO SAVE IMMEDIATELY)
     const handleSendMessage = async (prompt?: string) => {
         setAuthError(null);
         const messageContent = (prompt || userInput).trim();
@@ -357,7 +340,7 @@ export const useChatLogic = (caseId?: string) => {
         if (apiSource === 'openrouter' && uploadedImage) {
             const selectedModelInfo = openRouterModels.find(m => m.id === openRouterModel);
             if (!selectedModelInfo?.supportsImages) {
-                alert(`النموذج المحدد (${selectedModelInfo?.name || openRouterModel}) لا يدعم تحليل الصور. يرجى اختيار نموذج يدعم الصور من الإعدادات، أو إزالة الصورة المرفقة.`);
+                alert(`النموذج المحدد (${selectedModelInfo?.name || openRouterModel}) لا يدعم تحليل الصور.`);
                 return;
             }
         }
@@ -377,42 +360,34 @@ export const useChatLogic = (caseId?: string) => {
             textareaRef.current.style.height = 'auto';
         }
 
-        // Prepare temp model message
         const tempModelMessage: ChatMessage = { role: 'model', content: '', id: uuidv4() };
         const newHistory = [...chatHistory, userMessage, tempModelMessage];
         setChatHistory(newHistory);
 
         abortControllerRef.current = new AbortController();
 
-        // --- STEP 1: IMMEDIATE SAVE (PERSISTENCE) ---
-        // Save to DB *before* API call to ensure user input is never lost.
+        // --- IMMEDIATE SAVE PROTOCOL ---
         const targetCaseId = caseId || uuidv4();
         let currentCaseData = caseData;
 
         try {
-            // Initial title is prompt or generic
             const initialTitle = messageContent.substring(0, 50) + (messageContent.length > 50 ? '...' : '') || 'قضية جديدة';
             const initialSummary = messageContent.substring(0, 150) + (messageContent.length > 150 ? '...' : '');
 
+            // We save the history WITH the empty model message so the user sees something loading if they reload
             if (isNewCase) {
                 const newCase: Case = {
                     id: targetCaseId,
                     title: initialTitle,
                     summary: initialSummary,
-                    chatHistory: newHistory, // Save with empty model message for now
+                    chatHistory: newHistory, 
                     pinnedMessages: [],
                     createdAt: Date.now(),
                     status: 'جديدة',
+                    caseType: 'chat' // Default type
                 };
                 await dbService.addCase(newCase);
                 currentCaseData = newCase;
-                // IMPORTANT: Update URL silently to avoid unmounting if possible, 
-                // but since we use React Router, we might need to navigate.
-                // However, navigating unmounts this component. 
-                // To prevent stream interruption, we won't navigate *yet* if it's a new case,
-                // or we accept the unmount and reload from DB (but that stops stream).
-                // Strategy: We are already in the "chat" view conceptually. 
-                // We will navigate at the END, but data is safe in DB now.
             } else if (caseData) {
                 const updatedCase = {
                     ...caseData,
@@ -423,12 +398,11 @@ export const useChatLogic = (caseId?: string) => {
             }
         } catch (saveError) {
             console.error("Failed to save initial case state:", saveError);
-            alert("تحذير: فشل حفظ القضية. يرجى التحقق من المتصفح.");
             setIsLoading(false);
-            return; // Stop if we can't save
+            return;
         }
 
-        // --- STEP 2: API CALL ---
+        // --- API CALL ---
         let finalResponseText = '';
         let finalModelName = '';
         let finalMetadata: GroundingMetadata | undefined;
@@ -460,11 +434,9 @@ export const useChatLogic = (caseId?: string) => {
             const errorMessage = error.toString();
             const errorStatus = error.status;
 
-            if (errorStatus === 401 || errorMessage.includes("API key") || errorMessage.includes("authentication") || errorMessage.includes("was not found") || errorMessage.includes("User not found")) {
+            if (errorStatus === 401 || errorMessage.includes("API key") || errorMessage.includes("authentication") || errorMessage.includes("was not found")) {
                 chatErrorMessage = `مفتاح API غير صالح أو تم رفضه لـ ${apiSource}. يرجى الانتقال إلى صفحة الإعدادات للتأكد من صحة المفتاح.`;
                 setAuthError(chatErrorMessage);
-            } else if (apiSource === 'openrouter' && (errorMessage.includes("No endpoints found") || error.status === 404)) {
-                chatErrorMessage = `حدث خطأ: النموذج المحدد (${openRouterModel}) قد يكون غير متاح مؤقتاً أو غير متوافق مع الطلب. يرجى تجربة نموذج آخر.`;
             } else {
                 chatErrorMessage = `حدث خطأ: ${error.message}`;
             }
@@ -478,7 +450,7 @@ export const useChatLogic = (caseId?: string) => {
                 )
             );
         } finally {
-            // --- STEP 3: FINAL SAVE (UPDATE CONTENT) ---
+            // --- FINAL SAVE PROTOCOL ---
             try {
                 if (currentCaseData) {
                     const finalModelMsgObject: ChatMessage = {
@@ -490,13 +462,10 @@ export const useChatLogic = (caseId?: string) => {
                         isError: finalIsError
                     };
 
-                    // Reconstruct history with the *final* content
-                    // (chatHistory state might be stale inside closure, so strictly map the newHistory we created)
                     const finalHistory = newHistory.map(msg => 
                         msg.id === tempModelMessage.id ? finalModelMsgObject : msg
                     );
 
-                    // Update summary if success
                     const summarySnippet = finalIsError 
                         ? currentCaseData.summary 
                         : finalResponseText.substring(0, 150) + (finalResponseText.length > 150 ? '...' : '');
@@ -510,8 +479,6 @@ export const useChatLogic = (caseId?: string) => {
                     await dbService.updateCase(finalCaseUpdate);
                     setCaseData(finalCaseUpdate);
 
-                    // If it was a new case, NOW we navigate to the permalink
-                    // We do this at the end to avoid unmounting during stream
                     if (isNewCase) {
                         navigate(`/case/${targetCaseId}`, { replace: true });
                     }

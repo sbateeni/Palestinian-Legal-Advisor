@@ -127,22 +127,34 @@ const MAX_OUTPUT_TOKENS_FLASH = 8192;
 const THINKING_BUDGET_PRO = 2048;
 
 async function getGoogleGenAI(): Promise<GoogleGenAI> {
-    // 1. Try to get the key from IndexedDB first
-    const storedApiKey = await dbService.getSetting<string>('geminiApiKey');
-    
-    // AGGRESSIVE SANITIZATION: Remove quotes, spaces, and common paste errors
-    // Only use stored key if it's not null/undefined
-    let apiKey = storedApiKey ? storedApiKey.replace(/["']/g, '').trim() : '';
-    
-    // 2. If DB key is missing or looks invalid (too short), try Env
-    if (!apiKey || apiKey.length < 10) {
-        apiKey = process.env.API_KEY ? process.env.API_KEY.replace(/["']/g, '').trim() : '';
+    let apiKey = '';
+
+    // 1. Check Process Env (Highest Reliability for Deployed App)
+    if (process.env.API_KEY) {
+        apiKey = process.env.API_KEY;
     }
-    
-    // 3. If still missing, log warning (the call will fail, caught by caller)
+
+    // 2. Check IndexedDB (User Override)
     if (!apiKey) {
-        console.warn("Gemini Service: No API key found in Storage or Env.");
+        try {
+            const storedApiKey = await dbService.getSetting<string>('geminiApiKey');
+            if (storedApiKey) {
+                apiKey = storedApiKey;
+            }
+        } catch (e) {
+            console.warn("Failed to read API key from DB", e);
+        }
     }
+
+    // 3. Sanitize
+    apiKey = apiKey.replace(/["']/g, '').trim();
+
+    // 4. Validate
+    if (!apiKey || apiKey.length < 10) {
+        console.warn("Gemini Service: Valid API key not found.");
+        // We assume the user will see the UI prompt if this is empty
+    }
+
     return new GoogleGenAI({ apiKey });
 }
 
@@ -339,7 +351,6 @@ export async function extractInheritanceFromCase(caseText: string): Promise<Part
             "${caseText.substring(0, 15000)}"
         `;
         
-        // Define strict schema for reliable extraction
         const schema: Schema = {
             type: Type.OBJECT,
             properties: {
@@ -355,20 +366,20 @@ export async function extractInheritanceFromCase(caseText: string): Promise<Part
                 mother: { type: Type.INTEGER },
                 brotherFull: { type: Type.INTEGER },
                 sisterFull: { type: Type.INTEGER },
-                // Names (Strings containing comma separated names)
+                // Names
                 husbandName: { type: Type.STRING },
                 wifeName: { type: Type.STRING },
                 sonNames: { type: Type.STRING },
                 daughterNames: { type: Type.STRING },
                 fatherName: { type: Type.STRING },
                 motherName: { type: Type.STRING },
-                // Context - Detailed Analysis
+                // Context
                 context: {
                     type: Type.OBJECT,
                     properties: {
-                        notes: { type: Type.STRING, description: "الديون، الوصايا، ومصاريف التجهيز" },
-                        disputes: { type: Type.STRING, description: "الأموال المتنازع عليها أو المعلقة" },
-                        conclusion: { type: Type.STRING, description: "الخلاصة النهائية للمبالغ والتوصيات القانونية" },
+                        notes: { type: Type.STRING },
+                        disputes: { type: Type.STRING },
+                        conclusion: { type: Type.STRING },
                     },
                     required: ["notes", "disputes", "conclusion"]
                 }

@@ -1,7 +1,9 @@
+
 import { Case, ApiSource } from '../types';
 
 const DB_NAME = 'PalestinianLawAdvisorDB';
-const DB_VERSION = 1;
+// Bumping version to 2 forces a schema upgrade/reset on client browsers
+const DB_VERSION = 2; 
 const CASES_STORE_NAME = 'cases';
 const SETTINGS_STORE_NAME = 'settings';
 
@@ -26,14 +28,23 @@ function getDB(): Promise<IDBDatabase> {
 
     request.onupgradeneeded = (event) => {
       const db = (event.target as IDBOpenDBRequest).result;
-      if (!db.objectStoreNames.contains(CASES_STORE_NAME)) {
-        const caseStore = db.createObjectStore(CASES_STORE_NAME, { keyPath: 'id' });
-        caseStore.createIndex('createdAt', 'createdAt', { unique: false });
-        caseStore.createIndex('title', 'title', { unique: false });
+      
+      // CLEAN SLATE PROTOCOL:
+      // If stores exist from a previous buggy version, delete them to prevent schema mismatch crashes.
+      if (db.objectStoreNames.contains(CASES_STORE_NAME)) {
+          db.deleteObjectStore(CASES_STORE_NAME);
       }
-      if (!db.objectStoreNames.contains(SETTINGS_STORE_NAME)) {
-        db.createObjectStore(SETTINGS_STORE_NAME, { keyPath: 'key' });
+      if (db.objectStoreNames.contains(SETTINGS_STORE_NAME)) {
+          db.deleteObjectStore(SETTINGS_STORE_NAME);
       }
+
+      // Re-create Stores with correct Schema
+      const caseStore = db.createObjectStore(CASES_STORE_NAME, { keyPath: 'id' });
+      caseStore.createIndex('createdAt', 'createdAt', { unique: false });
+      caseStore.createIndex('title', 'title', { unique: false });
+      caseStore.createIndex('caseType', 'caseType', { unique: false }); // New Index for filtering
+
+      const settingsStore = db.createObjectStore(SETTINGS_STORE_NAME, { keyPath: 'key' });
     };
 
     request.onsuccess = () => {
@@ -56,7 +67,7 @@ async function performTransaction<T>(storeName: string, mode: IDBTransactionMode
     };
 
     request.onerror = () => {
-      console.error('Transaction Error:', request.error);
+      console.error(`Transaction Error in ${storeName}:`, request.error);
       reject(request.error);
     };
   });
@@ -72,8 +83,13 @@ export const clearCases = () => performTransaction(CASES_STORE_NAME, 'readwrite'
 
 // Settings operations
 export async function getSetting<T>(key: string): Promise<T | null> {
-    const result = await performTransaction<Setting>(SETTINGS_STORE_NAME, 'readonly', store => store.get(key));
-    return result ? result.value : null;
+    try {
+        const result = await performTransaction<Setting>(SETTINGS_STORE_NAME, 'readonly', store => store.get(key));
+        return result ? result.value : null;
+    } catch (e) {
+        // Return null if setting doesn't exist yet
+        return null;
+    }
 }
 
 export const setSetting = (setting: Setting) => performTransaction(SETTINGS_STORE_NAME, 'readwrite', store => store.put(setting));
