@@ -36,7 +36,7 @@ const NavCircle: React.FC<NavItemProps> = ({ title, description, icon, path, del
                     {title}
                 </h3>
 
-                {/* Description - Visible by default now */}
+                {/* Description - Visible by default */}
                 <p className="text-[11px] sm:text-xs text-gray-400 font-medium leading-relaxed line-clamp-3 px-1 group-hover:text-gray-300 transition-colors duration-300">
                     {description}
                 </p>
@@ -47,6 +47,16 @@ const NavCircle: React.FC<NavItemProps> = ({ title, description, icon, path, del
         </div>
     );
 };
+
+const FeatureCard: React.FC<{ title: string; desc: string; icon: React.ReactNode; delay: string }> = ({ title, desc, icon, delay }) => (
+    <div className={`flex flex-col items-start p-6 bg-gray-800/40 backdrop-blur-sm border border-gray-700/50 rounded-2xl hover:bg-gray-800/60 transition-colors duration-300 animate-fade-in-up ${delay}`}>
+        <div className="p-3 bg-gray-900 rounded-lg mb-4 text-amber-500 shadow-lg border border-gray-700">
+            {icon}
+        </div>
+        <h3 className="text-lg font-bold text-gray-100 mb-2">{title}</h3>
+        <p className="text-sm text-gray-400 leading-relaxed">{desc}</p>
+    </div>
+);
 
 const HomePage: React.FC = () => {
     const navItems: NavItemProps[] = [
@@ -126,20 +136,23 @@ const HomePage: React.FC = () => {
     ];
 
     return (
-        <div className="flex flex-col items-center justify-center min-h-full py-8 px-4 relative">
+        <div className="flex flex-col items-center min-h-full py-10 px-4 relative overflow-x-hidden w-full">
             
-            {/* Header / Welcome */}
-            <div className="text-center mb-12 animate-fade-in w-full max-w-3xl">
-                <h1 className="text-4xl md:text-5xl font-bold text-amber-400 mb-4 tracking-wide drop-shadow-lg" style={{fontFamily: 'sans-serif'}}>
+            {/* --- HERO SECTION --- */}
+            <div className="text-center mb-16 animate-fade-in w-full max-w-4xl mx-auto relative">
+                <div className="inline-block mb-4 px-4 py-1.5 rounded-full bg-amber-900/30 border border-amber-500/30 text-amber-400 text-xs font-semibold tracking-wider uppercase">
+                    الذكاء الاصطناعي في خدمة العدالة
+                </div>
+                <h1 className="text-4xl md:text-6xl font-extrabold text-transparent bg-clip-text bg-gradient-to-b from-amber-200 to-amber-500 mb-6 leading-tight drop-shadow-sm">
                     المستشار القانوني الفلسطيني
                 </h1>
-                <p className="text-lg md:text-xl text-blue-200/80 font-light">
-                    منظومة قانونية ذكية متكاملة
+                <p className="text-lg md:text-xl text-gray-300 font-light max-w-2xl mx-auto leading-relaxed">
+                    منظومة قانونية ذكية متكاملة، صُممت خصيصاً لتلبية احتياجات المحامي والمواطن الفلسطيني وفق أحدث التشريعات.
                 </p>
             </div>
 
-            {/* Flexible Grid Layout */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-10 w-full max-w-6xl place-items-center">
+            {/* --- NAVIGATION GRID --- */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 lg:gap-10 w-full max-w-6xl place-items-center mb-24">
                 {navItems.map((item, index) => (
                     <NavCircle 
                         key={index}
@@ -147,6 +160,47 @@ const HomePage: React.FC = () => {
                     />
                 ))}
             </div>
+
+            {/* --- FEATURES / INFO SECTION --- */}
+            <div className="w-full max-w-6xl border-t border-gray-800 pt-16 pb-8">
+                <div className="text-center mb-12">
+                    <h2 className="text-2xl font-bold text-gray-100 mb-2">لماذا تختار هذه المنظومة؟</h2>
+                    <div className="h-1 w-20 bg-amber-500 mx-auto rounded-full"></div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <FeatureCard 
+                        title="اختصاص مكاني دقيق"
+                        desc="تمييز كامل بين القوانين السارية في الضفة الغربية (القانون الأردني) وقطاع غزة (القانون المصري)، مع مراعاة القرارات بقانون الحديثة."
+                        delay="animation-delay-100"
+                        icon={
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        }
+                    />
+                    <FeatureCard 
+                        title="قدرات تحليل فائقة"
+                        desc="مدعوم بأحدث نماذج Gemini AI لتحليل الملفات المعقدة، قراءة المستندات (OCR)، وحساب المواريث بدقة متناهية."
+                        delay="animation-delay-200"
+                        icon={
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                        }
+                    />
+                    <FeatureCard 
+                        title="خصوصية وأمان"
+                        desc="يتم تخزين كافة سجلات القضايا والمحادثات محلياً في جهازك، مما يضمن سرية تامة لبيانات الموكلين."
+                        delay="animation-delay-300"
+                        icon={
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+                        }
+                    />
+                </div>
+            </div>
+
+            {/* --- FOOTER --- */}
+            <footer className="mt-auto text-center text-gray-500 text-sm py-6 w-full border-t border-gray-900/50">
+                <p>© {new Date().getFullYear()} المستشار القانوني الفلسطيني. جميع الحقوق محفوظة.</p>
+                <p className="text-xs mt-1 opacity-60">نسخة تجريبية (Beta v1.0)</p>
+            </footer>
 
             <style>{`
                 .animate-fade-in { animation: fadeIn 0.8s ease-out; }
