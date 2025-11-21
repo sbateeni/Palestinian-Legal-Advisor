@@ -24,7 +24,7 @@ const Header: React.FC = () => {
 
           {/* Desktop Nav */}
           <div className="hidden md:flex items-center space-x-reverse space-x-2">
-            <NavLink to="/" className={({ isActive }) => `${isActive ? activeLinkClass : inactiveLinkClass} ${linkClasses}`}>قضية مدنية</NavLink>
+            <NavLink to="/civil" className={({ isActive }) => `${isActive ? activeLinkClass : inactiveLinkClass} ${linkClasses}`}>قضية مدنية</NavLink>
             <NavLink to="/sharia" className={({ isActive }) => `${isActive ? 'bg-emerald-700 text-white' : 'text-emerald-400 hover:bg-emerald-900/50'} ${linkClasses} border border-emerald-600/30`}>المستشار الشرعي</NavLink>
             <NavLink to="/cases" className={({ isActive }) => `${isActive ? activeLinkClass : inactiveLinkClass} ${linkClasses}`}>القضايا</NavLink>
             <NavLink to="/inheritance" className={({ isActive }) => `${isActive ? activeLinkClass : inactiveLinkClass} ${linkClasses}`}>المواريث</NavLink>
@@ -49,7 +49,7 @@ const Header: React.FC = () => {
         {/* Mobile Menu */}
         {isMenuOpen && (
           <div className="md:hidden pb-3 space-y-1" onClick={() => setIsMenuOpen(false)}>
-            <NavLink to="/" className={({ isActive }) => `${isActive ? activeLinkClass : inactiveLinkClass} block ${linkClasses}`}>قضية مدنية/جزائية</NavLink>
+            <NavLink to="/civil" className={({ isActive }) => `${isActive ? activeLinkClass : inactiveLinkClass} block ${linkClasses}`}>قضية مدنية/جزائية</NavLink>
             <NavLink to="/sharia" className={({ isActive }) => `${isActive ? 'bg-emerald-700 text-white' : 'text-emerald-400'} block ${linkClasses}`}>المستشار الشرعي</NavLink>
             <NavLink to="/cases" className={({ isActive }) => `${isActive ? activeLinkClass : inactiveLinkClass} block ${linkClasses}`}>سجل القضايا</NavLink>
             <NavLink to="/inheritance" className={({ isActive }) => `${isActive ? activeLinkClass : inactiveLinkClass} block ${linkClasses}`}>المواريث</NavLink>
