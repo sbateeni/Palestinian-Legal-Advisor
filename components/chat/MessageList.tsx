@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ChatMessage } from '../../types';
 import ChatMessageItem from '../ChatMessageItem';
 
@@ -12,12 +12,57 @@ interface MessageListProps {
 
 const MessageList: React.FC<MessageListProps> = ({ messages, isLoading, pinnedMessages, onPinMessage }) => {
     const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
+    const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(null);
+
+    // Cleanup speech synthesis on unmount
+    useEffect(() => {
+        return () => {
+            window.speechSynthesis.cancel();
+        };
+    }, []);
 
     const handleCopy = (content: string, id: string) => {
         navigator.clipboard.writeText(content).then(() => {
             setCopiedMessageId(id);
             setTimeout(() => setCopiedMessageId(null), 2000);
         });
+    };
+
+    const handleDownload = (content: string, id: string) => {
+        const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `legal-advisor-response-${id.slice(0, 6)}.txt`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    };
+
+    const handleSpeak = (text: string, id: string) => {
+        if (speakingMessageId === id) {
+            // Stop if clicking the playing message
+            window.speechSynthesis.cancel();
+            setSpeakingMessageId(null);
+            return;
+        }
+
+        // Stop any previous speech
+        window.speechSynthesis.cancel();
+
+        // Simple cleanup to make reading smoother (remove markdown symbols)
+        const cleanText = text.replace(/[*#`_]/g, '');
+
+        const utterance = new SpeechSynthesisUtterance(cleanText);
+        utterance.lang = 'ar-SA'; // Set to Arabic
+        utterance.rate = 1.0; // Normal speed
+
+        utterance.onend = () => setSpeakingMessageId(null);
+        utterance.onerror = () => setSpeakingMessageId(null);
+
+        setSpeakingMessageId(id);
+        window.speechSynthesis.speak(utterance);
     };
 
     if (messages.length === 0 && !isLoading) {
@@ -62,13 +107,29 @@ const MessageList: React.FC<MessageListProps> = ({ messages, isLoading, pinnedMe
                                     </svg>
                                 </button>
                                 {msg.role === 'model' && (
-                                    <button onClick={() => handleCopy(msg.content, msg.id)} className="p-1.5 bg-black/20 rounded-full text-gray-300 hover:bg-black/40 transition-colors" aria-label="نسخ">
-                                        {copiedMessageId === msg.id ? (
-                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                                        ) : (
-                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
-                                        )}
-                                    </button>
+                                    <>
+                                        <button onClick={() => handleSpeak(msg.content, msg.id)} className={`p-1.5 bg-black/20 rounded-full hover:bg-black/40 transition-colors ${speakingMessageId === msg.id ? 'text-green-400 animate-pulse' : 'text-gray-300'}`} aria-label="قراءة صوتية" title={speakingMessageId === msg.id ? "إيقاف القراءة" : "قراءة النص"}>
+                                            {speakingMessageId === msg.id ? (
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 002 0V8a1 1 0 00-1-1zm4 0a1 1 0 00-1 1v4a1 1 0 002 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                                                </svg>
+                                            ) : (
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                                                </svg>
+                                            )}
+                                        </button>
+                                        <button onClick={() => handleCopy(msg.content, msg.id)} className="p-1.5 bg-black/20 rounded-full text-gray-300 hover:bg-black/40 transition-colors" aria-label="نسخ" title="نسخ النص">
+                                            {copiedMessageId === msg.id ? (
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                                            ) : (
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                                            )}
+                                        </button>
+                                        <button onClick={() => handleDownload(msg.content, msg.id)} className="p-1.5 bg-black/20 rounded-full text-gray-300 hover:bg-black/40 transition-colors" aria-label="تحميل" title="تحميل كملف نصي">
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4-4m0 0l-4 4m4-4v12" /></svg>
+                                        </button>
+                                    </>
                                 )}
                             </div>
                             {msg.images && msg.images.length > 0 && (

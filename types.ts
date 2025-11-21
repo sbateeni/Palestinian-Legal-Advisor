@@ -80,3 +80,11 @@ export interface AnalysisResult {
     error: string | null;
     tags?: string[];
 }
+
+// --- Voice Dictation Types ---
+declare global {
+    interface Window {
+        webkitSpeechRecognition: any;
+        SpeechRecognition: any;
+    }
+}

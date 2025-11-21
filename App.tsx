@@ -1,10 +1,12 @@
+
 import React from 'react';
 import { HashRouter, Routes, Route, useParams, Navigate } from 'react-router-dom';
 import Header from './components/Header';
 import ChatPage from './pages/ChatPage';
 import CasesListPage from './pages/CasesListPage';
 import SettingsPage from './pages/SettingsPage';
-import OcrPage from './pages/OcrPage'; // Import the new page
+import OcrPage from './pages/OcrPage';
+import ToolsPage from './pages/ToolsPage'; // Import the new ToolsPage
 
 const App: React.FC = () => {
   return (
@@ -17,7 +19,8 @@ const App: React.FC = () => {
             <Route path="/case" element={<Navigate to="/" replace />} />
             <Route path="/case/:caseId" element={<ChatPageWrapper />} />
             <Route path="/cases" element={<CasesListPage />} />
-            <Route path="/ocr" element={<OcrPage />} /> {/* Add the new route */}
+            <Route path="/ocr" element={<OcrPage />} />
+            <Route path="/tools" element={<ToolsPage />} /> {/* Add the new route */}
             <Route path="/settings" element={<SettingsPage />} />
           </Routes>
         </main>

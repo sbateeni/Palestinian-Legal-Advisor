@@ -1,5 +1,5 @@
 
-import React, { RefObject } from 'react';
+import React, { RefObject, useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { ActionMode } from '../../types';
 import { SUGGESTED_PROMPTS } from '../../constants';
@@ -7,7 +7,7 @@ import LegalToolbar from '../LegalToolbar';
 
 interface ChatInputProps {
     userInput: string;
-    setUserInput: (val: string) => void;
+    setUserInput: (val: string | ((prev: string) => string)) => void;
     handleSendMessage: (prompt?: string) => void;
     handleStopGenerating: () => void;
     handleFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
@@ -42,6 +42,57 @@ const ChatInput: React.FC<ChatInputProps> = ({
     setActionMode,
     chatHistoryLength
 }) => {
+    const [isListening, setIsListening] = useState(false);
+    const [recognition, setRecognition] = useState<any>(null);
+
+    useEffect(() => {
+        if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            const recog = new SpeechRecognition();
+            recog.continuous = true;
+            recog.interimResults = true;
+            recog.lang = 'ar-PS'; // Palestinian Arabic context
+
+            recog.onresult = (event: any) => {
+                let finalTranscript = '';
+                for (let i = event.resultIndex; i < event.results.length; ++i) {
+                    if (event.results[i].isFinal) {
+                        finalTranscript += event.results[i][0].transcript;
+                    }
+                }
+                if (finalTranscript) {
+                    setUserInput((prev: string) => prev + (prev ? ' ' : '') + finalTranscript);
+                }
+            };
+
+            recog.onend = () => {
+                setIsListening(false);
+            };
+
+            recog.onerror = (event: any) => {
+                console.error('Speech recognition error', event.error);
+                setIsListening(false);
+            };
+
+            setRecognition(recog);
+        }
+    }, [setUserInput]);
+
+    const toggleListening = () => {
+        if (!recognition) {
+            alert("متصفحك لا يدعم خاصية الإملاء الصوتي.");
+            return;
+        }
+
+        if (isListening) {
+            recognition.stop();
+            setIsListening(false);
+        } else {
+            recognition.start();
+            setIsListening(true);
+        }
+    };
+
     return (
         <div className="p-4 border-t border-gray-700 bg-gray-800">
             {authError && (
@@ -109,11 +160,31 @@ const ChatInput: React.FC<ChatInputProps> = ({
             )}
 
             {/* Input Area */}
-            <div className="flex items-center space-x-reverse space-x-3">
+            <div className="flex items-center space-x-reverse space-x-2">
                 <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*,application/pdf" className="hidden" />
-                <button onClick={() => fileInputRef.current?.click()} disabled={isLoading || isProcessingFile} className="p-3 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 disabled:opacity-50 transition-colors flex-shrink-0" aria-label="إرفاق ملف">
+                <button onClick={() => fileInputRef.current?.click()} disabled={isLoading || isProcessingFile} className="p-3 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 disabled:opacity-50 transition-colors flex-shrink-0" aria-label="إرفاق ملف" title="إرفاق صورة أو PDF">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>
                 </button>
+                
+                {/* Voice Dictation Button */}
+                <button
+                    onClick={toggleListening}
+                    disabled={isLoading || isProcessingFile}
+                    className={`p-3 rounded-lg transition-colors flex-shrink-0 ${isListening ? 'bg-red-600 text-white animate-pulse' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}
+                    aria-label="إملاء صوتي"
+                    title={isListening ? "جاري الاستماع... (انقر للإيقاف)" : "تحدث للكتابة"}
+                >
+                    {isListening ? (
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 002 0V8a1 1 0 00-1-1zm4 0a1 1 0 00-1 1v4a1 1 0 002 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                        </svg>
+                    ) : (
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                        </svg>
+                    )}
+                </button>
+
                 <textarea
                     ref={textareaRef}
                     value={userInput}
@@ -132,7 +203,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
                         actionMode === 'loopholes' ? "أدخل تفاصيل القضية لكشف الثغرات ومهاجمة الأدلة..." :
                             actionMode === 'drafting' ? "أدخل الوقائع لصياغة وثيقة قانونية رسمية..." :
                                 actionMode === 'strategy' ? "اشرح الوضع للحصول على خطة فوز استراتيجية..." :
-                                    "اكتب رسالتك أو ارفق ملفاً..."
+                                    "اكتب رسالتك، أو استخدم الميكروفون للتحدث..."
                     }
                     rows={1}
                     style={{ maxHeight: '10rem' }}

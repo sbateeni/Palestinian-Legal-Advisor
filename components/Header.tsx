@@ -27,6 +27,7 @@ const Header: React.FC = () => {
             <NavLink to="/" className={({ isActive }) => `${isActive ? activeLinkClass : inactiveLinkClass} ${linkClasses}`}>قضية جديدة</NavLink>
             <NavLink to="/cases" className={({ isActive }) => `${isActive ? activeLinkClass : inactiveLinkClass} ${linkClasses}`}>القضايا المحفوظة</NavLink>
             <NavLink to="/ocr" className={({ isActive }) => `${isActive ? activeLinkClass : inactiveLinkClass} ${linkClasses}`}>تحليل صورة</NavLink>
+            <NavLink to="/tools" className={({ isActive }) => `${isActive ? activeLinkClass : inactiveLinkClass} ${linkClasses}`}>الأدوات</NavLink>
             <NavLink to="/settings" className={({ isActive }) => `${isActive ? activeLinkClass : inactiveLinkClass} ${linkClasses}`}>الإعدادات</NavLink>
           </div>
 
@@ -49,6 +50,7 @@ const Header: React.FC = () => {
             <NavLink to="/" className={({ isActive }) => `${isActive ? activeLinkClass : inactiveLinkClass} block ${linkClasses}`}>قضية جديدة</NavLink>
             <NavLink to="/cases" className={({ isActive }) => `${isActive ? activeLinkClass : inactiveLinkClass} block mt-1 ${linkClasses}`}>القضايا المحفوظة</NavLink>
             <NavLink to="/ocr" className={({ isActive }) => `${isActive ? activeLinkClass : inactiveLinkClass} block mt-1 ${linkClasses}`}>تحليل صورة</NavLink>
+             <NavLink to="/tools" className={({ isActive }) => `${isActive ? activeLinkClass : inactiveLinkClass} block mt-1 ${linkClasses}`}>الأدوات</NavLink>
             <NavLink to="/settings" className={({ isActive }) => `${isActive ? activeLinkClass : inactiveLinkClass} block mt-1 ${linkClasses}`}>الإعدادات</NavLink>
           </div>
         )}
