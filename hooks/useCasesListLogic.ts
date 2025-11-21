@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Case, CaseStatus } from '../types';
 import * as dbService from '../services/dbService';
 

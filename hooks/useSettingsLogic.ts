@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ApiSource, Case, OpenRouterModel } from '../types';
 import * as dbService from '../services/dbService';
 import { DEFAULT_OPENROUTER_MODELS } from '../constants';

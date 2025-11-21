@@ -31,6 +31,18 @@ const INSTRUCTION_STRATEGIST = `${BASE_INSTRUCTION}
 - قدم نصائح تفاوضية وتكتيكية.
 - ركز على تحقيق أفضل نتيجة عملية.`;
 
+const INSTRUCTION_RESEARCHER = `${BASE_INSTRUCTION}
+دورك: المحقق القانوني (Researcher).
+- مهمتك: العثور على النصوص القانونية الدقيقة ومطابقتها.
+- ابحث (أو حاكي البحث) في المصادر الرسمية حصراً:
+  1. المقتفي (muqtafi.birzeit.edu).
+  2. ديوان الفتوى والتشريع (dft.pna.ps).
+  3. مجلس القضاء الأعلى (courts.gov.ps).
+  4. نقابة المحامين الفلسطينيين (palestinebar.ps) للوائح.
+- يجب أن تقتبس نص القانون حرفياً مع ذكر رقمه وسنته.
+- اشرح انطباق النص على وقائع القضية بدقة.
+- لا تؤلف مواد قانونية.`;
+
 // A list of models known to not support the 'system' role.
 // For these, the system prompt will be prepended to the first user message.
 const MODELS_WITHOUT_SYSTEM_PROMPT: string[] = [
@@ -147,6 +159,7 @@ export async function* streamChatResponseFromOpenRouter(
       case 'loopholes': systemInstruction = INSTRUCTION_LOOPHOLE; break;
       case 'drafting': systemInstruction = INSTRUCTION_DRAFTER; break;
       case 'strategy': systemInstruction = INSTRUCTION_STRATEGIST; break;
+      case 'research': systemInstruction = INSTRUCTION_RESEARCHER; break;
       case 'analysis': default: systemInstruction = INSTRUCTION_ANALYST; break;
   }
 
