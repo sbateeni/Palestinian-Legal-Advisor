@@ -16,7 +16,7 @@ const App: React.FC = () => {
     <HashRouter>
       <div className="h-full flex flex-col bg-gray-900 text-gray-100">
         <Header />
-        <main className="flex-grow container mx-auto flex flex-col overflow-y-auto">
+        <main className="flex-grow container mx-auto flex flex-col overflow-y-auto scrollbar-hide">
           <Routes>
             {/* Root is now the Landing/Dashboard Page */}
             <Route path="/" element={<HomePage />} />
