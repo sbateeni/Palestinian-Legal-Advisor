@@ -1,6 +1,7 @@
 
 import { ChatMessage, GroundingMetadata, ActionMode, LegalRegion, InheritanceInput, CaseType } from '../types';
 import { getInstruction, getInheritanceExtractionPrompt } from './legalPrompts';
+import * as dbService from '../services/dbService';
 
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 const DEFAULT_MODEL_NAME = 'google/gemini-flash-1.5';
@@ -49,6 +50,9 @@ export async function analyzeImageWithOpenRouter(
         throw new Error(errorBody.error?.message || `HTTP error! status: ${response.status}`);
     }
 
+    // Increment request count
+    dbService.incrementTokenUsage(1);
+
     const result = await response.json();
     return result.choices[0]?.message?.content || "No response";
 }
@@ -72,6 +76,10 @@ export async function proofreadTextWithOpenRouter(
                   messages: [{ role: 'user', content: prompt }],
               }),
           });
+          
+          // Increment request count
+          dbService.incrementTokenUsage(1);
+
           const result = await response.json();
           return result.choices[0]?.message?.content || textToProofread;
       } catch (error) {
@@ -147,6 +155,9 @@ export async function* streamChatResponseFromOpenRouter(
   if (!reader) throw new Error('Failed to get response reader');
   const decoder = new TextDecoder();
 
+  // Increment request count (1 per stream initiation)
+  dbService.incrementTokenUsage(1);
+
   try {
     let buffer = '';
     while (true) {
@@ -186,6 +197,10 @@ export async function extractInheritanceFromCaseWithOpenRouter(apiKey: string, m
     });
 
     if (!response.ok) throw new Error("OpenRouter extraction failed");
+    
+    // Increment request count
+    dbService.incrementTokenUsage(1);
+
     const result = await response.json();
     const content = result.choices[0]?.message?.content;
     if (!content) throw new Error("No content returned");

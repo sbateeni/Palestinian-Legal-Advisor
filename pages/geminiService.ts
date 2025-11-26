@@ -101,12 +101,8 @@ export async function proofreadTextWithGemini(textToProofread: string): Promise<
             contents: prompt,
         });
         
-        // Roughly track tokens for OCR (approximate if metadata missing)
-        if (response.usageMetadata?.totalTokenCount) {
-            dbService.incrementTokenUsage(response.usageMetadata.totalTokenCount);
-        } else {
-            dbService.incrementTokenUsage(Math.ceil(textToProofread.length / 3));
-        }
+        // Increment Request Count (1 request)
+        dbService.incrementTokenUsage(1);
 
         return response.text || textToProofread;
     } catch (error) {
@@ -133,10 +129,8 @@ export async function summarizeChatHistory(history: ChatMessage[]): Promise<stri
             contents: contents,
         });
 
-        // Track tokens
-        if (response.usageMetadata?.totalTokenCount) {
-            dbService.incrementTokenUsage(response.usageMetadata.totalTokenCount);
-        }
+        // Increment Request Count (1 request)
+        dbService.incrementTokenUsage(1);
 
         return response.text || "فشل في إنشاء الملخص.";
     } catch (error) {
@@ -177,7 +171,7 @@ export async function* streamChatResponseFromGemini(
         config: config
     });
     
-    let totalUsage = 0;
+    let requestCounted = false;
 
     for await (const chunk of response) {
         if (signal.aborted) break;
@@ -187,19 +181,15 @@ export async function* streamChatResponseFromGemini(
             groundingMetadata = chunk.candidates[0].groundingMetadata as unknown as GroundingMetadata;
         }
         
-        // Check for usage metadata in the stream chunks (typically available in the final chunk)
-        if (chunk.usageMetadata && chunk.usageMetadata.totalTokenCount) {
-            totalUsage = chunk.usageMetadata.totalTokenCount;
+        if (!requestCounted) {
+            // Count 1 request as soon as we start getting chunks
+            dbService.incrementTokenUsage(1);
+            requestCounted = true;
         }
 
         if (text || groundingMetadata) {
             yield { text, model, groundingMetadata };
         }
-    }
-
-    // After stream finishes, update the daily tracker
-    if (totalUsage > 0) {
-        dbService.incrementTokenUsage(totalUsage);
     }
 
   } catch (error) {
@@ -232,10 +222,8 @@ export async function analyzeImageWithGemini(
         }
     });
 
-    // Track tokens
-    if (response.usageMetadata?.totalTokenCount) {
-        dbService.incrementTokenUsage(response.usageMetadata.totalTokenCount);
-    }
+    // Increment Request Count (1 request)
+    dbService.incrementTokenUsage(1);
 
     return response.text || "لم يتم إنشاء أي نص.";
   } catch (error) {
@@ -294,10 +282,8 @@ export async function extractInheritanceFromCase(caseText: string): Promise<Part
             }
         });
 
-        // Track tokens
-        if (response.usageMetadata?.totalTokenCount) {
-            dbService.incrementTokenUsage(response.usageMetadata.totalTokenCount);
-        }
+        // Increment Request Count (1 request)
+        dbService.incrementTokenUsage(1);
 
         const jsonText = response.text;
         if (!jsonText) throw new Error("No JSON returned");
