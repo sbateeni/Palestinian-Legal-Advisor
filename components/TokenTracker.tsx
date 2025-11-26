@@ -36,13 +36,13 @@ const TokenTracker: React.FC = () => {
   if (percentage > 95) colorClass = "bg-red-600";
 
   return (
-    <div className="hidden lg:flex items-center gap-3 bg-slate-100/10 px-3 py-1.5 rounded-lg border border-slate-200/20 shadow-sm backdrop-blur-sm" title={`تم استخدام ${tokens.toLocaleString()} من أصل ${DAILY_LIMIT.toLocaleString()}`}>
+    <div className="flex items-center gap-2 md:gap-3 bg-slate-100/10 px-2 md:px-3 py-1 md:py-1.5 rounded-lg border border-slate-200/20 shadow-sm backdrop-blur-sm" title={`تم استخدام ${tokens.toLocaleString()} من أصل ${DAILY_LIMIT.toLocaleString()}`}>
       <div className="flex flex-col items-end">
-        <div className="text-[10px] font-bold text-slate-400 flex items-center gap-1.5">
+        <div className="text-[9px] md:text-[10px] font-bold text-slate-400 flex items-center gap-1">
            <svg xmlns="http://www.w3.org/2000/svg" className={`w-3 h-3 ${percentage > 90 ? 'text-red-500 animate-pulse' : 'text-indigo-400 fill-indigo-400'}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
-           <span>رصيد التوكنز اليومي</span>
+           <span className="hidden sm:inline">رصيد التوكنز اليومي</span>
         </div>
-        <div className="w-24 h-1.5 bg-slate-700/50 rounded-full mt-1.5 overflow-hidden">
+        <div className="w-16 md:w-24 h-1.5 bg-slate-700/50 rounded-full mt-1 overflow-hidden">
           <div 
              className={`h-full rounded-full transition-all duration-700 ease-out ${colorClass}`} 
              style={{ width: `${percentage}%` }}
@@ -50,11 +50,11 @@ const TokenTracker: React.FC = () => {
         </div>
       </div>
       
-      <div className="flex flex-col items-end justify-center border-r border-slate-200/20 pr-3 min-w-[60px]">
-         <span className={`text-xs font-mono font-black leading-none ${remaining < 100000 ? 'text-red-400' : 'text-slate-300'}`}>
+      <div className="flex flex-col items-end justify-center border-r border-slate-200/20 pr-2 md:pr-3 min-w-[50px] md:min-w-[60px]">
+         <span className={`text-[10px] md:text-xs font-mono font-black leading-none ${remaining < 100000 ? 'text-red-400' : 'text-slate-300'}`}>
            {remaining.toLocaleString()}
          </span>
-         <span className="text-[9px] text-slate-500 font-bold mt-0.5">متبقي</span>
+         <span className="text-[8px] md:text-[9px] text-slate-500 font-bold mt-0.5">متبقي</span>
       </div>
     </div>
   );
