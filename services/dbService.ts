@@ -92,3 +92,48 @@ export async function getSetting<T>(key: string): Promise<T | null> {
 }
 
 export const setSetting = (setting: Setting) => performTransaction(SETTINGS_STORE_NAME, 'readwrite', store => store.put(setting));
+
+// --- Token Usage Logic ---
+
+interface TokenUsageData {
+    date: string;
+    count: number;
+}
+
+export const getTokenUsage = async (): Promise<number> => {
+    try {
+        const today = new Date().toDateString();
+        const stored = await getSetting<TokenUsageData>('dailyTokenUsage');
+        
+        if (stored && stored.date === today) {
+            return stored.count;
+        }
+        // If date changed or no data, reset to 0
+        if (stored && stored.date !== today) {
+             await setSetting({ key: 'dailyTokenUsage', value: { date: today, count: 0 } });
+        }
+        return 0;
+    } catch (e) {
+        return 0;
+    }
+};
+
+export const incrementTokenUsage = async (amount: number) => {
+    if (!amount || amount <= 0) return;
+    try {
+        const today = new Date().toDateString();
+        const stored = await getSetting<TokenUsageData>('dailyTokenUsage');
+        
+        let newCount = amount;
+        if (stored && stored.date === today) {
+            newCount += stored.count;
+        }
+
+        await setSetting({ key: 'dailyTokenUsage', value: { date: today, count: newCount } });
+        
+        // Dispatch event for UI updates
+        window.dispatchEvent(new CustomEvent('tokensUpdated', { detail: newCount }));
+    } catch (e) {
+        console.error("Failed to increment token usage", e);
+    }
+};

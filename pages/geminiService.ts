@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Content, Schema, Type } from "@google/genai";
 import { ChatMessage, GroundingMetadata, ActionMode, LegalRegion, InheritanceInput, CaseType } from '../types';
 import * as dbService from '../services/dbService';
@@ -99,6 +100,14 @@ export async function proofreadTextWithGemini(textToProofread: string): Promise<
             model: model,
             contents: prompt,
         });
+        
+        // Roughly track tokens for OCR (approximate if metadata missing)
+        if (response.usageMetadata?.totalTokenCount) {
+            dbService.incrementTokenUsage(response.usageMetadata.totalTokenCount);
+        } else {
+            dbService.incrementTokenUsage(Math.ceil(textToProofread.length / 3));
+        }
+
         return response.text || textToProofread;
     } catch (error) {
         console.error("Error proofreading text with Gemini:", error);
@@ -123,6 +132,12 @@ export async function summarizeChatHistory(history: ChatMessage[]): Promise<stri
             model: model,
             contents: contents,
         });
+
+        // Track tokens
+        if (response.usageMetadata?.totalTokenCount) {
+            dbService.incrementTokenUsage(response.usageMetadata.totalTokenCount);
+        }
+
         return response.text || "فشل في إنشاء الملخص.";
     } catch (error) {
         console.error("Error summarizing chat history:", error);
@@ -161,6 +176,9 @@ export async function* streamChatResponseFromGemini(
         contents: contents,
         config: config
     });
+    
+    let totalUsage = 0;
+
     for await (const chunk of response) {
         if (signal.aborted) break;
         const text = chunk.text;
@@ -168,10 +186,22 @@ export async function* streamChatResponseFromGemini(
         if (chunk.candidates && chunk.candidates[0]?.groundingMetadata) {
             groundingMetadata = chunk.candidates[0].groundingMetadata as unknown as GroundingMetadata;
         }
+        
+        // Check for usage metadata in the stream chunks (typically available in the final chunk)
+        if (chunk.usageMetadata && chunk.usageMetadata.totalTokenCount) {
+            totalUsage = chunk.usageMetadata.totalTokenCount;
+        }
+
         if (text || groundingMetadata) {
             yield { text, model, groundingMetadata };
         }
     }
+
+    // After stream finishes, update the daily tracker
+    if (totalUsage > 0) {
+        dbService.incrementTokenUsage(totalUsage);
+    }
+
   } catch (error) {
     if (signal.aborted) return;
     console.error("Error in Gemini chat stream:", error);
@@ -201,6 +231,12 @@ export async function analyzeImageWithGemini(
              maxOutputTokens: 4000,
         }
     });
+
+    // Track tokens
+    if (response.usageMetadata?.totalTokenCount) {
+        dbService.incrementTokenUsage(response.usageMetadata.totalTokenCount);
+    }
+
     return response.text || "لم يتم إنشاء أي نص.";
   } catch (error) {
     console.error("Error analyzing image with Gemini:", error);
@@ -257,6 +293,11 @@ export async function extractInheritanceFromCase(caseText: string): Promise<Part
                 responseSchema: schema
             }
         });
+
+        // Track tokens
+        if (response.usageMetadata?.totalTokenCount) {
+            dbService.incrementTokenUsage(response.usageMetadata.totalTokenCount);
+        }
 
         const jsonText = response.text;
         if (!jsonText) throw new Error("No JSON returned");

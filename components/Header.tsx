@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
+import TokenTracker from './TokenTracker';
 
 const Header: React.FC = () => {
   const location = useLocation();
@@ -30,8 +31,12 @@ const Header: React.FC = () => {
 
           {/* Center Title (Optional - visible mostly on mobile on specific pages if needed) */}
           
-          {/* Left Side: Settings */}
-          <div className="flex items-center">
+          {/* Left Side: Settings & Tools & TokenTracker */}
+          <div className="flex items-center gap-3">
+            {/* Token Tracker */}
+            <TokenTracker />
+
+            {/* Settings Link */}
             <NavLink 
               to="/settings" 
               className={({ isActive }) => `p-2 rounded-xl transition-all duration-200 ${isActive ? 'bg-blue-600/20 text-blue-400' : 'text-gray-400 hover:bg-gray-700 hover:text-gray-100'}`}
