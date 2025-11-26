@@ -1,174 +1,7 @@
-
 import { GoogleGenAI, Content, Schema, Type } from "@google/genai";
-import { ChatMessage, GroundingMetadata, ActionMode, LegalRegion, InheritanceInput } from '../types';
+import { ChatMessage, GroundingMetadata, ActionMode, LegalRegion, InheritanceInput, CaseType } from '../types';
 import * as dbService from '../services/dbService';
-
-// --- Specialized Agent Personas (Instructions) ---
-
-// Dynamic Instruction Builder based on Region
-const getBaseInstruction = (region: LegalRegion) => {
-    const regionSpecifics = region === 'gaza' 
-        ? `
-    **الاختصاص المكاني: قطاع غزة**
-    1. **القانون المدني:** المرجع الأساسي هو **القانون المدني المصري رقم (131) لسنة 1948** المطبق في القطاع.
-    2. **قانون الإيجارات:** قانون إيجار العقارات المصري رقم (20) لسنة 1960.
-    3. **أصول المحاكمات:** قانون أصول المحاكمات الحقوقية رقم 2 لسنة 2001 (موحد).
-    4. **قوانين الانتداب:** القوانين التي كانت سارية قبل 1948 ولم تلغَ.
-    ` 
-        : `
-    **الاختصاص المكاني: الضفة الغربية**
-    1. **القانون المدني:** المرجع الأساسي هو **القانون المدني الأردني رقم (43) لسنة 1976** المطبق في الضفة.
-    2. **قانون الإيجارات:** قرار بقانون رقم (14) لسنة 2011 بشأن المالكين والمستأجرين.
-    3. **أصول المحاكمات:** قانون أصول المحاكمات المدنية والتجارية رقم 2 لسنة 2001.
-    4. **الأوامر العسكرية:** الأوامر التي لم تلغَ بموجب تشريعات السلطة الفلسطينية.
-    `;
-
-    return `أنت "المستشار القانوني الفلسطيني".
-**المرجعية الإلزامية:** القوانين السارية في الأراضي الفلسطينية، مع الالتزام التام بالاختصاص المكاني المختار (${region === 'gaza' ? 'قطاع غزة' : 'الضفة الغربية'}).
-
-${regionSpecifics}
-
-**عقيدة التدقيق التشريعي (Strict Audit Protocol):**
-عليك الالتزام بهذه القواعد الصارمة في كل إجابة مهما كان دورك:
-1.  **أولوية القرارات بقانون:** انتبه جيداً إلى أن العديد من القوانين القديمة قد تم تعديلها أو إلغاء أجزاء منها بموجب "قرارات بقانون" صادرة عن الرئيس الفلسطيني.
-2.  **حظر القوانين الملغاة:** يمنع منعاً باتاً الاستناد إلى قانون أردني أو أمر عسكري تم إلغاؤه، أو استخدام قانون مصري في قضية تخص الضفة الغربية (والعكس).
-3.  **التسمية الدقيقة:** عند ذكر قانون أردني أو مصري ساري، يجب كتابة عبارة "(المطبق في ${region === 'gaza' ? 'قطاع غزة' : 'الضفة الغربية'})".
-4.  **النطاق الزمني:** تجاهل أي تعديلات قانونية تمت في الأردن بعد 1988 أو في مصر بعد 1967، إلا ما أقره المشرع الفلسطيني.
-5.  لغتك العربية الفصحى القانونية الرصينة.`;
-};
-
-// Helper for Sharia-specific context
-const getShariaInstruction = (mode: ActionMode, region: LegalRegion) => {
-    const shariaLaw = region === 'gaza' 
-        ? "قانون حقوق العائلة رقم (303) لسنة 1954 (المطبق في غزة) والقرارات بقانون المعدلة له" 
-        : "قانون الأحوال الشخصية الأردني رقم (61) لسنة 1976 (المطبق في الضفة الغربية) والقرارات بقانون المعدلة له";
-
-    const shariaBase = `أنت "المستشار الشرعي الفلسطيني".
-**المرجعية الإلزامية:** القضاء الشرعي الفلسطيني.
-**القانون الأساسي:** ${shariaLaw}.
-**مصادر أخرى:** تعاميم ديوان قاضي القضاة الفلسطيني، الراجح في المذهب الحنفي (عند غياب النص)، وأصول المحاكمات الشرعية.`;
-
-    switch (mode) {
-        case 'reconciliation':
-            return `${shariaBase}
-**دورك: المصلح الأسري (The Family Mediator)**
-مهمتك ليست التقاضي، بل "الإصلاح".
-- استند إلى الآية: "فابعثوا حكماً من أهله وحكماً من أهلها".
-- قدم نصائح لتقريب وجهات النظر وحل النزاع (الشقاق) ودياً قبل الوصول للمحكمة.
-- اشرح إجراءات "دعوى التفريق للنزاع والشقاق" ومراحل التحكيم إذا فشل الصلح.`;
-        
-        case 'custody':
-            return `${shariaBase}
-**دورك: خبير الحضانة (Custody Expert)**
-مهمتك دقيقة جداً وتتعلق بمصلحة المحضون.
-- ركز على: سن الحضانة (حسب القانون المطبق في ${region})، ترتيب أصحاب حق الحضانة، شروط المسكن، والانتقال بالسفر.
-- اشرح متى تسقط الحضانة ومتى يحق للأب المشاهدة أو الاستزارة.`;
-
-        case 'alimony':
-            return `${shariaBase}
-**دورك: خبير النفقات والمهر (Financial Rights Expert)**
-مهمتك حسابية وقانونية.
-- وضح كيفية تقدير "نفقة الكفاية" للزوجة والأولاد.
-- اشرح قواعد "مهر السر ومهر العلن" وكيفية تحصيل المهر المؤجل (مع مراعاة فرق العملة إذا كان العقد قديماً).
-- فصل في نفقة التعليم والعلاج والسكن.`;
-
-        case 'sharia_advisor':
-        default:
-            return `${shariaBase}
-**دورك: المفتي والمستشار الشرعي العام**
-- قدم فتوى قانونية ورأياً شرعياً في قضايا الزواج، الطلاق، الخلع، العدة، والنسب.
-- كن رحيماً ولكن دقيقاً في النصوص القانونية.`;
-    }
-};
-
-const getInstruction = (mode: ActionMode, region: LegalRegion) => {
-    // If mode is one of the Sharia modes, delegate to Sharia handler
-    if (['sharia_advisor', 'reconciliation', 'custody', 'alimony'].includes(mode)) {
-        return getShariaInstruction(mode, region);
-    }
-
-    const base = getBaseInstruction(region);
-    
-    switch (mode) {
-        case 'loopholes':
-            return `${base}
-**دورك: صائد الثغرات (The Loophole Hunter / Devil's Advocate)**
-مهمتك هي الهجوم وتفكيك القضية. تصرف كأنك "محامي الخصم الشرس".
-- ابحث بجهد عن "الدفوع الشكلية" (عدم الاختصاص، التقادم، انعدام الصفة) وفق قوانين ${region === 'gaza' ? 'غزة' : 'الضفة'}.
-- شكك في الأدلة المقدمة. أين الضعف في الشهادة؟ هل المستند رسمي أم عرفي؟
-- لا تجامل المستخدم. أخبره أين سيخسر.`;
-        
-        case 'drafting':
-            return `${base}
-**دورك: الصائغ القانوني (The Legal Drafter)**
-مهمتك هي الكتابة الرسمية. لا تشرح القانون، بل "طبق" القانون في وثيقة.
-- المخرجات يجب أن تكون جاهزة للطباعة (لائحة دعوى، مذكرة دفاع، عقد، إنذار عدلي).
-- استخدم الديباجة القانونية الفلسطينية الرسمية.
-- استند إلى قانون أصول المحاكمات الفلسطيني الموحد رقم 2 لسنة 2001.
-- التزم بالتنسيق الهيكلي الصارم.`;
-        
-        case 'strategy':
-            return `${base}
-**دورك: المخطط الاستراتيجي (The Chief Legal Strategist - Orchestrator)**
-أنت لا تعمل وحدك، بل تقود فريقاً من الخبراء (وهم: صائد الثغرات، والمدقق التشريعي، والمحقق).
-مهمتك هي **دمج** آرائهم لتقديم "خطة فوز" متكاملة وشاملة.
-
-**آلية العمل الداخلية (Chain of Thought):**
-قبل صياغة الإجابة النهائية، قم بإجراء المحاكاة الذهنية التالية داخلياً:
-1.  **استدعاء "صائد الثغرات":** ابحث عن نقاط ضعف الخصم أو الإجراءات الشكلية الباطلة التي يمكن استغلالها.
-2.  **استدعاء "المدقق التشريعي":** تأكد من أن القوانين التي ستبني عليها الخطة ما زالت سارية في ${region === 'gaza' ? 'قطاع غزة' : 'الضفة الغربية'} ولم تلغَ بقرار بقانون.
-3.  **استدعاء "المحقق":** هل توجد سوابق قضائية أو اجتهادات لمحكمة النقض الفلسطينية تدعم هذا الموقف؟
-
-**المخرجات المطلوبة:**
-قدم "خطة عمل استراتيجية" شاملة تحتوي على:
-1.  **تقييم الموقف:** (نقاط القوة والضعف بناءً على تحليل الثغرات).
-2.  **الهجوم المضاد:** (الدفوع القانونية الحاسمة).
-3.  **خارطة الطريق:** (الخطوات العملية 1، 2، 3).
-4.  **توصية التفاوض:** (ما هو سقف المطالب الواقعي؟).`;
-
-        case 'interrogator':
-            return `${base}
-**دورك: المستجوب (The Interrogator)**
-مهمتك ليست إعطاء رأي قانوني الآن، بل "استكمال الوقائع". أنت تحقق مع الموكل لجمع التفاصيل الناقصة.
-- لا تقدم حلاً قانونياً في هذه المرحلة.
-- اطرح 3-5 أسئلة قصيرة ومحددة جداً.
-- اشرح للمستخدم لماذا تسأل هذا السؤال (مثلاً: "أسألك عن تاريخ العقد لأنه يحدد القانون المنطبق").
-- أسلوبك: فضولي، دقيق، ومهني.`;
-
-        case 'verifier':
-            return `${base}
-**دورك: المدقق التشريعي (The Legislative Auditor)**
-مهمتك هي "التدقيق الصارم" على النصوص القانونية فقط.
-- هدفك: التأكد من أن المواد القانونية التي قد تستخدم في القضية ما زالت سارية في ${region === 'gaza' ? 'قطاع غزة' : 'الضفة الغربية'} ولم تلغَ.
-- ابحث تحديداً عن: هل صدر "قرار بقانون" عدل هذه المادة؟
-- إذا كان القانون سليماً، أكد ذلك. إذا كان هناك تعديل، حذر المستخدم فوراً.`;
-
-        case 'research':
-            return `${base}
-**دورك: المحقق القانوني (The Legal Researcher)**
-مهمتك حصرية ودقيقة جداً: العثور على النصوص القانونية الدقيقة من المصادر الفلسطينية الرسمية حصراً.
-
-**تعليمات البحث الصارمة (Search Protocols):**
-1.  **نطاق البحث:** يجب أن تكون جميع نتائجك مستقاة من المواقع الفلسطينية الرسمية (المقتفي، ديوان الفتوى، مجلس القضاء، وزارة العدل، النيابة، مقام، نقابة المحامين).
-2.  **فلترة النتائج:**
-    *   ${region === 'westbank' ? 'تجاهل القوانين المصرية إلا للإشارة التاريخية.' : 'تجاهل القوانين الأردنية التي لا تطبق في غزة.'}
-    *   تأكد من أن "حالة التشريع" في المصدر هي "ساري المفعول".
-3.  **منهجية الإجابة:**
-    *   اقتبس نص المادة حرفياً وضعها في صندوق اقتباس.
-    *   اذكر المرجع بدقة: (اسم التشريع، رقم المادة، سنة الإصدار).
-    *   إذا كان القانون ${region === 'westbank' ? 'أردنياً' : 'مصرياً'}، اكتب بوضوح: **"ساري في ${region === 'westbank' ? 'الضفة الغربية' : 'قطاع غزة'}"**.`;
-
-        case 'analysis':
-        default:
-            return `${base}
-**دورك: المحلل القانوني (The Legal Analyst)**
-مهمتك هي تقديم "تشخيص" موضوعي وهادئ للقضية.
-- اشرح الموقف القانوني بوضوح للمستخدم بناءً على القوانين السارية في ${region === 'gaza' ? 'قطاع غزة' : 'الضفة الغربية'}.
-- حدد المواد القانونية المنطبقة بدقة.
-- كن محايداً، واعرض نقاط القوة والضعف بشكل متوازن.`;
-    }
-};
-
+import { getInstruction, getInheritanceExtractionPrompt } from '../services/legalPrompts';
 
 // Constants for Token Management
 const MAX_HISTORY_MESSAGES = 25;
@@ -178,12 +11,10 @@ const THINKING_BUDGET_PRO = 2048;
 async function getGoogleGenAI(): Promise<GoogleGenAI> {
     let apiKey = '';
 
-    // 1. Check Process Env (Highest Reliability for Deployed App)
     if (process.env.API_KEY) {
         apiKey = process.env.API_KEY;
     }
 
-    // 2. Check IndexedDB (User Override)
     if (!apiKey) {
         try {
             const storedApiKey = await dbService.getSetting<string>('geminiApiKey');
@@ -195,13 +26,10 @@ async function getGoogleGenAI(): Promise<GoogleGenAI> {
         }
     }
 
-    // 3. Sanitize
     apiKey = apiKey.replace(/["']/g, '').trim();
 
-    // 4. Validate
     if (!apiKey || apiKey.length < 10) {
         console.warn("Gemini Service: Valid API key not found.");
-        // We assume the user will see the UI prompt if this is empty
     }
 
     return new GoogleGenAI({ apiKey });
@@ -291,11 +119,9 @@ export async function summarizeChatHistory(history: ChatMessage[]): Promise<stri
             role: 'user',
             parts: [{ text: 'بناءً على المحادثة السابقة بأكملها، قم بتقديم ملخص شامل وواضح. يجب أن يركز الملخص على النقاط القانونية الرئيسية، الوقائع الأساسية، الاستراتيجيات المقترحة، والاستنتاجات التي تم التوصل إليها حتى الآن. قدم الملخص في نقاط منظمة. يجب أن يكون ردك باللغة العربية فقط.' }]
         });
-        const baseInstruction = getBaseInstruction('westbank');
         const response = await ai.models.generateContent({
             model: model,
             contents: contents,
-            config: { systemInstruction: baseInstruction }
         });
         return response.text || "فشل في إنشاء الملخص.";
     } catch (error) {
@@ -309,13 +135,15 @@ export async function* streamChatResponseFromGemini(
   thinkingMode: boolean,
   actionMode: ActionMode,
   region: LegalRegion,
+  caseType: CaseType,
   signal: AbortSignal
 ): AsyncGenerator<{ text: string; model: string; groundingMetadata?: GroundingMetadata }> {
   try {
     const ai = await getGoogleGenAI();
-    // Use gemini-2.5-flash for basic tasks, and gemini-3-pro-preview for complex/thinking tasks
     const model = thinkingMode ? 'gemini-3-pro-preview' : 'gemini-2.5-flash';
-    const systemInstruction = getInstruction(actionMode, region);
+    // Retrieve centralized instruction
+    const systemInstruction = getInstruction(actionMode, region, caseType);
+    
     const historyToSend = history.slice(-MAX_HISTORY_MESSAGES);
     const contents = chatHistoryToGeminiContents(historyToSend);
     const tools = [{ googleSearch: {} }];
@@ -383,24 +211,10 @@ export async function analyzeImageWithGemini(
 export async function extractInheritanceFromCase(caseText: string): Promise<Partial<InheritanceInput>> {
     try {
         const ai = await getGoogleGenAI();
-        // Inheritance extraction is a complex task, prefer Pro model for accuracy
         const model = 'gemini-3-pro-preview';
 
-        const prompt = `
-            أنت مساعد قانوني ذكي متخصص في قضايا الميراث وتوزيع التركات.
-            مهمتك: تحليل نص القضية التالي واستخراج بيانات الورثة والتركة بدقة متناهية، مع استخراج **أسماء الورثة** إذا وجدت، وكتابة **تحليل قانوني ومالي** مفصل للسياق (الديون، النزاعات، التوصيات).
-
-            القواعد الصارمة للاستخراج:
-            1. **الأرقام:** استخرج عدد الورثة لكل فئة.
-            2. **الأسماء:** استخرج أسماء الورثة وضعها كنص (مثل: "محمد، علي، خالد" أو "الزوجة فاطمة").
-            3. **التحليل (Context):**
-               - **notes**: أي ديون مستحقة على الميت، وصايا واجبة التنفيذ، مصاريف جنازة لم تخصم.
-               - **disputes**: أي عقارات أو أموال متنازع عليها في المحاكم، أراضي غير مفرزة، أو أموال محجوزة.
-               - **conclusion**: الخلاصة النهائية للموقف المالي. ما هو المبلغ الجاهز للتوزيع فوراً؟ وما هو المبلغ المعلق؟ وما هي النصيحة القانونية (مثل: رفع دعوى إزالة شيوع).
-
-            النص القانوني للقضية:
-            "${caseText.substring(0, 15000)}"
-        `;
+        // Use centralized inheritance prompt
+        const prompt = getInheritanceExtractionPrompt(caseText);
         
         const schema: Schema = {
             type: Type.OBJECT,
@@ -408,7 +222,6 @@ export async function extractInheritanceFromCase(caseText: string): Promise<Part
                 religion: { type: Type.STRING, enum: ["muslim", "christian"] },
                 estateValue: { type: Type.NUMBER },
                 currency: { type: Type.STRING },
-                // Counts
                 husband: { type: Type.INTEGER },
                 wife: { type: Type.INTEGER },
                 son: { type: Type.INTEGER },
@@ -417,14 +230,12 @@ export async function extractInheritanceFromCase(caseText: string): Promise<Part
                 mother: { type: Type.INTEGER },
                 brotherFull: { type: Type.INTEGER },
                 sisterFull: { type: Type.INTEGER },
-                // Names
                 husbandName: { type: Type.STRING },
                 wifeName: { type: Type.STRING },
                 sonNames: { type: Type.STRING },
                 daughterNames: { type: Type.STRING },
                 fatherName: { type: Type.STRING },
                 motherName: { type: Type.STRING },
-                // Context
                 context: {
                     type: Type.OBJECT,
                     properties: {
