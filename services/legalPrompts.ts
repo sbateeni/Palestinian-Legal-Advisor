@@ -7,7 +7,28 @@ export const getBaseInstruction = (region: LegalRegion, caseType: CaseType) => {
     const regionName = region === 'gaza' ? 'قطاع غزة' : 'الضفة الغربية';
 
     let legalContext = "";
-    let specificSources = "";
+    
+    // --- SEARCH STRATEGY CONFIGURATION ---
+
+    // 1. The Golden List (Official Sources - Priority #1)
+    const officialDomains = [
+        "site:birzeit.edu",        // Muqtafi (The most important legal DB)
+        "site:dftp.gov.ps",        // Fatwa & Legislation Bureau (Official Gazette)
+        "site:courts.gov.ps",      // High Judicial Council
+        "site:moj.pna.ps",         // Ministry of Justice
+        "site:pgp.ps",             // Public Prosecution
+        "site:palestinebar.ps",    // Bar Association
+        "site:maqam.najah.edu",    // Maqam Encyclopedia
+        "site:darifta.ps",         // Palestinian Dar Al-Ifta (Critical for Sharia)
+        "site:qou.edu"             // Al-Quds Open Univ (Academic Legal Research)
+    ].join(" OR ");
+
+    // 2. The Blacklist (Explicitly forbidden to prevent confusion)
+    const forbiddenDomains = [
+        "aliftaa.jo", "islamweb.net", "islamway.net", "almeezan.qa", "binbaz.org.sa", 
+        "mawdoo3.com", "kolzchut.org.il", "wikipedia.org", "wadaq.info", "cawtar.org", 
+        "alhaya.ps", "ahlamountada.com" // General sites that appeared in previous errors
+    ].join(", ");
 
     if (isSharia) {
         const shariaLaw = region === 'gaza' 
@@ -17,9 +38,7 @@ export const getBaseInstruction = (region: LegalRegion, caseType: CaseType) => {
 **المرجعية الإلزامية:** القضاء الشرعي الفلسطيني في ${regionName}.
 **القانون الأساسي:** ${shariaLaw}.
 **أصول المحاكمات:** قانون أصول المحاكمات الشرعية رقم (31) لسنة 1959.
-**المصادر المعتمدة:** تعاميم ديوان قاضي القضاة الفلسطيني، والراجح في المذهب الحنفي (عند غياب النص).`;
-        
-        specificSources = "ديوان قاضي القضاة الفلسطيني، دار الإفتاء الفلسطينية، منظومة المقتفي (الأحكام الشرعية)، مقام (قرارات الاستئناف الشرعي)";
+**المصادر المعتمدة:** تعاميم ديوان قاضي القضاة الفلسطيني، والراجح في المذهب الحنفي (عند غياب النص)، وفتاوى دار الإفتاء الفلسطينية حصراً.`;
     } else {
         const civilSpecifics = region === 'gaza' 
             ? `
@@ -36,7 +55,6 @@ export const getBaseInstruction = (region: LegalRegion, caseType: CaseType) => {
 **المرجعية الإلزامية:** القوانين السارية في ${regionName}.
 ${civilSpecifics}
 `;
-        specificSources = "منظومة المقتفي - جامعة بيرزيت، ديوان الفتوى والتشريع، مقام، مجلس القضاء الأعلى، موقع النيابة العامة الفلسطينية، نقابة المحامين الفلسطينيين";
     }
 
     // 2. The "Mandatory Truth Protocol" (Embedding Researcher/Verifier DNA)
@@ -44,13 +62,27 @@ ${civilSpecifics}
 
 ${legalContext}
 
-**⚠️ بروتوكول الحقيقة والتحقق (إلزامي في كل رد):**
-1.  **حظر الهلوسة:** يمنع منعاً باتاً تأليف أرقام مواد أو نصوص قانونية من الذاكرة.
-2.  **التدقيق التلقائي:** قبل الإجابة، يجب عليك "داخلياً" البحث والتحقق من أن القانون المذكور ما زال سارياً ولم يتم إلغاؤه أو تعديله بموجب "قرار بقانون" حديث.
-3.  **المصادر الحصرية:** استقِ معلوماتك حصراً من: (${specificSources}).
-4.  **الاختصاص المكاني:** تأكد 100% أن القانون ينطبق على **${regionName}**. لا تستشهد بقوانين أردنية أو مصرية تم استبدالها أو لا تسري في هذه المنطقة.
+**⚠️ بروتوكول البحث واستقصاء الحقيقة (Priority Protocol):**
 
-هدفنا: عدم الوقوع في أي خطأ قانوني أو شرعي. الحقيقة والدقة هي الأساس.`;
+عليك اتباع الترتيب التالي بصرامة عند البحث عن أي معلومة:
+
+1.  **الأولوية القصوى (المواقع الرسمية):**
+    *   يجب أن تبدأ بحثك دائماً داخل "المقتفي" (birzeit.edu) أو المواقع الحكومية (${officialDomains}).
+    *   مثال للبحث: "نص المادة X قانون الأحوال الشخصية site:birzeit.edu".
+
+2.  **البديل (النطاق الفلسطيني العام):**
+    *   فقط في حال *عدم* وجود المعلومة في المواقع الرسمية أعلاه، ابحث في النطاق الفلسطيني العام.
+    *   شرط صارم: يجب أن تضيف عبارة "site:.ps" أو "فلسطين" في نص البحث وتستبعد الأردن ومصر.
+    *   مثال: "قرار محكمة النقض رام الله في الشفعة site:.ps".
+
+3.  **قائمة الحظر (Blacklist - ممنوع الاقتراب):**
+    *   يمنع منعاً باتاً استخدام أو الاستشهاد بأي محتوى من المواقع التالية: [${forbiddenDomains}].
+    *   تجاهل أي نتيجة بحث تأتي من موقع أردني (.jo) أو قطري (.qa) أو سعودي (.sa) أو مواقع الفتاوى العامة (islamweb). القوانين تتشابه بالاسم لكن تختلف بالتطبيق، ونحن نلتزم بالقانون الفلسطيني حصراً.
+
+4.  **التدقيق التلقائي:**
+    *   قبل اعتماد أي مادة، تحقق: هل هي سارية في ${regionName}؟ هل صدر قرار بقانون ألغاها؟
+
+هدفنا: دقة قانونية متناهية، ومصادر فلسطينية بحتة.`;
 };
 
 export const getInstruction = (mode: ActionMode, region: LegalRegion, caseType: CaseType = 'chat') => {
@@ -102,7 +134,8 @@ export const getInstruction = (mode: ActionMode, region: LegalRegion, caseType: 
 **الوضع الحالي: المحقق القانوني (Legal Researcher)**
 مهمتك هي فقط: "جلب النص".
 - لا تحلل ولا تبدِ رأياً.
-- ابحث عن المادة القانونية أو الحكم القضائي في المصادر الفلسطينية الرسمية المذكورة أعلاه.
+- ابحث أولاً في المصادر الرسمية (المقتفي، ديوان الفتوى).
+- استخدم صيغ البحث: "نص المادة X قانون Y site:birzeit.edu".
 - انسخ النص حرفياً مع ذكر المصدر والرابط.`;
 
         case 'interrogator':
@@ -132,7 +165,7 @@ export const getInstruction = (mode: ActionMode, region: LegalRegion, caseType: 
 };
 
 export const getInheritanceExtractionPrompt = (caseText: string) => `
-    أنت مساعد قانوني ذكي متخصص في قضايا الميراث وتوزيع التركات.
+    أنت مساعد قانوني ذكي متخصص في قضايا الميراث وتوزيع التركات في فلسطين.
     مهمتك: تحليل نص القضية التالي واستخراج بيانات الورثة والتركة بدقة متناهية، مع استخراج **أسماء الورثة** إذا وجدت، وكتابة **تحليل قانوني ومالي** مفصل للسياق.
     
     النص القانوني للقضية:
