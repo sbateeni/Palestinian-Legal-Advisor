@@ -10,6 +10,7 @@ import OcrPage from './pages/OcrPage';
 import ToolsPage from './pages/ToolsPage';
 import InheritancePage from './pages/InheritancePage';
 import ShariaPage from './pages/ShariaPage';
+import CaseTypesPage from './pages/CaseTypesPage';
 
 const App: React.FC = () => {
   return (
@@ -20,6 +21,9 @@ const App: React.FC = () => {
           <Routes>
             {/* Root is now the Landing/Dashboard Page */}
             <Route path="/" element={<HomePage />} />
+            
+            {/* Info Page */}
+            <Route path="/types" element={<CaseTypesPage />} />
             
             {/* Civil Case Route */}
             <Route path="/civil" element={<ChatPage key="new-case" />} />

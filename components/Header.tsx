@@ -36,6 +36,17 @@ const Header: React.FC = () => {
             {/* Token Tracker */}
             <TokenTracker />
 
+            {/* Case Types Guide Link */}
+            <NavLink 
+              to="/types" 
+              className={({ isActive }) => `p-2 rounded-xl transition-all duration-200 ${isActive ? 'bg-amber-600/20 text-amber-400' : 'text-gray-400 hover:bg-gray-700 hover:text-gray-100'}`}
+              title="دليل أنواع القضايا"
+            >
+               <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+               </svg>
+            </NavLink>
+
             {/* Settings Link */}
             <NavLink 
               to="/settings" 
