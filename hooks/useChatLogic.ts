@@ -171,23 +171,29 @@ export const useChatLogic = (caseId?: string, initialCaseType: CaseType = 'chat'
     };
 
     // New Function to handle case type conversion (Redirect)
-    const handleConvertCaseType = async (newType: CaseType) => {
+    const handleConvertCaseType = async (newType: string) => {
         if (!caseData) return;
         
+        // Normalize type (fix potential AI hallucination 'civil' -> 'chat')
+        const normalizedType: CaseType = newType === 'civil' ? 'chat' : (newType as CaseType);
+
         setIsLoading(true);
         try {
             const updatedCase: Case = {
                 ...caseData,
-                caseType: newType
+                caseType: normalizedType
             };
             await dbService.updateCase(updatedCase);
+            setCaseData(updatedCase); // Update local state immediately
             
             // Navigate to the correct route based on the new type
-            const routePrefix = newType === 'sharia' ? '/sharia' : '/case';
+            const routePrefix = normalizedType === 'sharia' ? '/sharia' : '/case';
             
-            // Force a reload/navigation to the new context
-            window.location.hash = `#${routePrefix}/${caseData.id}`;
-            window.location.reload(); // Hard reload to reset hooks and context
+            // Force navigation with hard reload logic to ensure hooks reset properly
+            // We use replace to swap the history entry
+            navigate(`${routePrefix}/${caseData.id}`, { replace: true });
+            // Reload window to ensure fresh context (agents, toolbar, system prompts)
+            window.location.reload();
         } catch (error) {
             console.error("Failed to convert case type:", error);
             alert("حدث خطأ أثناء نقل القضية.");
