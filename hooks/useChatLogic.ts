@@ -179,9 +179,18 @@ export const useChatLogic = (caseId?: string, initialCaseType: CaseType = 'chat'
 
         setIsLoading(true);
         try {
+            // Filter out the "Redirect/Jurisdiction Alert" message from history
+            // ensuring the new view starts clean with the user's last question
+            const cleanedHistory = caseData.chatHistory.filter(msg => {
+                // Remove message if it contains the redirect JSON structure
+                const isRedirectMsg = /```json\s*\{[\s\S]*?"redirect"[\s\S]*?\}\s*```/.test(msg.content);
+                return !isRedirectMsg;
+            });
+
             const updatedCase: Case = {
                 ...caseData,
-                caseType: normalizedType
+                caseType: normalizedType,
+                chatHistory: cleanedHistory // Save the cleaned history
             };
             await dbService.updateCase(updatedCase);
             setCaseData(updatedCase); // Update local state immediately
@@ -323,7 +332,7 @@ export const useChatLogic = (caseId?: string, initialCaseType: CaseType = 'chat'
                     id: targetCaseId,
                     title: initialTitle,
                     summary: messageContent.substring(0, 150),
-                    chatHistory: newHistory,
+                    chatHistory: [userMessage], // Save only user message first to prevent loss
                     createdAt: Date.now(),
                     status: 'جديدة',
                     caseType: currentCaseType // Ensure correct type is saved
@@ -332,7 +341,7 @@ export const useChatLogic = (caseId?: string, initialCaseType: CaseType = 'chat'
                 currentCaseData = newCase;
                 setCaseData(newCase);
             } else if (caseData) {
-                const updatedCase = { ...caseData, chatHistory: newHistory };
+                const updatedCase = { ...caseData, chatHistory: [...chatHistory, userMessage] };
                 await dbService.updateCase(updatedCase);
                 currentCaseData = updatedCase;
                 setCaseData(updatedCase);
