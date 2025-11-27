@@ -170,6 +170,31 @@ export const useChatLogic = (caseId?: string, initialCaseType: CaseType = 'chat'
         }
     };
 
+    // New Function to handle case type conversion (Redirect)
+    const handleConvertCaseType = async (newType: CaseType) => {
+        if (!caseData) return;
+        
+        setIsLoading(true);
+        try {
+            const updatedCase: Case = {
+                ...caseData,
+                caseType: newType
+            };
+            await dbService.updateCase(updatedCase);
+            
+            // Navigate to the correct route based on the new type
+            const routePrefix = newType === 'sharia' ? '/sharia' : '/case';
+            
+            // Force a reload/navigation to the new context
+            window.location.hash = `#${routePrefix}/${caseData.id}`;
+            window.location.reload(); // Hard reload to reset hooks and context
+        } catch (error) {
+            console.error("Failed to convert case type:", error);
+            alert("حدث خطأ أثناء نقل القضية.");
+            setIsLoading(false);
+        }
+    };
+
     const handleSummarize = async () => {
         if (isSummaryLoading || isLoading || chatHistory.length === 0) return;
         setIsSummaryLoading(true);
@@ -364,6 +389,6 @@ export const useChatLogic = (caseId?: string, initialCaseType: CaseType = 'chat'
         actionMode, setActionMode, pinnedMessages, isSummaryLoading,
         isPinnedPanelOpen, setIsPinnedPanelOpen, chatContainerRef, fileInputRef, textareaRef,
         handleSendMessage, handleStopGenerating, handleSummarize, handleSelectApiKey,
-        handleFileChange, handlePinMessage, handleUnpinMessage
+        handleFileChange, handlePinMessage, handleUnpinMessage, handleConvertCaseType
     };
 };

@@ -45,7 +45,8 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
         handleSelectApiKey,
         handleFileChange,
         handlePinMessage,
-        handleUnpinMessage
+        handleUnpinMessage,
+        handleConvertCaseType // New handler
     } = useChatLogic(caseId, 'chat');
 
     // 1. Loading State: Show spinner if fetching existing case
@@ -131,6 +132,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
                     isLoading={isLoading}
                     pinnedMessages={pinnedMessages}
                     onPinMessage={handlePinMessage}
+                    onConvertCaseType={handleConvertCaseType} // Pass down the converter
                 />
             </div>
 
