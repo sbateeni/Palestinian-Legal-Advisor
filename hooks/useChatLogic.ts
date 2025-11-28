@@ -4,11 +4,11 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { v4 as uuidv4 } from 'uuid';
 import { Case, ChatMessage, ApiSource, OpenRouterModel, GroundingMetadata, ActionMode, LegalRegion, CaseType } from '../types';
 import * as dbService from '../services/dbService';
-import { streamChatResponseFromGemini, countTokensForGemini, proofreadTextWithGemini, summarizeChatHistory } from '../pages/geminiService';
+import { streamChatResponseFromGemini, countTokensForGemini, proofreadTextWithGemini, summarizeChatHistory, analyzeImageWithGemini } from '../pages/geminiService';
 import { streamChatResponseFromOpenRouter } from '../services/openRouterService';
 import { DEFAULT_OPENROUTER_MODELS } from '../constants';
+import { OCR_STRICT_PROMPT } from '../services/legalPrompts';
 import * as pdfjsLib from 'pdfjs-dist';
-import Tesseract from 'tesseract.js';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://aistudiocdn.com/pdfjs-dist@5.4.394/build/pdf.worker.js';
 
@@ -27,7 +27,10 @@ export const useChatLogic = (caseId?: string, initialCaseType: CaseType = 'chat'
     const [openRouterModel, setOpenRouterModel] = useState<string>(DEFAULT_OPENROUTER_MODELS[0].id);
     const [openRouterModels, setOpenRouterModels] = useState<OpenRouterModel[]>(DEFAULT_OPENROUTER_MODELS);
     const [thinkingMode, setThinkingMode] = useState(false);
-    const [uploadedImage, setUploadedImage] = useState<{ dataUrl: string; mimeType: string } | null>(null);
+    
+    // CHANGED: Single image to Array of images
+    const [uploadedImages, setUploadedImages] = useState<{ dataUrl: string; mimeType: string }[]>([]);
+    
     const [isProcessingFile, setIsProcessingFile] = useState(false);
     const [processingMessage, setProcessingMessage] = useState('');
     const [tokenCount, setTokenCount] = useState(0);
@@ -226,42 +229,109 @@ export const useChatLogic = (caseId?: string, initialCaseType: CaseType = 'chat'
     };
 
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const file = event.target.files?.[0];
-        if (!file) return;
-        setUploadedImage(null);
-        if (file.type.startsWith('image/')) {
-            const reader = new FileReader();
-            reader.onload = (e) => setUploadedImage({ dataUrl: e.target?.result as string, mimeType: file.type });
-            reader.readAsDataURL(file);
-            setIsProcessingFile(true);
-            setProcessingMessage('جاري تهيئة محرك استخلاص النصوص...');
-            Tesseract.recognize(file, 'ara', { logger: m => { if (m.status === 'recognizing text') setProcessingMessage(`جاري استخلاص النص... ${Math.round(m.progress * 100)}%`); } })
-            .then(async ({ data: { text } }) => {
-                if (!text.trim()) return;
-                setProcessingMessage('جاري تدقيق النص...');
-                const correctedText = await proofreadTextWithGemini(text);
-                setUserInput(prev => prev.trim() + (prev.trim() ? '\n\n' : '') + `--- نص مستخلص من صورة: ${file.name} ---\n` + correctedText.trim());
-            }).finally(() => { setIsProcessingFile(false); setProcessingMessage(''); });
-        } else if (file.type === 'application/pdf') {
-            setIsProcessingFile(true);
-            setProcessingMessage('جاري معالجة PDF...');
-            const reader = new FileReader();
-            reader.onload = async (e) => {
-                try {
-                    const typedarray = new Uint8Array(e.target!.result as ArrayBuffer);
-                    const pdf = await pdfjsLib.getDocument(typedarray).promise;
-                    let fullText = '';
-                    for (let i = 1; i <= pdf.numPages; i++) {
-                        setProcessingMessage(`جاري معالجة الصفحة ${i} من ${pdf.numPages}...`);
-                        const page = await pdf.getPage(i);
-                        const textContent = await page.getTextContent();
-                        fullText += textContent.items.map(item => ('str' in item ? item.str : '')).join(' ') + '\n\n';
+        const files = event.target.files;
+        if (!files || files.length === 0) return;
+        
+        setIsProcessingFile(true);
+        // We will process all selected files
+        // FIX: Explicitly cast to File[] to avoid 'unknown' type issues during iteration
+        const fileList = Array.from(files) as File[];
+        let processedCount = 0;
+
+        // Note: For PDFs we still extract text immediately. For images we queue them.
+        
+        fileList.forEach(file => {
+            if (file.type.startsWith('image/')) {
+                const reader = new FileReader();
+                reader.onload = async (e) => {
+                    const dataUrl = e.target?.result as string;
+                    setUploadedImages(prev => [...prev, { dataUrl, mimeType: file.type }]);
+                    
+                    // Optional: OCR text extraction for search/context (on first image only or all?)
+                    // For now, let's just do OCR on the image if it's NOT a comparison mode, or leave it to the agent
+                    // But to keep consistency with previous logic:
+                    setProcessingMessage(`جاري تحليل الصورة: ${file.name}...`);
+                    try {
+                        // Only auto-extract text if NOT in comparison mode to save tokens/time?
+                        // Or just extract to be helpful. Let's extract.
+                        const extractedText = await analyzeImageWithGemini(dataUrl, file.type, OCR_STRICT_PROMPT);
+                        if (extractedText && extractedText.length > 5) {
+                             setUserInput(prev => prev.trim() + (prev.trim() ? '\n\n' : '') + `--- نص مستخلص من صورة: ${file.name} ---\n` + extractedText.trim());
+                        }
+                    } catch (error) {
+                        console.error("OCR Error:", error);
+                    } finally {
+                        processedCount++;
+                        if (processedCount === fileList.length) {
+                            setIsProcessingFile(false);
+                            setProcessingMessage('');
+                        }
                     }
-                    setUserInput(prev => prev.trim() + (prev.trim() ? '\n\n' : '') + `--- محتوى PDF: ${file.name} ---\n` + fullText.trim());
-                } finally { setIsProcessingFile(false); setProcessingMessage(''); }
-            };
-            reader.readAsArrayBuffer(file);
-        }
+                };
+                reader.readAsDataURL(file);
+                
+            } else if (file.type === 'application/pdf') {
+                setProcessingMessage(`جاري معالجة PDF: ${file.name}...`);
+                const reader = new FileReader();
+                reader.onload = async (e) => {
+                    try {
+                        const typedarray = new Uint8Array(e.target!.result as ArrayBuffer);
+                        const pdf = await pdfjsLib.getDocument(typedarray).promise;
+                        let fullText = '';
+                        
+                        for (let i = 1; i <= pdf.numPages; i++) {
+                            setProcessingMessage(`جاري معالجة ملف ${file.name} - صفحة ${i} من ${pdf.numPages}...`);
+                            const page = await pdf.getPage(i);
+                            const textContent = await page.getTextContent();
+                            const items: any[] = textContent.items.filter((item: any) => 'str' in item && item.str.trim().length > 0);
+
+                            items.sort((a, b) => {
+                                const yDiff = b.transform[5] - a.transform[5];
+                                if (Math.abs(yDiff) > 8) return yDiff; 
+                                return a.transform[4] - b.transform[4];
+                            });
+
+                            let pageText = '';
+                            let lastY = -1;
+                            let lastX = -1;
+
+                            for (const item of items) {
+                                const y = item.transform[5];
+                                const x = item.transform[4];
+                                if (lastY !== -1 && Math.abs(y - lastY) > 8) {
+                                    pageText += '\n'; 
+                                } else if (lastX !== -1 && x > lastX + 10) {
+                                    pageText += ' ';
+                                }
+                                pageText += item.str;
+                                lastY = y;
+                                lastX = x + item.width;
+                            }
+                            fullText += `--- محتوى PDF الصفحة ${i} ---\n${pageText}\n\n`;
+                        }
+                        
+                        setUserInput(prev => prev.trim() + (prev.trim() ? '\n\n' : '') + `--- ملف PDF: ${file.name} ---\n` + fullText.trim());
+                    } catch (err) {
+                        console.error("PDF Error", err);
+                        alert("فشل في قراءة ملف PDF.");
+                    } finally { 
+                        processedCount++;
+                        if (processedCount === fileList.length) {
+                            setIsProcessingFile(false);
+                            setProcessingMessage('');
+                        }
+                    }
+                };
+                reader.readAsArrayBuffer(file);
+            } else {
+                processedCount++;
+                if (processedCount === fileList.length) {
+                    setIsProcessingFile(false);
+                    setProcessingMessage('');
+                }
+            }
+        });
+        
         event.target.value = '';
     };
 
@@ -294,50 +364,47 @@ export const useChatLogic = (caseId?: string, initialCaseType: CaseType = 'chat'
     const handleSendMessage = async (prompt?: string, overrideMode?: ActionMode) => {
         setAuthError(null);
         const messageContent = (prompt || userInput).trim();
-        if (isLoading || isProcessingFile || (!messageContent && !uploadedImage)) return;
+        if (isLoading || isProcessingFile || (!messageContent && uploadedImages.length === 0)) return;
 
-        // Auto-Pilot: Detect Intent if no override is provided AND we are in a default mode
+        // Auto-Pilot Logic
         let effectiveMode = overrideMode || actionMode;
         
         if (!overrideMode && (actionMode === 'analysis' || actionMode === 'sharia_advisor')) {
             const lowerContent = messageContent.toLowerCase();
-            
-            // 1. Drafting Intent
+            // ... (Keep existing auto-pilot logic) ...
             if (lowerContent.match(/(صغ|اكتب|صياغة|تحرير|أنشئ|اعداد).*?(لائحة|عقد|اتفاقية|مذكرة|دعوى|وكالة|إخطار|شكوى)/) || lowerContent.includes('اكتب لي')) {
                 effectiveMode = 'drafting';
                 setActionMode('drafting');
-            } 
-            // 2. Loopholes/Defense Intent
-            else if (lowerContent.match(/(ثغرة|ثغرات|نقطة ضعف|نقاط ضعف|اخطاء|دفوع|دفاع|طعن|رد على)/)) {
+            } else if (lowerContent.match(/(ثغرة|ثغرات|نقطة ضعف|نقاط ضعف|اخطاء|دفوع|دفاع|طعن|رد على)/)) {
                 effectiveMode = 'loopholes';
                 setActionMode('loopholes');
-            }
-            // 3. Research Intent
-            else if (lowerContent.match(/(ابحث|بحث|تأكد|تحقق|هل يوجد|نص المادة|قرار بقانون|رقم القانون)/)) {
+            } else if (lowerContent.match(/(ابحث|بحث|تأكد|تحقق|هل يوجد|نص المادة|قرار بقانون|رقم القانون)/)) {
                 effectiveMode = 'research';
                 setActionMode('research');
-            }
-            // 4. Verifier Intent
-            else if (lowerContent.match(/(ساري المفعول|هل القانون ملغى|هل تم تعديل|تأكد من سريان)/)) {
+            } else if (lowerContent.match(/(ساري المفعول|هل القانون ملغى|هل تم تعديل|تأكد من سريان)/)) {
                 effectiveMode = 'verifier';
                 setActionMode('verifier');
-            }
-            // 5. Strategy/Plan Intent
-            else if (lowerContent.match(/(خطة|استراتيجية|خطوات|ماذا افعل|كيف اتصرف|طريقة|حل|خارطة طريق)/)) {
+            } else if (lowerContent.match(/(خطة|استراتيجية|خطوات|ماذا افعل|كيف اتصرف|طريقة|حل|خارطة طريق)/)) {
                 effectiveMode = 'strategy';
                 setActionMode('strategy');
-            }
-            // 6. Negotiation/Reconciliation Intent
-            else if (lowerContent.match(/(صلح|تسوية|حل ودي|تفاوض|اتفاق|إنهاء النزاع)/)) {
+            } else if (lowerContent.match(/(صلح|تسوية|حل ودي|تفاوض|اتفاق|إنهاء النزاع)/)) {
                 effectiveMode = (initialCaseType === 'sharia' || actionMode === 'sharia_advisor') ? 'reconciliation' : 'negotiator';
                 setActionMode(effectiveMode);
             }
         }
 
         setIsLoading(true);
-        const userMessage: ChatMessage = { id: uuidv4(), role: 'user', content: messageContent, images: uploadedImage ? [uploadedImage] : undefined };
+        // CHANGED: Pass array of images
+        const userMessage: ChatMessage = { 
+            id: uuidv4(), 
+            role: 'user', 
+            content: messageContent, 
+            images: uploadedImages.length > 0 ? uploadedImages : undefined 
+        };
+        
         setUserInput('');
-        setUploadedImage(null);
+        setUploadedImages([]); // Clear images
+        
         if (textareaRef.current) textareaRef.current.style.height = 'auto';
 
         const tempModelMessage: ChatMessage = { role: 'model', content: '', id: uuidv4() };
@@ -350,7 +417,7 @@ export const useChatLogic = (caseId?: string, initialCaseType: CaseType = 'chat'
         let currentCaseData = caseData;
 
         try {
-            const initialTitle = messageContent.substring(0, 50) || 'قضية جديدة';
+            const initialTitle = messageContent.substring(0, 50) || (uploadedImages.length > 0 ? 'تحليل صور ومستندات' : 'قضية جديدة');
             if (isNewCase) {
                 const newCase: Case = {
                     id: targetCaseId,
@@ -408,7 +475,7 @@ export const useChatLogic = (caseId?: string, initialCaseType: CaseType = 'chat'
                     await dbService.updateCase(updatedCase);
                     setCaseData(updatedCase);
                     if (isNewCase) {
-                        const routePrefix = currentCaseType === 'sharia' ? '/sharia' : '/case';
+                        const routePrefix = currentCaseType === 'sharia' ? '/sharia' : (currentCaseType === 'forgery' ? '/forgery' : '/case');
                         navigate(`${routePrefix}/${targetCaseId}`, { replace: true });
                     }
                 }
@@ -427,12 +494,13 @@ export const useChatLogic = (caseId?: string, initialCaseType: CaseType = 'chat'
 
     return {
         caseData, chatHistory, userInput, setUserInput, isLoading, isNotFound, isApiKeyReady,
-        apiSource, thinkingMode, setThinkingMode, uploadedImage, setUploadedImage,
+        apiSource, thinkingMode, setThinkingMode, 
+        uploadedImages, setUploadedImages, // Exposed Array
         isProcessingFile, processingMessage, tokenCount, authError,
         actionMode, setActionMode, pinnedMessages, isSummaryLoading,
         isPinnedPanelOpen, setIsPinnedPanelOpen, chatContainerRef, fileInputRef, textareaRef,
         handleSendMessage, handleStopGenerating, handleSummarize, handleSelectApiKey,
         handleFileChange, handlePinMessage, handleUnpinMessage, handleConvertCaseType,
-        handleFollowUpAction // Exported handler
+        handleFollowUpAction
     };
 };

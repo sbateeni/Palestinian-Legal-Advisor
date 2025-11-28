@@ -15,14 +15,14 @@ interface ChatInputProps {
     textareaRef: RefObject<HTMLTextAreaElement | null>;
     isLoading: boolean;
     isProcessingFile: boolean;
-    uploadedImage: { dataUrl: string; mimeType: string } | null;
-    setUploadedImage: (val: { dataUrl: string; mimeType: string } | null) => void;
+    uploadedImages: { dataUrl: string; mimeType: string }[]; // Changed to array
+    setUploadedImages: (val: { dataUrl: string; mimeType: string }[]) => void; // Changed to array setter
     processingMessage: string;
     authError: string | null;
     actionMode: ActionMode;
     setActionMode: (mode: ActionMode) => void;
     chatHistoryLength: number;
-    isApiKeyReady: boolean | null; // Added prop
+    isApiKeyReady: boolean | null;
 }
 
 const ChatInput: React.FC<ChatInputProps> = ({
@@ -35,19 +35,19 @@ const ChatInput: React.FC<ChatInputProps> = ({
     textareaRef,
     isLoading,
     isProcessingFile,
-    uploadedImage,
-    setUploadedImage,
+    uploadedImages,
+    setUploadedImages,
     processingMessage,
     authError,
     actionMode,
     setActionMode,
     chatHistoryLength,
-    isApiKeyReady // Destructure prop
+    isApiKeyReady
 }) => {
     const [isListening, setIsListening] = useState(false);
     const [recognition, setRecognition] = useState<any>(null);
 
-    // Derived state for disabling inputs
+    // Derived state
     const isDisabled = isLoading || isProcessingFile || !isApiKeyReady;
 
     useEffect(() => {
@@ -56,7 +56,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
             const recog = new SpeechRecognition();
             recog.continuous = true;
             recog.interimResults = true;
-            recog.lang = 'ar-PS'; // Palestinian Arabic context
+            recog.lang = 'ar-PS';
 
             recog.onresult = (event: any) => {
                 let finalTranscript = '';
@@ -96,6 +96,10 @@ const ChatInput: React.FC<ChatInputProps> = ({
             recognition.start();
             setIsListening(true);
         }
+    };
+
+    const removeImage = (index: number) => {
+        setUploadedImages(uploadedImages.filter((_, i) => i !== index));
     };
 
     return (
@@ -157,17 +161,21 @@ const ChatInput: React.FC<ChatInputProps> = ({
                 </div>
             )}
 
-            {/* Image Preview */}
-            {uploadedImage && (
-                <div className="relative inline-block mb-2 group">
-                    <img src={uploadedImage.dataUrl} alt="Preview" className="h-24 w-auto rounded-lg object-contain border border-gray-600 bg-gray-900" />
-                    <button
-                        onClick={() => setUploadedImage(null)}
-                        className="absolute -top-2 -right-2 bg-red-600 text-white rounded-full p-1 leading-none shadow-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
-                        aria-label="Remove image"
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                    </button>
+            {/* Images Preview Gallery */}
+            {uploadedImages.length > 0 && (
+                <div className="flex gap-2 mb-3 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-gray-600">
+                    {uploadedImages.map((img, index) => (
+                        <div key={index} className="relative inline-block group flex-shrink-0">
+                            <img src={img.dataUrl} alt={`Preview ${index}`} className="h-20 w-auto rounded-lg object-contain border border-gray-600 bg-gray-900" />
+                            <button
+                                onClick={() => removeImage(index)}
+                                className="absolute -top-2 -right-2 bg-red-600 text-white rounded-full p-1 leading-none shadow-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                                aria-label="Remove image"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                            </button>
+                        </div>
+                    ))}
                 </div>
             )}
 
@@ -181,8 +189,8 @@ const ChatInput: React.FC<ChatInputProps> = ({
 
             {/* Input Area */}
             <div className="flex items-center space-x-reverse space-x-2">
-                <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*,application/pdf" className="hidden" />
-                <button onClick={() => fileInputRef.current?.click()} disabled={isDisabled} className="p-3 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 disabled:opacity-50 transition-colors flex-shrink-0" aria-label="إرفاق ملف" title="إرفاق صورة أو PDF">
+                <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*,application/pdf" className="hidden" multiple />
+                <button onClick={() => fileInputRef.current?.click()} disabled={isDisabled} className="p-3 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 disabled:opacity-50 transition-colors flex-shrink-0" aria-label="إرفاق ملف" title="إرفاق صور أو مستندات (يدعم التحديد المتعدد)">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>
                 </button>
                 
@@ -239,7 +247,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
                 ) : (
                     <button
                         onClick={() => handleSendMessage()}
-                        disabled={isProcessingFile || (!userInput.trim() && !uploadedImage) || !isApiKeyReady}
+                        disabled={isProcessingFile || (!userInput.trim() && uploadedImages.length === 0) || !isApiKeyReady}
                         className={`p-3 text-white font-semibold rounded-lg disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors flex-shrink-0 ${actionMode === 'loopholes' ? 'bg-rose-600 hover:bg-rose-700' :
                             actionMode === 'drafting' ? 'bg-emerald-600 hover:bg-emerald-700' :
                                 actionMode === 'strategy' ? 'bg-amber-600 hover:bg-amber-700' :

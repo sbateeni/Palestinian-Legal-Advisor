@@ -24,8 +24,8 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
         apiSource,
         thinkingMode,
         setThinkingMode,
-        uploadedImage,
-        setUploadedImage,
+        uploadedImages,
+        setUploadedImages,
         isProcessingFile,
         processingMessage,
         tokenCount,
@@ -146,8 +146,8 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
                 textareaRef={textareaRef}
                 isLoading={isLoading}
                 isProcessingFile={isProcessingFile}
-                uploadedImage={uploadedImage}
-                setUploadedImage={setUploadedImage}
+                uploadedImages={uploadedImages}
+                setUploadedImages={setUploadedImages}
                 processingMessage={processingMessage}
                 authError={authError}
                 actionMode={actionMode}

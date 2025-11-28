@@ -86,10 +86,20 @@ const ShariaPage: React.FC<ShariaPageProps> = ({ caseId }) => {
             />
 
             <div className="flex items-center space-x-reverse space-x-2">
-                <input type="file" ref={logic.fileInputRef} onChange={logic.handleFileChange} accept="image/*,application/pdf" className="hidden" />
+                <input type="file" ref={logic.fileInputRef} onChange={logic.handleFileChange} accept="image/*,application/pdf" className="hidden" multiple />
                 <button onClick={() => logic.fileInputRef.current?.click()} disabled={logic.isLoading || !logic.isApiKeyReady} className="p-3 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 disabled:opacity-50 transition-colors">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>
                 </button>
+                
+                {/* Images Preview in Sharia Page */}
+                {logic.uploadedImages.length > 0 && (
+                    <div className="flex gap-1 overflow-x-auto max-w-[150px] scrollbar-hide">
+                        {logic.uploadedImages.map((img, i) => (
+                            <img key={i} src={img.dataUrl} className="h-10 w-10 object-cover rounded border border-gray-600" alt="Preview" />
+                        ))}
+                    </div>
+                )}
+
                 <textarea
                     ref={logic.textareaRef}
                     value={logic.userInput}
@@ -101,7 +111,7 @@ const ShariaPage: React.FC<ShariaPageProps> = ({ caseId }) => {
                     style={{ maxHeight: '10rem' }}
                     disabled={logic.isLoading || !logic.isApiKeyReady}
                 />
-                <button onClick={() => logic.handleSendMessage()} disabled={logic.isLoading || !logic.userInput.trim() || !logic.isApiKeyReady} className="p-3 bg-emerald-600 text-white font-semibold rounded-lg hover:bg-emerald-700 disabled:bg-gray-500 transition-colors">
+                <button onClick={() => logic.handleSendMessage()} disabled={logic.isLoading || (!logic.userInput.trim() && logic.uploadedImages.length === 0) || !logic.isApiKeyReady} className="p-3 bg-emerald-600 text-white font-semibold rounded-lg hover:bg-emerald-700 disabled:bg-gray-500 transition-colors">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
                 </button>
             </div>

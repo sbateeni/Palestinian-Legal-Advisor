@@ -11,6 +11,7 @@ import ToolsPage from './pages/ToolsPage';
 import InheritancePage from './pages/InheritancePage';
 import ShariaPage from './pages/ShariaPage';
 import CaseTypesPage from './pages/CaseTypesPage';
+import ForgeryDetectionPage from './pages/ForgeryDetectionPage'; // New Import
 
 const App: React.FC = () => {
   return (
@@ -31,6 +32,9 @@ const App: React.FC = () => {
             <Route path="/sharia" element={<ShariaPage key="new-sharia" />} />
             <Route path="/sharia/:caseId" element={<ShariaPageWrapper />} />
             
+            <Route path="/forgery" element={<ForgeryDetectionPage key="new-forgery" />} />
+            <Route path="/forgery/:caseId" element={<ForgeryPageWrapper />} />
+
             <Route path="/case" element={<Navigate to="/civil" replace />} />
             <Route path="/case/:caseId" element={<ChatPageWrapper />} />
             <Route path="/cases" element={<CasesListPage />} />
@@ -55,6 +59,12 @@ const ChatPageWrapper: React.FC = () => {
 const ShariaPageWrapper: React.FC = () => {
     const { caseId } = useParams<{ caseId: string }>();
     return <ShariaPage key={caseId} caseId={caseId} />;
+};
+
+// Wrapper for Forgery Cases
+const ForgeryPageWrapper: React.FC = () => {
+    const { caseId } = useParams<{ caseId: string }>();
+    return <ForgeryDetectionPage key={caseId} caseId={caseId} />;
 };
 
 
