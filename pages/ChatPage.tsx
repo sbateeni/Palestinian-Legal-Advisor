@@ -19,7 +19,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
         userInput,
         setUserInput,
         isLoading,
-        isNotFound, // Use explicit not found state
+        isNotFound, 
         isApiKeyReady,
         apiSource,
         thinkingMode,
@@ -46,10 +46,11 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
         handleFileChange,
         handlePinMessage,
         handleUnpinMessage,
-        handleConvertCaseType // New handler
+        handleConvertCaseType,
+        handleFollowUpAction // Destructure this
     } = useChatLogic(caseId, 'chat');
 
-    // 1. Loading State: Show spinner if fetching existing case
+    // 1. Loading State
     if (isLoading && !caseData && caseId) {
         return (
             <div className="w-full flex-grow flex items-center justify-center p-8 text-lg">
@@ -73,8 +74,6 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
     }
 
     // 3. New Case / API Key Check
-    // Only show "API Key Required" screen if it's a NEW case (empty history) and we have no key.
-    // If it's an existing case, we show the history (Read-Only mode handled in ChatInput).
     const isNewCaseWithoutKey = isApiKeyReady === false && chatHistory.length === 0;
 
     if (isNewCaseWithoutKey) {
@@ -132,7 +131,8 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
                     isLoading={isLoading}
                     pinnedMessages={pinnedMessages}
                     onPinMessage={handlePinMessage}
-                    onConvertCaseType={handleConvertCaseType} // Pass down the converter
+                    onConvertCaseType={handleConvertCaseType}
+                    onFollowUpAction={handleFollowUpAction} // Pass handler
                 />
             </div>
 

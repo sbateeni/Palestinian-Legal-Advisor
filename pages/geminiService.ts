@@ -7,7 +7,7 @@ import { getInstruction, getInheritanceExtractionPrompt } from '../services/lega
 // Constants for Token Management
 const MAX_HISTORY_MESSAGES = 25;
 const MAX_OUTPUT_TOKENS_FLASH = 8192;
-const THINKING_BUDGET_PRO = 2048;
+const THINKING_BUDGET_PRO = 2048; // Keeping budget for Flash
 
 async function getGoogleGenAI(): Promise<GoogleGenAI> {
     let apiKey = '';
@@ -149,7 +149,10 @@ export async function* streamChatResponseFromGemini(
 ): AsyncGenerator<{ text: string; model: string; groundingMetadata?: GroundingMetadata }> {
   try {
     const ai = await getGoogleGenAI();
-    const model = thinkingMode ? 'gemini-3-pro-preview' : 'gemini-2.5-flash';
+    // Using gemini-2.5-flash for everything to support Free Tier while maintaining capabilities
+    // Flash 2.5 supports Thinking and Multimodal
+    const model = 'gemini-2.5-flash';
+    
     // Retrieve centralized instruction
     const systemInstruction = getInstruction(actionMode, region, caseType);
     
@@ -161,10 +164,15 @@ export async function* streamChatResponseFromGemini(
         tools: tools,
         maxOutputTokens: MAX_OUTPUT_TOKENS_FLASH,
     };
-    if (thinkingMode) {
+    
+    // Configure Thinking Budget for complex tasks
+    const isForensic = actionMode === 'forensic';
+    if (thinkingMode || isForensic) {
+        // Flash supports thinking too
         config.thinkingConfig = { thinkingBudget: THINKING_BUDGET_PRO };
-        config.maxOutputTokens = Math.max(MAX_OUTPUT_TOKENS_FLASH, THINKING_BUDGET_PRO + 4000);
+        config.maxOutputTokens = MAX_OUTPUT_TOKENS_FLASH; 
     }
+    
     const response = await ai.models.generateContentStream({
         model: model,
         contents: contents,
@@ -207,6 +215,7 @@ export async function analyzeImageWithGemini(
   if (!base64ImageDataUrl || !mimeType) throw new Error("Image data and mime type are required.");
   try {
     const ai = await getGoogleGenAI();
+    // Reverted to Flash for Free Tier
     const model = 'gemini-2.5-flash';
     const base64Data = base64ImageDataUrl.split(',')[1];
     const imagePart = {
@@ -217,8 +226,8 @@ export async function analyzeImageWithGemini(
         model: model,
         contents: { parts: [imagePart, textPart] },
         config: {
-             systemInstruction: "أنت محلل صور قانوني ومستندي. دورك هو استخراج المعلومات بدقة.",
-             maxOutputTokens: 4000,
+             systemInstruction: "أنت محلل صور جنائي ومستندي خبير. دورك هو استخراج المعلومات والأدلة بدقة متناهية ووصف المشهد قانونياً.",
+             maxOutputTokens: MAX_OUTPUT_TOKENS_FLASH,
         }
     });
 
@@ -235,7 +244,8 @@ export async function analyzeImageWithGemini(
 export async function extractInheritanceFromCase(caseText: string): Promise<Partial<InheritanceInput>> {
     try {
         const ai = await getGoogleGenAI();
-        const model = 'gemini-3-pro-preview';
+        // Reverted to Flash for Free Tier
+        const model = 'gemini-2.5-flash';
 
         // Use centralized inheritance prompt
         const prompt = getInheritanceExtractionPrompt(caseText);

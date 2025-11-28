@@ -142,7 +142,8 @@ const ShariaPage: React.FC<ShariaPageProps> = ({ caseId }) => {
                     isLoading={logic.isLoading}
                     pinnedMessages={logic.pinnedMessages}
                     onPinMessage={logic.handlePinMessage}
-                    onConvertCaseType={logic.handleConvertCaseType} // Pass converter
+                    onConvertCaseType={logic.handleConvertCaseType} 
+                    onFollowUpAction={logic.handleFollowUpAction} // Pass handler
                 />
             </div>
 

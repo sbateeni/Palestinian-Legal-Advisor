@@ -170,19 +170,13 @@ export const useChatLogic = (caseId?: string, initialCaseType: CaseType = 'chat'
         }
     };
 
-    // New Function to handle case type conversion (Redirect)
     const handleConvertCaseType = async (newType: string) => {
         if (!caseData) return;
-        
-        // Normalize type (fix potential AI hallucination 'civil' -> 'chat')
         const normalizedType: CaseType = newType === 'civil' ? 'chat' : (newType as CaseType);
 
         setIsLoading(true);
         try {
-            // Filter out the "Redirect/Jurisdiction Alert" message from history
-            // ensuring the new view starts clean with the user's last question
             const cleanedHistory = caseData.chatHistory.filter(msg => {
-                // Remove message if it contains the redirect JSON structure
                 const isRedirectMsg = /```json\s*\{[\s\S]*?"redirect"[\s\S]*?\}\s*```/.test(msg.content);
                 return !isRedirectMsg;
             });
@@ -190,18 +184,13 @@ export const useChatLogic = (caseId?: string, initialCaseType: CaseType = 'chat'
             const updatedCase: Case = {
                 ...caseData,
                 caseType: normalizedType,
-                chatHistory: cleanedHistory // Save the cleaned history
+                chatHistory: cleanedHistory 
             };
             await dbService.updateCase(updatedCase);
-            setCaseData(updatedCase); // Update local state immediately
+            setCaseData(updatedCase); 
             
-            // Navigate to the correct route based on the new type
             const routePrefix = normalizedType === 'sharia' ? '/sharia' : '/case';
-            
-            // Force navigation with hard reload logic to ensure hooks reset properly
-            // We use replace to swap the history entry
             navigate(`${routePrefix}/${caseData.id}`, { replace: true });
-            // Reload window to ensure fresh context (agents, toolbar, system prompts)
             window.location.reload();
         } catch (error) {
             console.error("Failed to convert case type:", error);
@@ -302,10 +291,48 @@ export const useChatLogic = (caseId?: string, initialCaseType: CaseType = 'chat'
         return { fullResponse, responseModel, groundingMetadata };
     }, []);
 
-    const handleSendMessage = async (prompt?: string) => {
+    const handleSendMessage = async (prompt?: string, overrideMode?: ActionMode) => {
         setAuthError(null);
         const messageContent = (prompt || userInput).trim();
         if (isLoading || isProcessingFile || (!messageContent && !uploadedImage)) return;
+
+        // Auto-Pilot: Detect Intent if no override is provided AND we are in a default mode
+        let effectiveMode = overrideMode || actionMode;
+        
+        if (!overrideMode && (actionMode === 'analysis' || actionMode === 'sharia_advisor')) {
+            const lowerContent = messageContent.toLowerCase();
+            
+            // 1. Drafting Intent
+            if (lowerContent.match(/(صغ|اكتب|صياغة|تحرير|أنشئ|اعداد).*?(لائحة|عقد|اتفاقية|مذكرة|دعوى|وكالة|إخطار|شكوى)/) || lowerContent.includes('اكتب لي')) {
+                effectiveMode = 'drafting';
+                setActionMode('drafting');
+            } 
+            // 2. Loopholes/Defense Intent
+            else if (lowerContent.match(/(ثغرة|ثغرات|نقطة ضعف|نقاط ضعف|اخطاء|دفوع|دفاع|طعن|رد على)/)) {
+                effectiveMode = 'loopholes';
+                setActionMode('loopholes');
+            }
+            // 3. Research Intent
+            else if (lowerContent.match(/(ابحث|بحث|تأكد|تحقق|هل يوجد|نص المادة|قرار بقانون|رقم القانون)/)) {
+                effectiveMode = 'research';
+                setActionMode('research');
+            }
+            // 4. Verifier Intent
+            else if (lowerContent.match(/(ساري المفعول|هل القانون ملغى|هل تم تعديل|تأكد من سريان)/)) {
+                effectiveMode = 'verifier';
+                setActionMode('verifier');
+            }
+            // 5. Strategy/Plan Intent
+            else if (lowerContent.match(/(خطة|استراتيجية|خطوات|ماذا افعل|كيف اتصرف|طريقة|حل|خارطة طريق)/)) {
+                effectiveMode = 'strategy';
+                setActionMode('strategy');
+            }
+            // 6. Negotiation/Reconciliation Intent
+            else if (lowerContent.match(/(صلح|تسوية|حل ودي|تفاوض|اتفاق|إنهاء النزاع)/)) {
+                effectiveMode = (initialCaseType === 'sharia' || actionMode === 'sharia_advisor') ? 'reconciliation' : 'negotiator';
+                setActionMode(effectiveMode);
+            }
+        }
 
         setIsLoading(true);
         const userMessage: ChatMessage = { id: uuidv4(), role: 'user', content: messageContent, images: uploadedImage ? [uploadedImage] : undefined };
@@ -318,10 +345,7 @@ export const useChatLogic = (caseId?: string, initialCaseType: CaseType = 'chat'
         setChatHistory(newHistory);
         abortControllerRef.current = new AbortController();
 
-        // Determine current Case Type:
-        // If caseData exists, use its type. If not (new case), use the initialCaseType passed to the hook.
         const currentCaseType = caseData?.caseType || initialCaseType;
-
         const targetCaseId = caseId || uuidv4();
         let currentCaseData = caseData;
 
@@ -332,10 +356,10 @@ export const useChatLogic = (caseId?: string, initialCaseType: CaseType = 'chat'
                     id: targetCaseId,
                     title: initialTitle,
                     summary: messageContent.substring(0, 150),
-                    chatHistory: [userMessage], // Save only user message first to prevent loss
+                    chatHistory: [userMessage],
                     createdAt: Date.now(),
                     status: 'جديدة',
-                    caseType: currentCaseType // Ensure correct type is saved
+                    caseType: currentCaseType 
                 };
                 await dbService.addCase(newCase);
                 currentCaseData = newCase;
@@ -356,11 +380,10 @@ export const useChatLogic = (caseId?: string, initialCaseType: CaseType = 'chat'
         try {
             let stream;
             const historyToSend = [...chatHistory, userMessage];
-            // PASS currentCaseType to the stream functions
             if (apiSource === 'openrouter') {
-                stream = streamChatResponseFromOpenRouter(openRouterApiKey, historyToSend, openRouterModel, actionMode, region, currentCaseType, abortControllerRef.current.signal);
+                stream = streamChatResponseFromOpenRouter(openRouterApiKey, historyToSend, openRouterModel, effectiveMode, region, currentCaseType, abortControllerRef.current.signal);
             } else {
-                stream = streamChatResponseFromGemini(historyToSend, thinkingMode, actionMode, region, currentCaseType, abortControllerRef.current.signal);
+                stream = streamChatResponseFromGemini(historyToSend, thinkingMode, effectiveMode, region, currentCaseType, abortControllerRef.current.signal);
             }
 
             const { fullResponse, responseModel, groundingMetadata } = await processStream(stream, tempModelMessage.id);
@@ -395,6 +418,11 @@ export const useChatLogic = (caseId?: string, initialCaseType: CaseType = 'chat'
         }
     };
 
+    const handleFollowUpAction = (newMode: ActionMode, prompt: string) => {
+        setActionMode(newMode);
+        handleSendMessage(prompt, newMode);
+    };
+
     const handleStopGenerating = () => abortControllerRef.current?.abort();
 
     return {
@@ -404,6 +432,7 @@ export const useChatLogic = (caseId?: string, initialCaseType: CaseType = 'chat'
         actionMode, setActionMode, pinnedMessages, isSummaryLoading,
         isPinnedPanelOpen, setIsPinnedPanelOpen, chatContainerRef, fileInputRef, textareaRef,
         handleSendMessage, handleStopGenerating, handleSummarize, handleSelectApiKey,
-        handleFileChange, handlePinMessage, handleUnpinMessage, handleConvertCaseType
+        handleFileChange, handlePinMessage, handleUnpinMessage, handleConvertCaseType,
+        handleFollowUpAction // Exported handler
     };
 };

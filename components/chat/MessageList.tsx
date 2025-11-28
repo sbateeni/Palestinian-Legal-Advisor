@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { ChatMessage, CaseType } from '../../types';
+import { ChatMessage, CaseType, ActionMode } from '../../types';
 import ChatMessageItem from '../ChatMessageItem';
 
 interface MessageListProps {
@@ -8,10 +8,17 @@ interface MessageListProps {
     isLoading: boolean;
     pinnedMessages: ChatMessage[];
     onPinMessage: (msg: ChatMessage) => void;
-    onConvertCaseType?: (type: CaseType) => void; // New prop for transfer action
+    onConvertCaseType?: (type: CaseType) => void;
+    onFollowUpAction?: (mode: ActionMode, prompt: string) => void; // New prop
 }
 
-const MessageList: React.FC<MessageListProps> = ({ messages, isLoading, pinnedMessages, onPinMessage, onConvertCaseType }) => {
+interface SuggestedAction {
+    label: string;
+    mode: ActionMode;
+    prompt: string;
+}
+
+const MessageList: React.FC<MessageListProps> = ({ messages, isLoading, pinnedMessages, onPinMessage, onConvertCaseType, onFollowUpAction }) => {
     const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
     const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(null);
 
@@ -43,30 +50,22 @@ const MessageList: React.FC<MessageListProps> = ({ messages, isLoading, pinnedMe
 
     const handleSpeak = (text: string, id: string) => {
         if (speakingMessageId === id) {
-            // Stop if clicking the playing message
             window.speechSynthesis.cancel();
             setSpeakingMessageId(null);
             return;
         }
-
-        // Stop any previous speech
         window.speechSynthesis.cancel();
-
-        // Simple cleanup to make reading smoother (remove markdown symbols)
         const cleanText = text.replace(/[*#`_]/g, '');
-
         const utterance = new SpeechSynthesisUtterance(cleanText);
-        utterance.lang = 'ar-SA'; // Set to Arabic
-        utterance.rate = 1.0; // Normal speed
-
+        utterance.lang = 'ar-SA';
+        utterance.rate = 1.0;
         utterance.onend = () => setSpeakingMessageId(null);
         utterance.onerror = () => setSpeakingMessageId(null);
-
         setSpeakingMessageId(id);
         window.speechSynthesis.speak(utterance);
     };
 
-    // Helper to parse potential Redirect JSON from the model
+    // Helper to parse Redirect JSON
     const parseRedirectMessage = (content: string) => {
         const jsonMatch = content.match(/```json\s*(\{[\s\S]*?"redirect"[\s\S]*?\})\s*```/);
         if (jsonMatch) {
@@ -80,11 +79,28 @@ const MessageList: React.FC<MessageListProps> = ({ messages, isLoading, pinnedMe
         return null;
     };
 
+    // Helper to parse Next Actions JSON
+    const parseNextActions = (content: string): { text: string, actions: SuggestedAction[] } => {
+        const jsonMatch = content.match(/```json\s*(\{[\s\S]*?"next_steps"[\s\S]*?\})\s*```/);
+        if (jsonMatch) {
+            try {
+                const data = JSON.parse(jsonMatch[1]);
+                if (data.next_steps && Array.isArray(data.next_steps)) {
+                    // Return cleaner text (remove the JSON block) and the actions
+                    const cleanText = content.replace(jsonMatch[0], '').trim();
+                    return { text: cleanText, actions: data.next_steps };
+                }
+            } catch (e) {
+                // Fallback
+            }
+        }
+        return { text: content, actions: [] };
+    };
+
     if (messages.length === 0 && !isLoading) {
         return (
             <div className="text-center text-gray-400 flex flex-col items-center justify-center h-full p-8">
                 <div className="bg-gray-700/30 p-8 rounded-full mb-6 border border-gray-600/50 shadow-xl">
-                    {/* Scales of Justice Icon */}
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.2} stroke="currentColor" className="h-24 w-24 text-amber-500">
                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v17.25m0 0c-1.472 0-2.882.265-4.185.75M12 20.25c1.472 0 2.882.265 4.185.75M18.75 4.97A48.416 48.416 0 0 0 12 4.5c-2.291 0-4.545.16-6.75.47m13.5 0c1.01.143 2.01.317 3 .52m-3-.52 2.62 10.726c.122.499-.106 1.028-.589 1.202a5.988 5.988 0 0 1-2.031.352 5.988 5.988 0 0 1-2.031-.352c-.483-.174-.711-.703-.59-1.202L18.75 4.971Zm-16.5.52c.99-.203 1.99-.377 3-.52m0 0 2.62 10.726c.122.499-.106 1.028-.589 1.202a5.989 5.989 0 0 1-2.031.352 5.989 5.989 0 0 1-2.031-.352c-.483-.174-.711-.703-.59-1.202L5.25 4.971Z" />
                     </svg>
@@ -110,13 +126,26 @@ const MessageList: React.FC<MessageListProps> = ({ messages, isLoading, pinnedMe
             {messages.map((msg) => {
                 const isPinned = pinnedMessages.some(p => p.id === msg.id);
                 const hasGrounding = msg.groundingMetadata?.groundingChunks && msg.groundingMetadata.groundingChunks.length > 0;
-                const redirectData = msg.role === 'model' ? parseRedirectMessage(msg.content) : null;
+                
+                // Parse Logic for Model Messages
+                let redirectData = null;
+                let nextActions: SuggestedAction[] = [];
+                let displayContent = msg.content;
+
+                if (msg.role === 'model') {
+                    redirectData = parseRedirectMessage(msg.content);
+                    if (!redirectData) {
+                        const parsed = parseNextActions(msg.content);
+                        displayContent = parsed.text;
+                        nextActions = parsed.actions;
+                    }
+                }
                 
                 return (
                     <div key={msg.id} className={`flex flex-col group ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
                         <div className={`max-w-xl lg:max-w-3xl px-5 py-4 rounded-2xl relative shadow-md ${msg.isError ? 'bg-red-500/20 text-red-200 border border-red-500/30' : msg.role === 'user' ? 'bg-blue-600 text-white rounded-br-sm' : 'bg-gray-700 text-gray-200 rounded-bl-sm'}`}>
                             
-                            {/* Standard Controls (Pin/Copy/Speak) */}
+                            {/* Standard Controls */}
                             {!redirectData && (
                                 <div className="absolute top-2 left-2 flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                     <button onClick={() => onPinMessage(msg)} className="p-1.5 bg-black/20 rounded-full text-gray-300 hover:bg-black/40 disabled:opacity-50 disabled:cursor-default transition-colors" title={isPinned ? "تم التثبيت" : "تثبيت الرسالة"} disabled={isPinned}>
@@ -127,7 +156,7 @@ const MessageList: React.FC<MessageListProps> = ({ messages, isLoading, pinnedMe
                                     </button>
                                     {msg.role === 'model' && (
                                         <>
-                                            <button onClick={() => handleSpeak(msg.content, msg.id)} className={`p-1.5 bg-black/20 rounded-full hover:bg-black/40 transition-colors ${speakingMessageId === msg.id ? 'text-green-400 animate-pulse' : 'text-gray-300'}`} aria-label="قراءة صوتية" title={speakingMessageId === msg.id ? "إيقاف القراءة" : "قراءة النص"}>
+                                            <button onClick={() => handleSpeak(msg.content, msg.id)} className={`p-1.5 bg-black/20 rounded-full hover:bg-black/40 transition-colors ${speakingMessageId === msg.id ? 'text-green-400 animate-pulse' : 'text-gray-300'}`} aria-label="قراءة صوتية">
                                                 {speakingMessageId === msg.id ? (
                                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
                                                         <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 002 0V8a1 1 0 00-1-1zm4 0a1 1 0 00-1 1v4a1 1 0 002 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
@@ -138,14 +167,14 @@ const MessageList: React.FC<MessageListProps> = ({ messages, isLoading, pinnedMe
                                                     </svg>
                                                 )}
                                             </button>
-                                            <button onClick={() => handleCopy(msg.content, msg.id)} className="p-1.5 bg-black/20 rounded-full text-gray-300 hover:bg-black/40 transition-colors" aria-label="نسخ" title="نسخ النص">
+                                            <button onClick={() => handleCopy(msg.content, msg.id)} className="p-1.5 bg-black/20 rounded-full text-gray-300 hover:bg-black/40 transition-colors" aria-label="نسخ">
                                                 {copiedMessageId === msg.id ? (
                                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
                                                 ) : (
                                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
                                                 )}
                                             </button>
-                                            <button onClick={() => handleDownload(msg.content, msg.id)} className="p-1.5 bg-black/20 rounded-full text-gray-300 hover:bg-black/40 transition-colors" aria-label="تحميل" title="تحميل كملف نصي">
+                                            <button onClick={() => handleDownload(msg.content, msg.id)} className="p-1.5 bg-black/20 rounded-full text-gray-300 hover:bg-black/40 transition-colors" aria-label="تحميل">
                                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4-4m0 0l-4 4m4-4v12" /></svg>
                                             </button>
                                         </>
@@ -153,7 +182,7 @@ const MessageList: React.FC<MessageListProps> = ({ messages, isLoading, pinnedMe
                                 </div>
                             )}
 
-                            {/* Images Rendering */}
+                            {/* Images */}
                             {msg.images && msg.images.length > 0 && (
                                 <div className="flex flex-wrap gap-2 mb-3">
                                     {msg.images.map((image, index) => (
@@ -162,7 +191,7 @@ const MessageList: React.FC<MessageListProps> = ({ messages, isLoading, pinnedMe
                                 </div>
                             )}
 
-                            {/* SPECIAL: Redirect Card Rendering */}
+                            {/* Redirect Card */}
                             {redirectData ? (
                                 <div className="bg-red-900/30 border-2 border-red-500/50 p-4 rounded-xl text-center">
                                     <div className="flex flex-col items-center gap-3">
@@ -187,11 +216,30 @@ const MessageList: React.FC<MessageListProps> = ({ messages, isLoading, pinnedMe
                                     </div>
                                 </div>
                             ) : (
-                                /* Standard Message Rendering */
-                                <ChatMessageItem content={msg.content || '...'} isModel={msg.role === 'model'} />
+                                /* Standard Content */
+                                <ChatMessageItem content={displayContent || '...'} isModel={msg.role === 'model'} />
                             )}
 
-                            {/* Render Grounding Sources if available (and not a redirect message) */}
+                            {/* NEXT ACTIONS (Buttons) */}
+                            {nextActions.length > 0 && onFollowUpAction && (
+                                <div className="mt-4 pt-3 border-t border-gray-600/50">
+                                    <p className="text-xs text-gray-400 mb-2 font-medium">الخطوات التالية المقترحة:</p>
+                                    <div className="flex flex-wrap gap-2">
+                                        {nextActions.map((action, idx) => (
+                                            <button
+                                                key={idx}
+                                                onClick={() => onFollowUpAction(action.mode, action.prompt)}
+                                                className="px-4 py-2 bg-gray-900/60 hover:bg-blue-600/20 border border-gray-600 hover:border-blue-500/50 rounded-lg text-sm text-blue-200 transition-all flex items-center gap-2 hover:scale-105"
+                                            >
+                                                <span>{action.label}</span>
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Grounding Sources */}
                             {hasGrounding && !redirectData && (
                                 <div className="mt-5 pt-4 border-t border-gray-600/50 bg-gray-800/30 rounded-lg p-3 -mx-2">
                                     <div className="flex items-center justify-between mb-2">
