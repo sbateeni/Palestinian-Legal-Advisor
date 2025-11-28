@@ -2,7 +2,7 @@
 import React, { RefObject, useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { ActionMode } from '../../types';
-import { SUGGESTED_PROMPTS } from '../../constants';
+import { AGENT_PROMPTS } from '../../constants';
 import LegalToolbar from '../LegalToolbar';
 
 interface ChatInputProps {
@@ -15,8 +15,8 @@ interface ChatInputProps {
     textareaRef: RefObject<HTMLTextAreaElement | null>;
     isLoading: boolean;
     isProcessingFile: boolean;
-    uploadedImages: { dataUrl: string; mimeType: string }[]; // Changed to array
-    setUploadedImages: (val: { dataUrl: string; mimeType: string }[]) => void; // Changed to array setter
+    uploadedImages: { dataUrl: string; mimeType: string }[];
+    setUploadedImages: (val: { dataUrl: string; mimeType: string }[]) => void;
     processingMessage: string;
     authError: string | null;
     actionMode: ActionMode;
@@ -49,6 +49,9 @@ const ChatInput: React.FC<ChatInputProps> = ({
 
     // Derived state
     const isDisabled = isLoading || isProcessingFile || !isApiKeyReady;
+    
+    // Get dynamic prompts based on current agent mode, fallback to analysis
+    const activePrompts = AGENT_PROMPTS[actionMode] || AGENT_PROMPTS['analysis'];
 
     useEffect(() => {
         if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
@@ -143,16 +146,19 @@ const ChatInput: React.FC<ChatInputProps> = ({
                 disabled={isDisabled}
             />
 
-            {/* Suggested Prompts */}
-            {chatHistoryLength > 0 && !isDisabled && (
-                <div className="mb-3">
+            {/* Dynamic Suggested Prompts based on Active Agent */}
+            {!isDisabled && (
+                <div className="mb-3 animate-fade-in">
                     <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
-                        <span className="text-sm text-gray-400 font-medium whitespace-nowrap">اقتراحات:</span>
-                        {SUGGESTED_PROMPTS.map((prompt, index) => (
+                        <span className="text-sm text-gray-400 font-medium whitespace-nowrap flex items-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 me-1 text-amber-500" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" /></svg>
+                            اقتراحات للوكيل:
+                        </span>
+                        {activePrompts.map((prompt, index) => (
                             <button
-                                key={index}
+                                key={`${actionMode}-${index}`}
                                 onClick={() => handleSendMessage(prompt)}
-                                className="px-3 py-1.5 bg-gray-700/80 text-gray-200 rounded-full text-sm whitespace-nowrap hover:bg-gray-600/80 transition-colors border border-gray-600/30"
+                                className="px-3 py-1.5 bg-gray-700/80 text-gray-200 rounded-full text-xs font-medium whitespace-nowrap hover:bg-blue-600/30 hover:text-blue-100 hover:border-blue-500/50 border border-gray-600/30 transition-all duration-200"
                             >
                                 {prompt}
                             </button>
