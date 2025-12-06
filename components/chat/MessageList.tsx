@@ -9,7 +9,7 @@ interface MessageListProps {
     pinnedMessages: ChatMessage[];
     onPinMessage: (msg: ChatMessage) => void;
     onConvertCaseType?: (type: CaseType) => void;
-    onFollowUpAction?: (mode: ActionMode, prompt: string) => void; // New prop
+    onFollowUpAction?: (mode: ActionMode, prompt: string) => void;
 }
 
 interface SuggestedAction {
@@ -22,7 +22,6 @@ const MessageList: React.FC<MessageListProps> = ({ messages, isLoading, pinnedMe
     const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
     const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(null);
 
-    // Cleanup speech synthesis on unmount
     useEffect(() => {
         return () => {
             window.speechSynthesis.cancel();
@@ -65,7 +64,6 @@ const MessageList: React.FC<MessageListProps> = ({ messages, isLoading, pinnedMe
         window.speechSynthesis.speak(utterance);
     };
 
-    // Helper to parse Redirect JSON
     const parseRedirectMessage = (content: string) => {
         const jsonMatch = content.match(/```json\s*(\{[\s\S]*?"redirect"[\s\S]*?\})\s*```/);
         if (jsonMatch) {
@@ -79,20 +77,16 @@ const MessageList: React.FC<MessageListProps> = ({ messages, isLoading, pinnedMe
         return null;
     };
 
-    // Helper to parse Next Actions JSON
     const parseNextActions = (content: string): { text: string, actions: SuggestedAction[] } => {
         const jsonMatch = content.match(/```json\s*(\{[\s\S]*?"next_steps"[\s\S]*?\})\s*```/);
         if (jsonMatch) {
             try {
                 const data = JSON.parse(jsonMatch[1]);
                 if (data.next_steps && Array.isArray(data.next_steps)) {
-                    // Return cleaner text (remove the JSON block) and the actions
                     const cleanText = content.replace(jsonMatch[0], '').trim();
                     return { text: cleanText, actions: data.next_steps };
                 }
-            } catch (e) {
-                // Fallback
-            }
+            } catch (e) { }
         }
         return { text: content, actions: [] };
     };
@@ -109,7 +103,7 @@ const MessageList: React.FC<MessageListProps> = ({ messages, isLoading, pinnedMe
                 <p className="mb-8 max-w-lg text-lg leading-relaxed text-gray-300">
                     مرحباً بك. أنا هنا لمساعدتك في فهم القانون الفلسطيني.
                     <br />
-                    ابدأ بوصف قضيتك، أو استخدم الأوضاع المتخصصة في الأسفل للحصول على استشارة دقيقة.
+                    أدخل تفاصيل قضيتك وسأقوم بالبحث في المصادر الرسمية (المقتفي، الجريدة الرسمية) لتقديم المشورة.
                 </p>
             </div>
         );
@@ -117,7 +111,7 @@ const MessageList: React.FC<MessageListProps> = ({ messages, isLoading, pinnedMe
 
     const getModelDisplayName = (modelId?: string): string => {
         if (!modelId) return '';
-        if (modelId.includes('gemini')) return 'Gemini AI';
+        if (modelId.includes('gemini')) return 'Gemini AI (Search Enabled)';
         return modelId;
     };
 
@@ -127,7 +121,6 @@ const MessageList: React.FC<MessageListProps> = ({ messages, isLoading, pinnedMe
                 const isPinned = pinnedMessages.some(p => p.id === msg.id);
                 const hasGrounding = msg.groundingMetadata?.groundingChunks && msg.groundingMetadata.groundingChunks.length > 0;
                 
-                // Parse Logic for Model Messages
                 let redirectData = null;
                 let nextActions: SuggestedAction[] = [];
                 let displayContent = msg.content;
@@ -145,7 +138,6 @@ const MessageList: React.FC<MessageListProps> = ({ messages, isLoading, pinnedMe
                     <div key={msg.id} className={`flex flex-col group ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
                         <div className={`max-w-xl lg:max-w-3xl px-5 py-4 rounded-2xl relative shadow-md ${msg.isError ? 'bg-red-500/20 text-red-200 border border-red-500/30' : msg.role === 'user' ? 'bg-blue-600 text-white rounded-br-sm' : 'bg-gray-700 text-gray-200 rounded-bl-sm'}`}>
                             
-                            {/* Standard Controls */}
                             {!redirectData && (
                                 <div className="absolute top-2 left-2 flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                     <button onClick={() => onPinMessage(msg)} className="p-1.5 bg-black/20 rounded-full text-gray-300 hover:bg-black/40 disabled:opacity-50 disabled:cursor-default transition-colors" title={isPinned ? "تم التثبيت" : "تثبيت الرسالة"} disabled={isPinned}>
@@ -182,16 +174,14 @@ const MessageList: React.FC<MessageListProps> = ({ messages, isLoading, pinnedMe
                                 </div>
                             )}
 
-                            {/* Images */}
                             {msg.images && msg.images.length > 0 && (
                                 <div className="flex flex-wrap gap-2 mb-3">
                                     {msg.images.map((image, index) => (
-                                        <img key={index} src={image.dataUrl} alt={`محتوى مرفق ${index + 1}`} className="rounded-lg max-w-xs max-h-64 object-contain bg-black/50 border border-white/10" />
+                                        <img key={index} src={image.dataUrl} alt={`مرفق ${index + 1}`} className="rounded-lg max-w-xs max-h-64 object-contain bg-black/50 border border-white/10" />
                                     ))}
                                 </div>
                             )}
 
-                            {/* Redirect Card */}
                             {redirectData ? (
                                 <div className="bg-red-900/30 border-2 border-red-500/50 p-4 rounded-xl text-center">
                                     <div className="flex flex-col items-center gap-3">
@@ -216,45 +206,43 @@ const MessageList: React.FC<MessageListProps> = ({ messages, isLoading, pinnedMe
                                     </div>
                                 </div>
                             ) : (
-                                /* Standard Content */
                                 <ChatMessageItem content={displayContent || '...'} isModel={msg.role === 'model'} />
                             )}
 
-                            {/* NEXT ACTIONS (Buttons) */}
+                            {/* NEXT ACTIONS */}
                             {nextActions.length > 0 && onFollowUpAction && (
                                 <div className="mt-4 pt-3 border-t border-gray-600/50">
-                                    <p className="text-xs text-gray-400 mb-2 font-medium">الخطوات التالية المقترحة:</p>
+                                    <p className="text-xs text-gray-400 mb-2 font-medium">خطوات مقترحة:</p>
                                     <div className="flex flex-wrap gap-2">
                                         {nextActions.map((action, idx) => (
                                             <button
                                                 key={idx}
                                                 onClick={() => onFollowUpAction(action.mode, action.prompt)}
-                                                className="px-4 py-2 bg-gray-900/60 hover:bg-blue-600/20 border border-gray-600 hover:border-blue-500/50 rounded-lg text-sm text-blue-200 transition-all flex items-center gap-2 hover:scale-105"
+                                                className="px-4 py-2 bg-gray-900/60 hover:bg-blue-600/20 border border-gray-600 hover:border-blue-500/50 rounded-lg text-sm text-blue-200 transition-all flex items-center gap-2"
                                             >
                                                 <span>{action.label}</span>
-                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
                                             </button>
                                         ))}
                                     </div>
                                 </div>
                             )}
 
-                            {/* Grounding Sources */}
+                            {/* GROUNDING SOURCES (Updated Look) */}
                             {hasGrounding && !redirectData && (
-                                <div className="mt-5 pt-4 border-t border-gray-600/50 bg-gray-800/30 rounded-lg p-3 -mx-2">
-                                    <div className="flex items-center justify-between mb-2">
-                                        <p className="text-[11px] uppercase tracking-wider text-blue-300 font-bold flex items-center">
-                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 me-1.5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" /></svg>
-                                            المصادر والمراجع (تم التحقق)
+                                <div className="mt-6 pt-4 border-t-2 border-gray-600/30 bg-black/20 rounded-lg p-3 -mx-2">
+                                    <div className="flex items-center justify-between mb-3">
+                                        <p className="text-xs font-bold text-blue-300 flex items-center uppercase tracking-wider">
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 me-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
+                                            🔗 المصادر والمراجع (Grounding)
                                         </p>
-                                        {msg.groundingMetadata?.webSearchQueries && msg.groundingMetadata.webSearchQueries.length > 0 && (
-                                            <span className="text-[10px] text-gray-400 truncate max-w-[150px]" title={`تم البحث عن: ${msg.groundingMetadata.webSearchQueries.join(', ')}`}>
-                                                بحث: {msg.groundingMetadata.webSearchQueries[0]}
+                                        {msg.groundingMetadata?.webSearchQueries && (
+                                            <span className="text-[10px] text-gray-500 font-mono">
+                                                {msg.groundingMetadata.webSearchQueries[0]}
                                             </span>
                                         )}
                                     </div>
                                     
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                    <div className="space-y-2">
                                         {msg.groundingMetadata?.groundingChunks.map((chunk, idx) => (
                                             chunk.web && (
                                                 <a
@@ -262,20 +250,20 @@ const MessageList: React.FC<MessageListProps> = ({ messages, isLoading, pinnedMe
                                                     href={chunk.web.uri}
                                                     target="_blank"
                                                     rel="noopener noreferrer"
-                                                    className="flex items-center p-2 rounded bg-gray-900/50 hover:bg-blue-600/10 border border-gray-700 hover:border-blue-500/50 transition-all group/link"
+                                                    className="flex items-center p-2 rounded bg-gray-800 hover:bg-gray-700 border border-gray-700 hover:border-blue-500/50 transition-all group/link"
                                                 >
-                                                    <div className="flex-shrink-0 h-6 w-6 rounded-full bg-blue-900/30 text-blue-400 flex items-center justify-center text-xs font-mono me-2 border border-blue-500/20 group-hover/link:bg-blue-600 group-hover/link:text-white group-hover/link:border-blue-500">
+                                                    <span className="flex-shrink-0 w-5 h-5 rounded bg-blue-900/50 text-blue-400 flex items-center justify-center text-[10px] me-2 font-mono border border-blue-500/20">
                                                         {idx + 1}
-                                                    </div>
+                                                    </span>
                                                     <div className="flex-grow min-w-0">
-                                                        <p className="text-xs font-medium text-blue-200 truncate group-hover/link:text-blue-100">
-                                                            {chunk.web.title || "مصدر ويب"}
+                                                        <p className="text-xs font-medium text-gray-200 truncate group-hover/link:text-blue-200">
+                                                            {chunk.web.title || "مصدر قانوني"}
                                                         </p>
-                                                        <p className="text-[10px] text-gray-500 truncate font-mono group-hover/link:text-blue-300/70">
-                                                            {new URL(chunk.web.uri).hostname.replace('www.', '')}
+                                                        <p className="text-[10px] text-gray-500 truncate font-mono">
+                                                            {new URL(chunk.web.uri).hostname}
                                                         </p>
                                                     </div>
-                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-gray-600 ms-1 group-hover/link:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-gray-600 ms-2 group-hover/link:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
                                                 </a>
                                             )
                                         ))}
@@ -283,11 +271,6 @@ const MessageList: React.FC<MessageListProps> = ({ messages, isLoading, pinnedMe
                                 </div>
                             )}
                         </div>
-                        {msg.role === 'model' && msg.model && !msg.isError && msg.content && !redirectData && (
-                            <div className="px-3 pt-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-500">
-                                <span className="text-[10px] text-gray-500 uppercase tracking-wider">{getModelDisplayName(msg.model)}</span>
-                            </div>
-                        )}
                     </div>
                 )
             })}

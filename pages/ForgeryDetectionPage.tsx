@@ -6,6 +6,7 @@ import ChatHeader from '../components/chat/ChatHeader';
 import PinnedPanel from '../components/chat/PinnedPanel';
 import MessageList from '../components/chat/MessageList';
 import ForgeryToolbar from '../components/ForgeryToolbar';
+import { AGENT_PROMPTS } from '../constants';
 
 interface ForgeryDetectionPageProps {
     caseId?: string;
@@ -48,66 +49,91 @@ const ForgeryDetectionPage: React.FC<ForgeryDetectionPageProps> = ({ caseId }) =
         );
     }
 
-    const ForgeryInput = () => (
-        <div className="p-4 border-t border-gray-700 bg-gray-900 border-t-4 border-red-900/50">
-             {!logic.isApiKeyReady && (
-                <div className="mb-3 p-3 bg-yellow-600/20 border border-yellow-500/50 text-yellow-200 rounded-lg text-sm flex items-center justify-between">
-                    <span>وضع القراءة فقط: يجب إدخال مفتاح API لمتابعة التحليل.</span>
-                    <Link to="/settings" className="bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-1 rounded transition-colors text-xs font-bold">الإعدادات</Link>
-                </div>
-            )}
+    const ForgeryInput = () => {
+        const activePrompts = AGENT_PROMPTS[logic.actionMode] || AGENT_PROMPTS['forensic'];
 
-            <ForgeryToolbar 
-                currentMode={logic.actionMode}
-                onModeChange={logic.setActionMode}
-                disabled={logic.isLoading || logic.isProcessingFile || !logic.isApiKeyReady}
-            />
-
-            {/* Images Preview in Forgery Page */}
-            {logic.uploadedImages.length > 0 && (
-                <div className="flex gap-2 mb-3 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-red-900">
-                    {logic.uploadedImages.map((img, i) => (
-                        <div key={i} className="relative group">
-                            <img src={img.dataUrl} className="h-16 w-16 object-cover rounded border border-red-800 bg-black" alt="Preview" />
-                            <button onClick={() => logic.setUploadedImages(logic.uploadedImages.filter((_, idx) => idx !== i))} className="absolute -top-1 -right-1 bg-red-600 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
-                            </button>
-                        </div>
-                    ))}
-                </div>
-            )}
-
-            <div className="flex items-center space-x-reverse space-x-2">
-                <input type="file" ref={logic.fileInputRef} onChange={logic.handleFileChange} accept="image/*,application/pdf" className="hidden" multiple />
-                <button 
-                    onClick={() => logic.fileInputRef.current?.click()} 
-                    disabled={logic.isLoading || !logic.isApiKeyReady} 
-                    className="p-3 bg-red-900/30 text-red-300 border border-red-500/30 rounded-lg hover:bg-red-900/50 disabled:opacity-50 transition-colors relative group"
-                    title="رفع صور (يدعم التحديد المتعدد للمقارنة)"
-                >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 21h7a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v11m0 5l4.879-4.879m0 0a3 3 0 104.243-4.242 3 3 0 00-4.243 4.242z" /></svg>
-                    <span className="absolute -top-1 -right-1 flex h-3 w-3">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
-                    </span>
-                </button>
-                <textarea
-                    ref={logic.textareaRef}
-                    value={logic.userInput}
-                    onChange={(e) => { logic.setUserInput(e.target.value); e.target.style.height = 'auto'; e.target.style.height = `${e.target.scrollHeight}px`; }}
-                    onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); logic.handleSendMessage(); } }}
-                    className="flex-grow p-3 bg-gray-800 border border-gray-600 rounded-lg text-gray-200 focus:ring-2 focus:ring-red-500 focus:outline-none resize-none disabled:opacity-50 placeholder-gray-500 font-mono text-sm"
-                    placeholder={!logic.isApiKeyReady ? "أدخل المفتاح..." : "ارفع الصور للمطابقة، أو صف المستند المشبوه..."}
-                    rows={1}
-                    style={{ maxHeight: '10rem' }}
-                    disabled={logic.isLoading || !logic.isApiKeyReady}
+        return (
+            <div className="p-4 border-t border-gray-700 bg-gray-900 border-t-4 border-red-900/50">
+                 {!logic.isApiKeyReady && (
+                    <div className="mb-3 p-3 bg-yellow-600/20 border border-yellow-500/50 text-yellow-200 rounded-lg text-sm flex items-center justify-between">
+                        <span>وضع القراءة فقط: يجب إدخال مفتاح API لمتابعة التحليل.</span>
+                        <Link to="/settings" className="bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-1 rounded transition-colors text-xs font-bold">الإعدادات</Link>
+                    </div>
+                )}
+    
+                <ForgeryToolbar 
+                    currentMode={logic.actionMode}
+                    onModeChange={logic.setActionMode}
+                    disabled={logic.isLoading || logic.isProcessingFile || !logic.isApiKeyReady}
                 />
-                <button onClick={() => logic.handleSendMessage()} disabled={logic.isLoading || (!logic.userInput.trim() && logic.uploadedImages.length === 0) || !logic.isApiKeyReady} className="p-3 bg-red-700 text-white font-semibold rounded-lg hover:bg-red-800 disabled:bg-gray-600 transition-colors shadow-lg shadow-red-900/20">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-                </button>
+
+                {/* Suggestions Bar */}
+                {logic.isApiKeyReady && !logic.isLoading && (
+                    <div className="mb-3 animate-fade-in">
+                        <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                            <span className="text-sm text-gray-400 font-medium whitespace-nowrap flex items-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 me-1 text-red-500" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" /></svg>
+                                اقتراحات:
+                            </span>
+                            {activePrompts.map((prompt, index) => (
+                                <button
+                                    key={`forgery-${logic.actionMode}-${index}`}
+                                    onClick={() => logic.handleSendMessage(prompt)}
+                                    className="px-3 py-1.5 bg-gray-800/80 text-gray-300 rounded-full text-xs font-medium whitespace-nowrap hover:bg-red-900/40 hover:text-red-200 hover:border-red-500/30 border border-gray-700/50 transition-all duration-200"
+                                >
+                                    {prompt}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                )}
+    
+                {/* Images Preview in Forgery Page */}
+                {logic.uploadedImages.length > 0 && (
+                    <div className="flex gap-2 mb-3 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-red-900">
+                        {logic.uploadedImages.map((img, i) => (
+                            <div key={i} className="relative group flex-shrink-0">
+                                <img src={img.dataUrl} className="h-16 w-16 object-cover rounded border border-red-800 bg-black" alt="Preview" />
+                                <button onClick={() => logic.setUploadedImages(logic.uploadedImages.filter((_, idx) => idx !== i))} className="absolute -top-1 -right-1 bg-red-600 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                )}
+    
+                <div className="flex items-center space-x-reverse space-x-2">
+                    <input type="file" ref={logic.fileInputRef} onChange={logic.handleFileChange} accept="image/*,application/pdf" className="hidden" multiple />
+                    <button 
+                        onClick={() => logic.fileInputRef.current?.click()} 
+                        disabled={logic.isLoading || !logic.isApiKeyReady} 
+                        className="p-3 bg-red-900/30 text-red-300 border border-red-500/30 rounded-lg hover:bg-red-900/50 disabled:opacity-50 transition-colors relative group"
+                        title="رفع صور (يدعم التحديد المتعدد للمقارنة)"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 21h7a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v11m0 5l4.879-4.879m0 0a3 3 0 104.243-4.242 3 3 0 00-4.243 4.242z" /></svg>
+                        <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                        </span>
+                    </button>
+                    <textarea
+                        ref={logic.textareaRef}
+                        value={logic.userInput}
+                        onChange={(e) => { logic.setUserInput(e.target.value); e.target.style.height = 'auto'; e.target.style.height = `${e.target.scrollHeight}px`; }}
+                        onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); logic.handleSendMessage(); } }}
+                        className="flex-grow p-3 bg-gray-800 border border-gray-600 rounded-lg text-gray-200 focus:ring-2 focus:ring-red-500 focus:outline-none resize-none disabled:opacity-50 placeholder-gray-500 font-mono text-sm"
+                        placeholder={!logic.isApiKeyReady ? "أدخل المفتاح..." : "ارفع الصور للمطابقة، أو صف المستند المشبوه..."}
+                        rows={1}
+                        style={{ maxHeight: '10rem' }}
+                        disabled={logic.isLoading || !logic.isApiKeyReady}
+                    />
+                    <button onClick={() => logic.handleSendMessage()} disabled={logic.isLoading || (!logic.userInput.trim() && logic.uploadedImages.length === 0) || !logic.isApiKeyReady} className="p-3 bg-red-700 text-white font-semibold rounded-lg hover:bg-red-800 disabled:bg-gray-600 transition-colors shadow-lg shadow-red-900/20">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                    </button>
+                </div>
             </div>
-        </div>
-    );
+        );
+    };
 
     return (
         <div className="w-full flex flex-col flex-grow bg-gray-900 overflow-hidden">
