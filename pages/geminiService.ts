@@ -9,6 +9,26 @@ const MAX_HISTORY_MESSAGES = 25;
 const MAX_OUTPUT_TOKENS_FLASH = 8192;
 const THINKING_BUDGET_PRO = 2048; // Keeping budget for Flash
 
+// Helper: Exponential Backoff Retry (Robustness)
+async function retryOperation<T>(operation: () => Promise<T>, maxRetries: number = 3): Promise<T> {
+    let lastError: any;
+    for (let i = 0; i < maxRetries; i++) {
+        try {
+            return await operation();
+        } catch (error: any) {
+            lastError = error;
+            // Retry on network errors (fetch failures) or 503/429
+            const isRetryable = !error.status || error.status === 503 || error.status === 429;
+            if (!isRetryable) throw error;
+            
+            const delay = Math.pow(2, i) * 1000 + Math.random() * 500; // Exponential backoff + jitter
+            console.warn(`Attempt ${i + 1} failed. Retrying in ${delay}ms...`, error);
+            await new Promise(resolve => setTimeout(resolve, delay));
+        }
+    }
+    throw lastError;
+}
+
 async function getGoogleGenAI(): Promise<GoogleGenAI> {
     let apiKey = '';
 
@@ -92,7 +112,7 @@ export async function countTokensForGemini(history: ChatMessage[]): Promise<numb
 
 export async function proofreadTextWithGemini(textToProofread: string): Promise<string> {
     if (!textToProofread.trim()) return textToProofread;
-    try {
+    return retryOperation(async () => {
         const ai = await getGoogleGenAI();
         const model = 'gemini-2.5-flash';
         const prompt = `أنت مدقق لغوي عربي خبير ومتخصص في تنقيح النصوص المستخرجة عبر تقنية OCR. مهمتك هي مراجعة النص التالي وتصحيح أي أخطاء إملائية أو نحوية مع الحفاظ الدقيق على المعنى الأصلي وهيكل التنسيق. انتبه بشكل خاص للحفاظ على فواصل الأسطر والفقرات كما هي في النص الأصلي. لا تضف أي معلومات أو تفسيرات جديدة. أعد النص المصحح باللغة العربية فقط.\n\النص الأصلي:\n---\n${textToProofread}\n---`;
@@ -105,15 +125,12 @@ export async function proofreadTextWithGemini(textToProofread: string): Promise<
         dbService.incrementTokenUsage(1);
 
         return response.text || textToProofread;
-    } catch (error) {
-        console.error("Error proofreading text with Gemini:", error);
-        return textToProofread;
-    }
+    });
 }
 
 export async function summarizeChatHistory(history: ChatMessage[]): Promise<string> {
     if (!history || history.length === 0) return "لا يوجد محتوى لتلخيصه.";
-    try {
+    return retryOperation(async () => {
         const ai = await getGoogleGenAI();
         const model = 'gemini-2.5-flash'; 
         const contents = history.map(msg => ({
@@ -133,10 +150,7 @@ export async function summarizeChatHistory(history: ChatMessage[]): Promise<stri
         dbService.incrementTokenUsage(1);
 
         return response.text || "فشل في إنشاء الملخص.";
-    } catch (error) {
-        console.error("Error summarizing chat history:", error);
-        throw new Error("فشل في تلخيص المحادثة.");
-    }
+    });
 }
 
 export async function* streamChatResponseFromGemini(
@@ -149,8 +163,6 @@ export async function* streamChatResponseFromGemini(
 ): AsyncGenerator<{ text: string; model: string; groundingMetadata?: GroundingMetadata }> {
   try {
     const ai = await getGoogleGenAI();
-    // Using gemini-2.5-flash for everything to support Free Tier while maintaining capabilities
-    // Flash 2.5 supports Thinking and Multimodal
     const model = 'gemini-2.5-flash';
     
     // Retrieve centralized instruction
@@ -168,20 +180,37 @@ export async function* streamChatResponseFromGemini(
     // Configure Thinking Budget for complex tasks
     const isForensic = actionMode === 'forensic';
     if (thinkingMode || isForensic) {
-        // Flash supports thinking too
         config.thinkingConfig = { thinkingBudget: THINKING_BUDGET_PRO };
         config.maxOutputTokens = MAX_OUTPUT_TOKENS_FLASH; 
     }
     
-    const response = await ai.models.generateContentStream({
-        model: model,
-        contents: contents,
-        config: config
-    });
+    let responseStream;
+    let lastError;
+    
+    // Retry Logic for Connection Setup (Handled manually to allow streaming yielding)
+    for (let i = 0; i < 3; i++) {
+        try {
+            responseStream = await ai.models.generateContentStream({
+                model: model,
+                contents: contents,
+                config: config
+            });
+            break; // Success
+        } catch (error: any) {
+            lastError = error;
+            const isRetryable = !error.status || error.status === 503 || error.status === 429;
+            if (!isRetryable || signal.aborted) throw error;
+            const delay = Math.pow(2, i) * 1000;
+            console.warn(`Connection attempt ${i + 1} failed. Retrying...`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+        }
+    }
+    
+    if (!responseStream) throw lastError;
     
     let requestCounted = false;
 
-    for await (const chunk of response) {
+    for await (const chunk of responseStream) {
         if (signal.aborted) break;
         const text = chunk.text;
         let groundingMetadata: GroundingMetadata | undefined;
@@ -213,9 +242,8 @@ export async function analyzeImageWithGemini(
   prompt: string
 ): Promise<string> {
   if (!base64ImageDataUrl || !mimeType) throw new Error("Image data and mime type are required.");
-  try {
+  return retryOperation(async () => {
     const ai = await getGoogleGenAI();
-    // Reverted to Flash for Free Tier
     const model = 'gemini-2.5-flash';
     const base64Data = base64ImageDataUrl.split(',')[1];
     const imagePart = {
@@ -235,21 +263,19 @@ export async function analyzeImageWithGemini(
     dbService.incrementTokenUsage(1);
 
     return response.text || "لم يتم إنشاء أي نص.";
-  } catch (error) {
-    console.error("Error analyzing image with Gemini:", error);
-    throw error;
-  }
+  });
 }
 
+// STRICT JSON SCHEMA FOR INHERITANCE
 export async function extractInheritanceFromCase(caseText: string): Promise<Partial<InheritanceInput>> {
-    try {
+    return retryOperation(async () => {
         const ai = await getGoogleGenAI();
-        // Reverted to Flash for Free Tier
         const model = 'gemini-2.5-flash';
 
         // Use centralized inheritance prompt
         const prompt = getInheritanceExtractionPrompt(caseText);
         
+        // Define Strict Schema for Reliable Extraction
         const schema: Schema = {
             type: Type.OBJECT,
             properties: {
@@ -299,8 +325,5 @@ export async function extractInheritanceFromCase(caseText: string): Promise<Part
         if (!jsonText) throw new Error("No JSON returned");
         
         return JSON.parse(jsonText);
-    } catch (error) {
-        console.error("Inheritance Extraction Error:", error);
-        throw error;
-    }
+    });
 }
