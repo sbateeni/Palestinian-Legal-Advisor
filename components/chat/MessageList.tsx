@@ -65,7 +65,14 @@ const MessageList: React.FC<MessageListProps> = ({ messages, isLoading, pinnedMe
     };
 
     const parseRedirectMessage = (content: string) => {
-        const jsonMatch = content.match(/```json\s*(\{[\s\S]*?"redirect"[\s\S]*?\})\s*```/);
+        // Try strict JSON block first
+        let jsonMatch = content.match(/```json\s*(\{[\s\S]*?"redirect"[\s\S]*?\})\s*```/);
+        
+        // Fallback: Try identifying raw JSON structure if code blocks are missing
+        if (!jsonMatch) {
+             jsonMatch = content.match(/(\{[\s\S]*?"redirect"[\s\S]*?"court"[\s\S]*?\})/);
+        }
+
         if (jsonMatch) {
             try {
                 const data = JSON.parse(jsonMatch[1]);
@@ -78,15 +85,38 @@ const MessageList: React.FC<MessageListProps> = ({ messages, isLoading, pinnedMe
     };
 
     const parseNextActions = (content: string): { text: string, actions: SuggestedAction[] } => {
-        const jsonMatch = content.match(/```json\s*(\{[\s\S]*?"next_steps"[\s\S]*?\})\s*```/);
+        // 1. Try Standard Markdown Block ```json ... ```
+        let jsonMatch = content.match(/```json\s*(\{[\s\S]*?"next_steps"[\s\S]*?\})\s*```/);
+        
+        // 2. Try Generic Code Block ``` ... ```
+        if (!jsonMatch) {
+            jsonMatch = content.match(/```\s*(\{[\s\S]*?"next_steps"[\s\S]*?\})\s*```/);
+        }
+
+        // 3. Try Raw JSON at the end of the string (Robust Fallback)
+        // Looks for { "next_steps": [ ... ] } possibly preceded by --- or newlines
+        if (!jsonMatch) {
+             const rawMatch = content.match(/(\n|---)*\s*(\{[\s\S]*?"next_steps"[\s\S]*?\}[\s\S]*?)$/);
+             if (rawMatch) {
+                 // Use the captured JSON group
+                 jsonMatch = [rawMatch[0], rawMatch[2]]; 
+             }
+        }
+
         if (jsonMatch) {
             try {
-                const data = JSON.parse(jsonMatch[1]);
+                // Sanitize potential trailing commas or markdown artifacts inside the block
+                const jsonStr = jsonMatch[1].replace(/,\s*}/g, '}').replace(/,\s*]/g, ']');
+                const data = JSON.parse(jsonStr);
+                
                 if (data.next_steps && Array.isArray(data.next_steps)) {
+                    // Remove the matched JSON block from the displayed text
                     const cleanText = content.replace(jsonMatch[0], '').trim();
                     return { text: cleanText, actions: data.next_steps };
                 }
-            } catch (e) { }
+            } catch (e) { 
+                console.warn("Failed to parse next_steps JSON:", e);
+            }
         }
         return { text: content, actions: [] };
     };
@@ -209,18 +239,22 @@ const MessageList: React.FC<MessageListProps> = ({ messages, isLoading, pinnedMe
                                 <ChatMessageItem content={displayContent || '...'} isModel={msg.role === 'model'} />
                             )}
 
-                            {/* NEXT ACTIONS */}
+                            {/* NEXT ACTIONS (Buttons) */}
                             {nextActions.length > 0 && onFollowUpAction && (
                                 <div className="mt-4 pt-3 border-t border-gray-600/50">
-                                    <p className="text-xs text-gray-400 mb-2 font-medium">خطوات مقترحة:</p>
+                                    <p className="text-xs text-gray-400 mb-2 font-medium flex items-center">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 me-1 text-blue-400" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z" clipRule="evenodd" /></svg>
+                                        خطوات مقترحة:
+                                    </p>
                                     <div className="flex flex-wrap gap-2">
                                         {nextActions.map((action, idx) => (
                                             <button
                                                 key={idx}
                                                 onClick={() => onFollowUpAction(action.mode, action.prompt)}
-                                                className="px-4 py-2 bg-gray-900/60 hover:bg-blue-600/20 border border-gray-600 hover:border-blue-500/50 rounded-lg text-sm text-blue-200 transition-all flex items-center gap-2"
+                                                className="px-4 py-2 bg-gray-900/60 hover:bg-blue-600/20 border border-gray-600 hover:border-blue-500/50 rounded-lg text-sm text-blue-200 transition-all flex items-center gap-2 shadow-sm hover:shadow-md"
                                             >
                                                 <span>{action.label}</span>
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                                             </button>
                                         ))}
                                     </div>
