@@ -308,3 +308,27 @@ export const getInheritanceExtractionPrompt = (caseText: string) => `
 export const OCR_STRICT_PROMPT = `
 استخرج النص من الصورة بدقة متناهية (Verbatim). حافظ على التنسيق والمسافات. لا تضف أي شرح أو مقدمات.
 `;
+
+// New Prompt for the Verification Agent
+export const getVerificationPrompt = (text: string, region: string) => `
+**الوضع: وكيل التحقق القانوني (Legislative Verifier)**
+المهمة: التحقق من سريان النص القانوني التالي في ${region === 'gaza' ? 'قطاع غزة' : 'الضفة الغربية'}.
+
+النص المخزن لدينا:
+"${text}"
+
+المطلوب:
+1. ابحث في المصادر الرسمية (المقتفي، الجريدة الرسمية الفلسطينية) عن أي تعديلات أو إلغاء لهذا النص.
+2. إذا كان النص سارياً كما هو، أجب بـ "VALID".
+3. إذا كان هناك تعديل أو إلغاء، أجب بـ "MODIFIED" واذكر النص الجديد وتاريخ التعديل ورقم القرار بقانون.
+
+يجب أن تكون إجابتك JSON فقط:
+\`\`\`json
+{
+  "status": "VALID" | "MODIFIED",
+  "new_text": "النص الجديد إن وجد (أو null)",
+  "amendment_ref": "رقم القرار المعدل (أو null)",
+  "verification_date": "YYYY-MM-DD"
+}
+\`\`\`
+`;

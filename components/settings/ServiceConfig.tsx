@@ -1,6 +1,7 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { ApiSource, OpenRouterModel } from '../../types';
+import * as dbService from '../../services/dbService';
 
 interface ServiceConfigProps {
     apiSource: ApiSource;
@@ -31,6 +32,25 @@ const ServiceConfig: React.FC<ServiceConfigProps> = ({
     openRouterModelId, handleModelChange, openRouterModels,
     newModelId, setNewModelId, newModelSupportsImages, setNewModelSupportsImages, handleAddModel, handleDeleteModel
 }) => {
+    // Local state for Supabase settings
+    const [supabaseUrl, setSupabaseUrl] = useState('');
+    const [supabaseKey, setSupabaseKey] = useState('');
+    const [supabaseSaved, setSupabaseSaved] = useState(false);
+
+    useEffect(() => {
+        const storedUrl = localStorage.getItem('supabaseUrl');
+        const storedKey = localStorage.getItem('supabaseKey');
+        if (storedUrl) setSupabaseUrl(JSON.parse(storedUrl));
+        if (storedKey) setSupabaseKey(JSON.parse(storedKey));
+    }, []);
+
+    const handleSaveSupabase = () => {
+        localStorage.setItem('supabaseUrl', JSON.stringify(supabaseUrl.trim()));
+        localStorage.setItem('supabaseKey', JSON.stringify(supabaseKey.trim()));
+        setSupabaseSaved(true);
+        setTimeout(() => setSupabaseSaved(false), 3000);
+    };
+
     return (
         <div className="bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
             <h2 className="text-2xl font-semibold text-gray-100 mb-4">إعدادات مزود الخدمة</h2>
@@ -40,6 +60,30 @@ const ServiceConfig: React.FC<ServiceConfigProps> = ({
                     <option value="gemini">Google Gemini</option>
                     <option value="openrouter">OpenRouter</option>
                 </select>
+            </div>
+
+            {/* Supabase Config Section */}
+            <div className="border-t border-gray-700 pt-6 mb-6">
+                <h3 className="text-xl font-semibold text-emerald-400 mb-2 flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 me-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" /></svg>
+                    المستودع القانوني (Supabase)
+                </h3>
+                <p className="text-sm text-gray-400 mb-4">قم بربط قاعدة بيانات Supabase لتفعيل ميزة "المستودع القانوني الذكي" والبحث المتقدم في القوانين.</p>
+                
+                <div className="grid grid-cols-1 gap-4 mb-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-1">Project URL</label>
+                        <input type="text" value={supabaseUrl} onChange={(e) => setSupabaseUrl(e.target.value)} className="w-full p-2 bg-gray-700 border border-gray-600 rounded-md text-gray-200 focus:ring-2 focus:ring-emerald-500 outline-none" placeholder="https://xyz.supabase.co" />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-1">API Key (Anon/Public)</label>
+                        <input type="password" value={supabaseKey} onChange={(e) => setSupabaseKey(e.target.value)} className="w-full p-2 bg-gray-700 border border-gray-600 rounded-md text-gray-200 focus:ring-2 focus:ring-emerald-500 outline-none" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." />
+                    </div>
+                </div>
+                <div className="flex items-center justify-end">
+                    {supabaseSaved && <span className="text-emerald-400 me-4 text-sm">تم الحفظ بنجاح</span>}
+                    <button onClick={handleSaveSupabase} className="px-4 py-2 bg-emerald-700 hover:bg-emerald-600 text-white rounded-md text-sm font-medium transition-colors">حفظ إعدادات المستودع</button>
+                </div>
             </div>
 
             {apiSource === 'gemini' && (

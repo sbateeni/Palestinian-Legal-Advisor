@@ -158,3 +158,16 @@ export interface InheritanceResult {
     isAwl?: boolean; // If shares > 1
     context?: InheritanceContext; // Passed through from input
 }
+
+// --- Legal Repository Types (New) ---
+export type StabilityScore = 'high' | 'medium' | 'low';
+
+export interface LegalArticle {
+    id: string;
+    content: string;
+    source_url?: string;
+    region: LegalRegion | 'all';
+    stability_score: StabilityScore;
+    last_verified_at: string; // ISO Date
+    similarity?: number;
+}

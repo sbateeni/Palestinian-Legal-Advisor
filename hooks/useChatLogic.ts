@@ -4,10 +4,11 @@ import * as ReactRouterDOM from 'react-router-dom';
 import { v4 as uuidv4 } from 'uuid';
 import { Case, ChatMessage, ApiSource, OpenRouterModel, GroundingMetadata, ActionMode, LegalRegion, CaseType } from '../types';
 import * as dbService from '../services/dbService';
-import { streamChatResponseFromGemini, countTokensForGemini, proofreadTextWithGemini, summarizeChatHistory, analyzeImageWithGemini } from '../pages/geminiService';
+import { streamChatResponseFromGemini, countTokensForGemini, summarizeChatHistory, analyzeImageWithGemini } from '../pages/geminiService';
 import { streamChatResponseFromOpenRouter } from '../services/openRouterService';
 import { DEFAULT_OPENROUTER_MODELS } from '../constants';
 import { OCR_STRICT_PROMPT } from '../services/legalPrompts';
+import { getLegalContext, storeLegalKnowledge } from '../services/legalRepository';
 import * as pdfjsLib from 'pdfjs-dist';
 
 const { useNavigate } = ReactRouterDOM;
@@ -235,13 +236,9 @@ export const useChatLogic = (caseId?: string, initialCaseType: CaseType = 'chat'
         if (!files || files.length === 0) return;
         
         setIsProcessingFile(true);
-        // We will process all selected files
-        // FIX: Explicitly cast to File[] to avoid 'unknown' type issues during iteration
         const fileList = Array.from(files) as File[];
         let processedCount = 0;
 
-        // Note: For PDFs we still extract text immediately. For images we queue them.
-        
         fileList.forEach(file => {
             if (file.type.startsWith('image/')) {
                 const reader = new FileReader();
@@ -249,13 +246,8 @@ export const useChatLogic = (caseId?: string, initialCaseType: CaseType = 'chat'
                     const dataUrl = e.target?.result as string;
                     setUploadedImages(prev => [...prev, { dataUrl, mimeType: file.type }]);
                     
-                    // Optional: OCR text extraction for search/context (on first image only or all?)
-                    // For now, let's just do OCR on the image if it's NOT a comparison mode, or leave it to the agent
-                    // But to keep consistency with previous logic:
                     setProcessingMessage(`جاري تحليل الصورة: ${file.name}...`);
                     try {
-                        // Only auto-extract text if NOT in comparison mode to save tokens/time?
-                        // Or just extract to be helpful. Let's extract.
                         const extractedText = await analyzeImageWithGemini(dataUrl, file.type, OCR_STRICT_PROMPT);
                         if (extractedText && extractedText.length > 5) {
                              setUserInput(prev => prev.trim() + (prev.trim() ? '\n\n' : '') + `--- نص مستخلص من صورة: ${file.name} ---\n` + extractedText.trim());
@@ -368,12 +360,11 @@ export const useChatLogic = (caseId?: string, initialCaseType: CaseType = 'chat'
         const messageContent = (prompt || userInput).trim();
         if (isLoading || isProcessingFile || (!messageContent && uploadedImages.length === 0)) return;
 
-        // Auto-Pilot Logic
         let effectiveMode = overrideMode || actionMode;
         
+        // Auto-Pilot Logic (Simplified)
         if (!overrideMode && (actionMode === 'analysis' || actionMode === 'sharia_advisor')) {
             const lowerContent = messageContent.toLowerCase();
-            // ... (Keep existing auto-pilot logic) ...
             if (lowerContent.match(/(صغ|اكتب|صياغة|تحرير|أنشئ|اعداد).*?(لائحة|عقد|اتفاقية|مذكرة|دعوى|وكالة|إخطار|شكوى)/) || lowerContent.includes('اكتب لي')) {
                 effectiveMode = 'drafting';
                 setActionMode('drafting');
@@ -396,17 +387,30 @@ export const useChatLogic = (caseId?: string, initialCaseType: CaseType = 'chat'
         }
 
         setIsLoading(true);
-        // CHANGED: Pass array of images
+        
+        // 1. Check Legal Repository (RAG)
+        let ragContext = "";
+        try {
+            if (messageContent.length > 10 && apiSource === 'gemini') {
+                ragContext = await getLegalContext(messageContent, region);
+            }
+        } catch (e) { console.warn("RAG retrieval failed", e); }
+
+        // Inject RAG context if found
+        const finalMessageContent = ragContext ? `${ragContext}\n\nسؤال المستخدم:\n${messageContent}` : messageContent;
+
         const userMessage: ChatMessage = { 
             id: uuidv4(), 
             role: 'user', 
-            content: messageContent, 
+            content: messageContent, // Show original message to user
             images: uploadedImages.length > 0 ? uploadedImages : undefined 
         };
         
-        setUserInput('');
-        setUploadedImages([]); // Clear images
+        // Internal message for the API (includes RAG context)
+        const apiMessage = { ...userMessage, content: finalMessageContent };
         
+        setUserInput('');
+        setUploadedImages([]); 
         if (textareaRef.current) textareaRef.current.style.height = 'auto';
 
         const tempModelMessage: ChatMessage = { role: 'model', content: '', id: uuidv4() };
@@ -448,7 +452,9 @@ export const useChatLogic = (caseId?: string, initialCaseType: CaseType = 'chat'
 
         try {
             let stream;
-            const historyToSend = [...chatHistory, userMessage];
+            // Use the history where the last message includes RAG context
+            const historyToSend = [...chatHistory, apiMessage]; 
+            
             if (apiSource === 'openrouter') {
                 stream = streamChatResponseFromOpenRouter(openRouterApiKey, historyToSend, openRouterModel, effectiveMode, region, currentCaseType, abortControllerRef.current.signal);
             } else {
@@ -461,6 +467,19 @@ export const useChatLogic = (caseId?: string, initialCaseType: CaseType = 'chat'
             finalMetadata = groundingMetadata;
             
             if (apiSource === 'gemini') countTokensForGemini([...historyToSend, { ...tempModelMessage, content: fullResponse }]).then(setTokenCount);
+
+            // FEEDBACK LOOP: If we got grounding chunks (Google Search Results), store them in Supabase for next time
+            if (finalMetadata && finalMetadata.groundingChunks && apiSource === 'gemini') {
+                // Heuristic: Store first result if it seems like a law
+                // In a real app, we would process this more carefully.
+                // For now, we trust the "Verifier" will clean it up later if it's not perfect.
+                // We'll just log or trigger a background store.
+                // Note: The grounding text itself isn't always fully in the metadata, usually just URL/Title.
+                // The *Model's answer* contains the text.
+                // To do this properly, we'd need to extract legal text blocks from the answer.
+                // Let's assume the user copies the law into the chat -> future enhancement.
+                // For now, the verification agent in legalRepository.ts handles the core "Update" logic.
+            }
 
         } catch (error: any) {
             console.error("API Error", error);
