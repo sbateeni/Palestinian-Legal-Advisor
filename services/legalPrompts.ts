@@ -147,7 +147,8 @@ export const getInstruction = (mode: ActionMode, region: LegalRegion, caseType: 
     // JSON Structure for Next Actions
     const nextActionsPrompt = `
 **هام جداً: نهاية الرد (Next Actions)**
-بعد الانتهاء، اقترح 3 خطوات عملية في كتلة JSON حصراً:
+بعد الانتهاء من الإجابة، أضف فاصلاً "---" ثم اقترح 3 خطوات عملية في كتلة JSON حصراً:
+---
 \`\`\`json
 {
   "next_steps": [

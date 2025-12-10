@@ -31,14 +31,14 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
     };
 
     return (
-        <div className="p-3 border-b border-gray-700 bg-gray-800/50 flex justify-between items-center flex-wrap gap-2 sticky top-0 z-10 backdrop-blur-md">
+        <div className="p-3 border-b border-gray-700 bg-gray-800/50 flex justify-between items-center flex-wrap gap-2 sticky top-0 z-10 backdrop-blur-md no-print">
             <h2 className="text-lg font-semibold text-gray-200 truncate font-['Cairo']">{caseData?.title || 'قضية جديدة'}</h2>
             <div className="flex items-center gap-x-3">
                 
                 {/* Print Button (New) */}
                 <button
                     onClick={handlePrint}
-                    className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-700 rounded-md transition-colors no-print"
+                    className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-700 rounded-md transition-colors"
                     title="طباعة مذكرة قانونية"
                 >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">

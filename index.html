@@ -100,13 +100,14 @@
         }
 
         /* Hide UI elements */
-        header, nav, .no-print, button, input, textarea, select, label, ::-webkit-scrollbar {
+        header, nav, .no-print, button, input, textarea, select, label, ::-webkit-scrollbar, [role="switch"], .sticky {
             display: none !important;
         }
 
         /* Hide the bottom input area wrapper specifically */
-        .border-t.border-gray-700 {
-            display: none !important;
+        .border-t.border-gray-700, .bg-gray-800 {
+            background-color: transparent !important;
+            border: none !important;
         }
 
         /* Format Main Content */
@@ -115,6 +116,7 @@
             margin: 0 !important;
             padding: 0 !important;
             display: block !important;
+            overflow: visible !important;
         }
 
         /* Header for the Memo */
@@ -122,61 +124,94 @@
             content: "المستشار القانوني الفلسطيني - مذكرة رأي قانوني";
             display: block;
             text-align: center;
-            font-size: 24pt;
+            font-size: 18pt;
             font-weight: bold;
             border-bottom: 2px solid #000;
-            margin-bottom: 30px;
+            margin-bottom: 20px;
             padding-bottom: 10px;
             font-family: var(--font-ui);
         }
 
-        /* Message Formatting */
-        .prose-invert {
-            color: black !important;
-            font-size: 12pt !important;
-            text-align: justify;
+        /* Chat Message Formatting for Print */
+        .flex.flex-col.group {
+            display: block !important;
+            margin-bottom: 15px !important;
+            page-break-inside: avoid;
         }
 
-        .prose-invert h1, .prose-invert h2, .prose-invert h3 {
-            color: black !important;
-            border-bottom: 1px solid #ccc !important;
-            page-break-after: avoid;
-        }
-
-        .prose-invert blockquote {
-            background-color: transparent !important;
-            border-right: 3px solid #000 !important;
-            color: #333 !important;
-            font-style: italic;
-        }
-
-        /* Ensure User/Model distinction is subtle in print */
-        .bg-blue-600, .bg-gray-700, .bg-gray-800, .bg-gray-900 {
+        .max-w-xl, .lg\:max-w-3xl {
+            max-width: 100% !important;
             background-color: transparent !important;
             color: black !important;
-            border: none !important;
             box-shadow: none !important;
+            border: none !important;
             padding: 0 !important;
-            margin-bottom: 20px !important;
         }
 
-        /* Add labels for speaker */
-        .items-end .max-w-3xl::before {
-            content: "السائل:";
-            display: block;
+        /* Distinguish User/Model */
+        .items-end .max-w-3xl { /* User Message */
             font-weight: bold;
-            font-size: 10pt;
             margin-bottom: 5px;
-            text-decoration: underline;
+            border-bottom: 1px solid #eee !important;
+            padding-bottom: 5px !important;
+        }
+        .items-end .max-w-3xl::before {
+            content: "السؤال / الوقائع:";
+            display: block;
+            font-size: 10pt;
+            color: #666;
+            margin-bottom: 2px;
         }
 
+        .items-start .max-w-3xl { /* Model Message */
+            text-align: justify;
+            font-size: 12pt;
+            line-height: 1.6;
+        }
         .items-start .max-w-3xl::before {
             content: "الرأي القانوني:";
             display: block;
-            font-weight: bold;
             font-size: 10pt;
-            margin-bottom: 5px;
-            text-decoration: underline;
+            color: #666;
+            margin-bottom: 2px;
+            margin-top: 5px;
+        }
+
+        /* Prose Overrides for Print */
+        .prose-invert {
+            color: black !important;
+            font-family: var(--font-legal) !important;
+        }
+        .prose-invert h1, .prose-invert h2, .prose-invert h3 {
+            color: black !important;
+            border-bottom: 1px solid #ccc !important;
+            margin-top: 1em !important;
+        }
+        .prose-invert strong, .prose-invert b {
+            color: black !important;
+        }
+        .prose-invert blockquote {
+            border-right: 3px solid #333 !important;
+            background-color: #f9f9f9 !important;
+            color: #333 !important;
+            font-style: italic;
+            padding: 5px 10px !important;
+        }
+        .prose-invert a {
+            color: black !important;
+            text-decoration: none !important;
+        }
+        .prose-invert code {
+            border: 1px solid #ccc;
+            color: black !important;
+            background: #fff !important;
+        }
+        
+        /* Hide Grounding/Sources box if visually distracting, or simplify it */
+        .mt-6.pt-4.border-t-2 {
+            border-top: 1px dashed #ccc !important;
+            margin-top: 10px !important;
+            padding-top: 5px !important;
         }
     }
   </style>

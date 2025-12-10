@@ -86,44 +86,55 @@ const MessageList: React.FC<MessageListProps> = ({ messages, isLoading, pinnedMe
 
     const parseNextActions = (content: string): { text: string, actions: SuggestedAction[] } => {
         // 1. Try Standard Markdown Block ```json ... ```
-        let jsonMatch = content.match(/```json\s*(\{[\s\S]*?"next_steps"[\s\S]*?\})\s*```/);
-        
-        // 2. Try Generic Code Block ``` ... ```
-        if (!jsonMatch) {
-            jsonMatch = content.match(/```\s*(\{[\s\S]*?"next_steps"[\s\S]*?\})\s*```/);
-        }
-
-        // 3. Try Raw JSON at the end of the string (Robust Fallback)
-        // Looks for { "next_steps": [ ... ] } possibly preceded by --- or newlines
-        if (!jsonMatch) {
-             const rawMatch = content.match(/(\n|---)*\s*(\{[\s\S]*?"next_steps"[\s\S]*?\}[\s\S]*?)$/);
-             if (rawMatch) {
-                 // Use the captured JSON group
-                 jsonMatch = [rawMatch[0], rawMatch[2]]; 
-             }
-        }
-
-        if (jsonMatch) {
+        const codeBlockMatch = content.match(/```json\s*([\s\S]*?)\s*```/);
+        if (codeBlockMatch) {
             try {
-                // Sanitize potential trailing commas or markdown artifacts inside the block
-                const jsonStr = jsonMatch[1].replace(/,\s*}/g, '}').replace(/,\s*]/g, ']');
-                const data = JSON.parse(jsonStr);
-                
+                const data = JSON.parse(codeBlockMatch[1]);
                 if (data.next_steps && Array.isArray(data.next_steps)) {
-                    // Remove the matched JSON block from the displayed text
-                    const cleanText = content.replace(jsonMatch[0], '').trim();
-                    return { text: cleanText, actions: data.next_steps };
+                    return { 
+                        text: content.replace(codeBlockMatch[0], '').trim(), 
+                        actions: data.next_steps 
+                    };
                 }
-            } catch (e) { 
-                console.warn("Failed to parse next_steps JSON:", e);
+            } catch (e) { /* ignore malformed blocks */ }
+        }
+
+        // 2. Robust Fallback: Search for the JSON object at the end of the text
+        // This handles cases where the model forgets code blocks or has nested braces
+        const nextStepsMarker = '"next_steps"';
+        const markerIndex = content.lastIndexOf(nextStepsMarker);
+        
+        if (markerIndex !== -1) {
+            // Find the nearest opening brace '{' before "next_steps"
+            const openBraceIndex = content.lastIndexOf('{', markerIndex);
+            if (openBraceIndex !== -1) {
+                const potentialJson = content.substring(openBraceIndex);
+                try {
+                    // Clean up potential trailing characters (like markdown ` or whitespace)
+                    const cleanJson = potentialJson.replace(/```\s*$/, '').trim();
+                    const data = JSON.parse(cleanJson);
+                    
+                    if (data.next_steps && Array.isArray(data.next_steps)) {
+                        // Determine where the text ends (remove the JSON part)
+                        let text = content.substring(0, openBraceIndex).trim();
+                        // Remove "---" separator if it exists at the end of text
+                        if (text.endsWith('---')) {
+                            text = text.slice(0, -3).trim();
+                        }
+                        return { text, actions: data.next_steps };
+                    }
+                } catch (e) {
+                    // JSON parsing failed (likely incomplete stream or mixed text), return original content
+                }
             }
         }
+
         return { text: content, actions: [] };
     };
 
     if (messages.length === 0 && !isLoading) {
         return (
-            <div className="text-center text-gray-400 flex flex-col items-center justify-center h-full p-8">
+            <div className="text-center text-gray-400 flex flex-col items-center justify-center h-full p-8 no-print">
                 <div className="bg-gray-700/30 p-8 rounded-full mb-6 border border-gray-600/50 shadow-xl">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.2} stroke="currentColor" className="h-24 w-24 text-amber-500">
                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v17.25m0 0c-1.472 0-2.882.265-4.185.75M12 20.25c1.472 0 2.882.265 4.185.75M18.75 4.97A48.416 48.416 0 0 0 12 4.5c-2.291 0-4.545.16-6.75.47m13.5 0c1.01.143 2.01.317 3 .52m-3-.52 2.62 10.726c.122.499-.106 1.028-.589 1.202a5.988 5.988 0 0 1-2.031.352 5.988 5.988 0 0 1-2.031-.352c-.483-.174-.711-.703-.59-1.202L18.75 4.971Zm-16.5.52c.99-.203 1.99-.377 3-.52m0 0 2.62 10.726c.122.499-.106 1.028-.589 1.202a5.989 5.989 0 0 1-2.031.352 5.989 5.989 0 0 1-2.031-.352c-.483-.174-.711-.703-.59-1.202L5.25 4.971Z" />
@@ -138,12 +149,6 @@ const MessageList: React.FC<MessageListProps> = ({ messages, isLoading, pinnedMe
             </div>
         );
     }
-
-    const getModelDisplayName = (modelId?: string): string => {
-        if (!modelId) return '';
-        if (modelId.includes('gemini')) return 'Gemini AI (Search Enabled)';
-        return modelId;
-    };
 
     return (
         <div className="space-y-6 pb-4">
@@ -169,7 +174,7 @@ const MessageList: React.FC<MessageListProps> = ({ messages, isLoading, pinnedMe
                         <div className={`max-w-xl lg:max-w-3xl px-5 py-4 rounded-2xl relative shadow-md ${msg.isError ? 'bg-red-500/20 text-red-200 border border-red-500/30' : msg.role === 'user' ? 'bg-blue-600 text-white rounded-br-sm' : 'bg-gray-700 text-gray-200 rounded-bl-sm'}`}>
                             
                             {!redirectData && (
-                                <div className="absolute top-2 left-2 flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <div className="absolute top-2 left-2 flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity no-print">
                                     <button onClick={() => onPinMessage(msg)} className="p-1.5 bg-black/20 rounded-full text-gray-300 hover:bg-black/40 disabled:opacity-50 disabled:cursor-default transition-colors" title={isPinned ? "تم التثبيت" : "تثبيت الرسالة"} disabled={isPinned}>
                                         <svg xmlns="http://www.w3.org/2000/svg" className={`h-3.5 w-3.5 ${isPinned ? 'text-yellow-400' : ''}`} viewBox="0 0 20 20" fill="currentColor">
                                             <path fillRule="evenodd" d="M10.49 2.23a.75.75 0 00-1.02-.04l-7.5 6.25a.75.75 0 00.99 1.18L8 5.44V14a1 1 0 102 0V5.44l5.03 4.18a.75.75 0 00.99-1.18l-7.5-6.25z" clipRule="evenodd" />
@@ -213,7 +218,7 @@ const MessageList: React.FC<MessageListProps> = ({ messages, isLoading, pinnedMe
                             )}
 
                             {redirectData ? (
-                                <div className="bg-red-900/30 border-2 border-red-500/50 p-4 rounded-xl text-center">
+                                <div className="bg-red-900/30 border-2 border-red-500/50 p-4 rounded-xl text-center no-print">
                                     <div className="flex flex-col items-center gap-3">
                                         <div className="p-3 bg-red-900/50 rounded-full text-red-200">
                                             <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
@@ -241,7 +246,7 @@ const MessageList: React.FC<MessageListProps> = ({ messages, isLoading, pinnedMe
 
                             {/* NEXT ACTIONS (Buttons) */}
                             {nextActions.length > 0 && onFollowUpAction && (
-                                <div className="mt-4 pt-3 border-t border-gray-600/50">
+                                <div className="mt-4 pt-3 border-t border-gray-600/50 no-print">
                                     <p className="text-xs text-gray-400 mb-2 font-medium flex items-center">
                                         <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 me-1 text-blue-400" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z" clipRule="evenodd" /></svg>
                                         خطوات مقترحة:
@@ -263,7 +268,7 @@ const MessageList: React.FC<MessageListProps> = ({ messages, isLoading, pinnedMe
 
                             {/* GROUNDING SOURCES (Updated Look) */}
                             {hasGrounding && !redirectData && (
-                                <div className="mt-6 pt-4 border-t-2 border-gray-600/30 bg-black/20 rounded-lg p-3 -mx-2">
+                                <div className="mt-6 pt-4 border-t-2 border-gray-600/30 bg-black/20 rounded-lg p-3 -mx-2 no-print">
                                     <div className="flex items-center justify-between mb-3">
                                         <p className="text-xs font-bold text-blue-300 flex items-center uppercase tracking-wider">
                                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 me-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
@@ -309,7 +314,7 @@ const MessageList: React.FC<MessageListProps> = ({ messages, isLoading, pinnedMe
                 )
             })}
             {isLoading && messages.length > 0 && messages[messages.length - 1].role !== 'model' && (
-                <div className="flex justify-start">
+                <div className="flex justify-start no-print">
                     <div className="max-w-xl px-6 py-4 rounded-2xl bg-gray-700 rounded-bl-none">
                         <div className="flex items-center space-x-2 space-x-reverse">
                             <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
