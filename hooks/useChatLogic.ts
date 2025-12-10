@@ -8,7 +8,7 @@ import { streamChatResponseFromGemini, countTokensForGemini, summarizeChatHistor
 import { streamChatResponseFromOpenRouter } from '../services/openRouterService';
 import { DEFAULT_OPENROUTER_MODELS } from '../constants';
 import { OCR_STRICT_PROMPT } from '../services/legalPrompts';
-import { getLegalContext, storeLegalKnowledge } from '../services/legalRepository';
+import { getLegalContext, harvestLegalKnowledge } from '../services/legalRepository';
 import * as pdfjsLib from 'pdfjs-dist';
 
 const { useNavigate } = ReactRouterDOM;
@@ -362,7 +362,7 @@ export const useChatLogic = (caseId?: string, initialCaseType: CaseType = 'chat'
 
         let effectiveMode = overrideMode || actionMode;
         
-        // Auto-Pilot Logic (Simplified)
+        // Auto-Pilot Logic
         if (!overrideMode && (actionMode === 'analysis' || actionMode === 'sharia_advisor')) {
             const lowerContent = messageContent.toLowerCase();
             if (lowerContent.match(/(صغ|اكتب|صياغة|تحرير|أنشئ|اعداد).*?(لائحة|عقد|اتفاقية|مذكرة|دعوى|وكالة|إخطار|شكوى)/) || lowerContent.includes('اكتب لي')) {
@@ -396,17 +396,15 @@ export const useChatLogic = (caseId?: string, initialCaseType: CaseType = 'chat'
             }
         } catch (e) { console.warn("RAG retrieval failed", e); }
 
-        // Inject RAG context if found
         const finalMessageContent = ragContext ? `${ragContext}\n\nسؤال المستخدم:\n${messageContent}` : messageContent;
 
         const userMessage: ChatMessage = { 
             id: uuidv4(), 
             role: 'user', 
-            content: messageContent, // Show original message to user
+            content: messageContent,
             images: uploadedImages.length > 0 ? uploadedImages : undefined 
         };
         
-        // Internal message for the API (includes RAG context)
         const apiMessage = { ...userMessage, content: finalMessageContent };
         
         setUserInput('');
@@ -452,7 +450,6 @@ export const useChatLogic = (caseId?: string, initialCaseType: CaseType = 'chat'
 
         try {
             let stream;
-            // Use the history where the last message includes RAG context
             const historyToSend = [...chatHistory, apiMessage]; 
             
             if (apiSource === 'openrouter') {
@@ -468,17 +465,10 @@ export const useChatLogic = (caseId?: string, initialCaseType: CaseType = 'chat'
             
             if (apiSource === 'gemini') countTokensForGemini([...historyToSend, { ...tempModelMessage, content: fullResponse }]).then(setTokenCount);
 
-            // FEEDBACK LOOP: If we got grounding chunks (Google Search Results), store them in Supabase for next time
-            if (finalMetadata && finalMetadata.groundingChunks && apiSource === 'gemini') {
-                // Heuristic: Store first result if it seems like a law
-                // In a real app, we would process this more carefully.
-                // For now, we trust the "Verifier" will clean it up later if it's not perfect.
-                // We'll just log or trigger a background store.
-                // Note: The grounding text itself isn't always fully in the metadata, usually just URL/Title.
-                // The *Model's answer* contains the text.
-                // To do this properly, we'd need to extract legal text blocks from the answer.
-                // Let's assume the user copies the law into the chat -> future enhancement.
-                // For now, the verification agent in legalRepository.ts handles the core "Update" logic.
+            // FEEDBACK LOOP (NEW): Harvest new laws if Google Search was used
+            if (finalMetadata && finalMetadata.groundingChunks && finalMetadata.groundingChunks.length > 0 && apiSource === 'gemini') {
+                // Call the harvesting agent in the background (fire and forget)
+                harvestLegalKnowledge(finalResponseText, region).catch(console.error);
             }
 
         } catch (error: any) {
