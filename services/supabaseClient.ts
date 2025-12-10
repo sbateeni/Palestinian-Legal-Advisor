@@ -17,8 +17,33 @@ export const getSupabase = () => {
     const storedKey = localStorage.getItem('supabaseKey');
     
     if (storedUrl && storedKey) {
-        return createClient(JSON.parse(storedUrl), JSON.parse(storedKey));
+        try {
+            const parsedUrl = JSON.parse(storedUrl);
+            const parsedKey = JSON.parse(storedKey);
+            if (parsedUrl && parsedKey) {
+                return createClient(parsedUrl, parsedKey);
+            }
+        } catch (e) {
+            console.error("Error parsing stored Supabase credentials", e);
+        }
     }
 
     return null;
+};
+
+export const checkConnection = async (): Promise<boolean> => {
+    const supabase = getSupabase();
+    if (!supabase) return false;
+    try {
+        // Try a lightweight HEAD request to check connectivity
+        // We query 'legal_articles' since that's our main table.
+        const { error } = await supabase.from('legal_articles').select('id', { count: 'exact', head: true });
+        
+        // If we get a response (even if table is empty), we are connected.
+        // If we get a network error or invalid key error, 'error' will be populated in a specific way.
+        // For simplicity: No error = Connected.
+        return !error;
+    } catch (e) {
+        return false;
+    }
 };

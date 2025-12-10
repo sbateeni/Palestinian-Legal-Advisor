@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { ApiSource, Case, OpenRouterModel, LegalRegion } from '../types';
 import * as dbService from '../services/dbService';
 import { DEFAULT_OPENROUTER_MODELS } from '../constants';
+import { checkConnection } from '../services/supabaseClient';
 
 export const useSettingsLogic = () => {
     const [apiSource, setApiSource] = useState<ApiSource>('gemini');
@@ -22,6 +23,9 @@ export const useSettingsLogic = () => {
     const [newModelId, setNewModelId] = useState('');
     const [newModelSupportsImages, setNewModelSupportsImages] = useState(false);
     
+    // Supabase Connection State
+    const [supabaseStatus, setSupabaseStatus] = useState<'checking' | 'connected' | 'disconnected'>('checking');
+
     // Data stats
     const [casesCount, setCasesCount] = useState(0);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -60,6 +64,10 @@ export const useSettingsLogic = () => {
 
             const allCases = await dbService.getAllCases();
             setCasesCount(allCases.length);
+
+            // Check Supabase Connection
+            const isConnected = await checkConnection();
+            setSupabaseStatus(isConnected ? 'connected' : 'disconnected');
         };
         loadSettings();
     }, []);
@@ -194,6 +202,7 @@ export const useSettingsLogic = () => {
         openRouterApiKey, openRouterInputValue, setOpenRouterInputValue, handleSaveOpenRouterKey, openRouterSaved,
         openRouterModels, openRouterModelId, handleModelChange,
         newModelId, setNewModelId, newModelSupportsImages, setNewModelSupportsImages, handleAddModel, handleDeleteModel,
-        casesCount, handleClearCases, handleExport, handleImportClick, handleFileChange, fileInputRef
+        casesCount, handleClearCases, handleExport, handleImportClick, handleFileChange, fileInputRef,
+        supabaseStatus // Expose status
     };
 };
