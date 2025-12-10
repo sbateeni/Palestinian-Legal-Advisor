@@ -65,7 +65,7 @@ export const useSettingsLogic = () => {
             const allCases = await dbService.getAllCases();
             setCasesCount(allCases.length);
 
-            // Check Supabase Connection
+            // Check Supabase Connection (Uses Env Vars internally)
             const isConnected = await checkConnection();
             setSupabaseStatus(isConnected ? 'connected' : 'disconnected');
         };
