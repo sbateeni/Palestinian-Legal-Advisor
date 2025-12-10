@@ -8,7 +8,6 @@ import { streamChatResponseFromGemini, countTokensForGemini, summarizeChatHistor
 import { streamChatResponseFromOpenRouter } from '../services/openRouterService';
 import { DEFAULT_OPENROUTER_MODELS } from '../constants';
 import { OCR_STRICT_PROMPT } from '../services/legalPrompts';
-import { getLegalContext, harvestLegalKnowledge } from '../services/legalRepository';
 import * as pdfjsLib from 'pdfjs-dist';
 
 const { useNavigate } = ReactRouterDOM;
@@ -31,7 +30,6 @@ export const useChatLogic = (caseId?: string, initialCaseType: CaseType = 'chat'
     const [openRouterModels, setOpenRouterModels] = useState<OpenRouterModel[]>(DEFAULT_OPENROUTER_MODELS);
     const [thinkingMode, setThinkingMode] = useState(false);
     
-    // CHANGED: Single image to Array of images
     const [uploadedImages, setUploadedImages] = useState<{ dataUrl: string; mimeType: string }[]>([]);
     
     const [isProcessingFile, setIsProcessingFile] = useState(false);
@@ -388,15 +386,7 @@ export const useChatLogic = (caseId?: string, initialCaseType: CaseType = 'chat'
 
         setIsLoading(true);
         
-        // 1. Check Legal Repository (RAG)
-        let ragContext = "";
-        try {
-            if (messageContent.length > 10 && apiSource === 'gemini') {
-                ragContext = await getLegalContext(messageContent, region);
-            }
-        } catch (e) { console.warn("RAG retrieval failed", e); }
-
-        const finalMessageContent = ragContext ? `${ragContext}\n\nسؤال المستخدم:\n${messageContent}` : messageContent;
+        const finalMessageContent = messageContent;
 
         const userMessage: ChatMessage = { 
             id: uuidv4(), 
@@ -464,12 +454,6 @@ export const useChatLogic = (caseId?: string, initialCaseType: CaseType = 'chat'
             finalMetadata = groundingMetadata;
             
             if (apiSource === 'gemini') countTokensForGemini([...historyToSend, { ...tempModelMessage, content: fullResponse }]).then(setTokenCount);
-
-            // FEEDBACK LOOP (NEW): Harvest new laws if Google Search was used
-            if (finalMetadata && finalMetadata.groundingChunks && finalMetadata.groundingChunks.length > 0 && apiSource === 'gemini') {
-                // Call the harvesting agent in the background (fire and forget)
-                harvestLegalKnowledge(finalResponseText, region).catch(console.error);
-            }
 
         } catch (error: any) {
             console.error("API Error", error);
