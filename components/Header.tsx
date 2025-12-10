@@ -1,7 +1,9 @@
 
 import React from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import * as ReactRouterDOM from 'react-router-dom';
 import TokenTracker from './TokenTracker';
+
+const { NavLink, useLocation } = ReactRouterDOM;
 
 const Header: React.FC = () => {
   const location = useLocation();

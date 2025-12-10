@@ -1,9 +1,11 @@
 
 import React, { RefObject, useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import * as ReactRouterDOM from 'react-router-dom';
 import { ActionMode } from '../../types';
 import { AGENT_PROMPTS } from '../../constants';
 import LegalToolbar from '../LegalToolbar';
+
+const { Link } = ReactRouterDOM;
 
 interface ChatInputProps {
     userInput: string;

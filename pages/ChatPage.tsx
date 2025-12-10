@@ -1,11 +1,16 @@
 
-import React from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import * as ReactRouterDOM from 'react-router-dom';
 import { useChatLogic } from '../hooks/useChatLogic';
 import ChatHeader from '../components/chat/ChatHeader';
 import PinnedPanel from '../components/chat/PinnedPanel';
 import MessageList from '../components/chat/MessageList';
 import ChatInput from '../components/chat/ChatInput';
+import TimelineView from '../components/chat/TimelineView';
+import { generateTimelineFromChat } from '../pages/geminiService';
+import { TimelineEvent } from '../types';
+
+const { Link, useNavigate, useSearchParams } = ReactRouterDOM;
 
 interface ChatPageProps {
     caseId?: string;
@@ -13,6 +18,13 @@ interface ChatPageProps {
 
 const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
+    
+    // Timeline State
+    const [isTimelineOpen, setIsTimelineOpen] = useState(false);
+    const [timelineEvents, setTimelineEvents] = useState<TimelineEvent[]>([]);
+    const [isTimelineLoading, setIsTimelineLoading] = useState(false);
+
     const {
         caseData,
         chatHistory,
@@ -47,8 +59,45 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
         handlePinMessage,
         handleUnpinMessage,
         handleConvertCaseType,
-        handleFollowUpAction // Destructure this
+        handleFollowUpAction
     } = useChatLogic(caseId, 'chat');
+
+    // Handle Voice Draft Auto-Population
+    useEffect(() => {
+        const draft = localStorage.getItem('voice_draft_content');
+        const mode = searchParams.get('mode');
+        const autoSend = searchParams.get('autoSend');
+
+        if (draft) {
+            setUserInput(draft);
+            localStorage.removeItem('voice_draft_content'); // Clear it
+            
+            if (mode === 'drafting') {
+                setActionMode('drafting');
+                // Optional: Auto-send instruction prompt for drafting
+                if (autoSend) {
+                    setTimeout(() => {
+                       handleSendMessage(`قم بصياغة لائحة دعوى قانونية بناءً على الوقائع التالية:\n${draft}`, 'drafting');
+                    }, 500);
+                }
+            }
+        }
+    }, [searchParams, setUserInput, setActionMode, handleSendMessage]);
+
+    const handleGenerateTimeline = async () => {
+        setIsTimelineOpen(true);
+        if (timelineEvents.length > 0) return; // Use cached if available
+        
+        setIsTimelineLoading(true);
+        try {
+            const events = await generateTimelineFromChat(chatHistory);
+            setTimelineEvents(events);
+        } catch (error) {
+            console.error(error);
+        } finally {
+            setIsTimelineLoading(false);
+        }
+    };
 
     // 1. Loading State
     if (isLoading && !caseData && caseId) {
@@ -105,7 +154,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
     }
 
     return (
-        <div className="w-full flex flex-col flex-grow bg-gray-800 overflow-hidden">
+        <div className="w-full flex flex-col flex-grow bg-gray-800 overflow-hidden relative">
             <ChatHeader
                 caseData={caseData}
                 apiSource={apiSource}
@@ -117,6 +166,26 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
                 setThinkingMode={setThinkingMode}
                 onSummarize={handleSummarize}
             />
+            
+            {/* Timeline Trigger Button (Floating or Header? Let's put it on top right overlay if history exists) */}
+            {chatHistory.length > 2 && (
+                <button 
+                    onClick={handleGenerateTimeline}
+                    className="absolute top-[70px] left-4 z-20 p-2 bg-gray-700/80 hover:bg-blue-600/90 text-white rounded-full shadow-lg border border-gray-600 transition-all group"
+                    title="عرض المخطط الزمني للقضية"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    <span className="absolute right-full top-1/2 -translate-y-1/2 mr-2 px-2 py-1 bg-black text-xs rounded opacity-0 group-hover:opacity-100 whitespace-nowrap transition-opacity pointer-events-none">المخطط الزمني</span>
+                </button>
+            )}
+
+            {isTimelineOpen && (
+                <TimelineView 
+                    events={timelineEvents} 
+                    isLoading={isTimelineLoading} 
+                    onClose={() => setIsTimelineOpen(false)} 
+                />
+            )}
 
             <PinnedPanel
                 messages={pinnedMessages}
@@ -132,7 +201,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
                     pinnedMessages={pinnedMessages}
                     onPinMessage={handlePinMessage}
                     onConvertCaseType={handleConvertCaseType}
-                    onFollowUpAction={handleFollowUpAction} // Pass handler
+                    onFollowUpAction={handleFollowUpAction}
                 />
             </div>
 

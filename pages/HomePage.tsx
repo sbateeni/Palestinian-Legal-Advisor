@@ -1,6 +1,10 @@
 
-import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState } from 'react';
+import * as ReactRouterDOM from 'react-router-dom';
+import VoiceBriefModal from '../components/modals/VoiceBriefModal';
+import { useChatLogic } from '../hooks/useChatLogic';
+
+const { useNavigate } = ReactRouterDOM;
 
 interface NavItemProps {
     title: string;
@@ -17,17 +21,17 @@ const NavCircle: React.FC<NavItemProps> = ({ title, description, icon, path, del
     return (
         <div 
             onClick={() => navigate(path)}
-            className={`group relative flex flex-col items-center justify-center w-full max-w-[240px] aspect-square rounded-full cursor-pointer transition-all duration-500 animate-fade-in-up ${delay} bg-[#0f172a] border border-gray-700/50 shadow-2xl hover:shadow-blue-900/20 hover:border-gray-600 hover:-translate-y-1 overflow-hidden`}
+            className={`group relative flex flex-col items-center justify-center w-full max-w-[240px] aspect-square rounded-full cursor-pointer transition-all duration-500 animate-fade-in-up ${delay} bg-[#0f172a] border border-gray-700/50 shadow-2xl hover:shadow-blue-900/30 hover:border-gray-500 hover:-translate-y-2 overflow-hidden`}
             style={{ touchAction: 'manipulation' }}
         >
             {/* Background Glow Effect */}
-            <div className="absolute inset-0 bg-gradient-to-b from-gray-800/20 to-transparent opacity-50 group-hover:opacity-80 transition-opacity duration-500"></div>
+            <div className="absolute inset-0 bg-gradient-to-b from-gray-800/10 to-transparent opacity-50 group-hover:opacity-100 transition-opacity duration-500"></div>
             
             {/* Content Container */}
             <div className="relative z-10 flex flex-col items-center justify-center h-full w-full px-6 py-4 text-center">
                 
                 {/* Icon */}
-                <div className={`mb-3 transition-transform duration-300 group-hover:scale-110 ${iconColor}`}>
+                <div className={`mb-3 transition-transform duration-300 group-hover:scale-110 group-hover:drop-shadow-lg ${iconColor}`}>
                     {icon}
                 </div>
 
@@ -36,8 +40,8 @@ const NavCircle: React.FC<NavItemProps> = ({ title, description, icon, path, del
                     {title}
                 </h3>
 
-                {/* Description - Visible by default */}
-                <p className="text-[11px] sm:text-xs text-gray-400 font-medium leading-relaxed line-clamp-3 px-1 group-hover:text-gray-300 transition-colors duration-300">
+                {/* Description */}
+                <p className="text-[11px] sm:text-xs text-gray-400 font-medium leading-relaxed line-clamp-3 px-1 group-hover:text-gray-300 transition-colors duration-300 opacity-80 group-hover:opacity-100">
                     {description}
                 </p>
             </div>
@@ -49,8 +53,8 @@ const NavCircle: React.FC<NavItemProps> = ({ title, description, icon, path, del
 };
 
 const FeatureCard: React.FC<{ title: string; desc: string; icon: React.ReactNode; delay: string }> = ({ title, desc, icon, delay }) => (
-    <div className={`flex flex-col items-start p-6 bg-gray-800/40 backdrop-blur-sm border border-gray-700/50 rounded-2xl hover:bg-gray-800/60 transition-colors duration-300 animate-fade-in-up ${delay}`}>
-        <div className="p-3 bg-gray-900 rounded-lg mb-4 text-amber-500 shadow-lg border border-gray-700">
+    <div className={`flex flex-col items-start p-6 bg-gray-800/40 backdrop-blur-sm border border-gray-700/50 rounded-2xl hover:bg-gray-800/60 hover:border-gray-600 transition-all duration-300 animate-fade-in-up ${delay}`}>
+        <div className="p-3 bg-gray-900 rounded-lg mb-4 text-amber-500 shadow-lg border border-gray-700 group-hover:scale-105 transition-transform">
             {icon}
         </div>
         <h3 className="text-lg font-bold text-gray-100 mb-2">{title}</h3>
@@ -59,10 +63,25 @@ const FeatureCard: React.FC<{ title: string; desc: string; icon: React.ReactNode
 );
 
 const HomePage: React.FC = () => {
+    const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
+    const { handleSendMessage, setActionMode } = useChatLogic(); // To simulate sending message logic if needed, but easier to just nav
+    const navigate = useNavigate();
+
+    const handleVoiceComplete = (transcript: string) => {
+        // Navigate to civil chat with special state
+        // Since we can't easily pass state to existing hook instance on another page without Context, 
+        // we'll append a query param or handle it via local storage, or simply navigate and let user paste.
+        // BETTER: Create a new case directly? 
+        // Best approach for this structure: Navigate to /civil and auto-populate input? 
+        // Let's use localStorage to pass the "draft" intent.
+        localStorage.setItem('voice_draft_content', transcript);
+        navigate('/civil?mode=drafting&autoSend=true');
+    };
+
     const navItems: NavItemProps[] = [
         {
             title: "القضايا المدنية والجزائية",
-            description: "تحليل القضايا، صيد الثغرات، صياغة اللوائح، وبناء الاستراتيجيات.",
+            description: "المستشار العام: تحليل القضايا، صيد الثغرات، صياغة اللوائح، وبناء الاستراتيجيات.",
             path: "/civil",
             delay: "animation-delay-100",
             iconColor: "text-blue-400",
@@ -73,8 +92,8 @@ const HomePage: React.FC = () => {
             )
         },
         {
-            title: "قضايا الأحوال الشخصية والشرعية",
-            description: "الأحوال الشخصية: زواج، طلاق، حضانة، نفقات، وصلح أسري.",
+            title: "قضايا الأحوال الشخصية",
+            description: "القضاء الشرعي: زواج، طلاق، حضانة، نفقات، ومنازعات الشقاق والنزاع.",
             path: "/sharia",
             delay: "animation-delay-200",
             iconColor: "text-emerald-400",
@@ -85,8 +104,8 @@ const HomePage: React.FC = () => {
             )
         },
         {
-            title: "قضايا المواريث والتركات",
-            description: "محرك حساب دقيق للأنصبة الشرعية والقانونية وتوزيع التركات.",
+            title: "حاسبة المواريث الذكية",
+            description: "محرك حساب دقيق للأنصبة الشرعية والقانونية وتوزيع التركات بالأسهم.",
             path: "/inheritance",
             delay: "animation-delay-300",
             iconColor: "text-amber-400",
@@ -97,8 +116,8 @@ const HomePage: React.FC = () => {
             )
         },
         {
-            title: "سجل القضايا",
-            description: "الأرشيف الكامل لجميع القضايا والاستشارات السابقة المحفوظة.",
+            title: "سجل القضايا المحفوظة",
+            description: "الأرشيف الكامل لجميع القضايا والاستشارات السابقة (يعمل دون إنترنت).",
             path: "/cases",
             delay: "animation-delay-400",
             iconColor: "text-indigo-400",
@@ -110,7 +129,7 @@ const HomePage: React.FC = () => {
         },
         {
             title: "المختبر الجنائي الرقمي",
-            description: "الكشف عن التزوير، مطابقة الصور، وتحليل التلاعب الرقمي.",
+            description: "الكشف عن التزوير، مطابقة الصور، وتحليل التلاعب الرقمي (Forensics).",
             path: "/forgery",
             delay: "animation-delay-500",
             iconColor: "text-red-500",
@@ -122,7 +141,7 @@ const HomePage: React.FC = () => {
         },
         {
             title: "الأدوات القانونية",
-            description: "حاسبة الرسوم، حساب المهل القانونية (استئناف/نقض).",
+            description: "حاسبة الرسوم القضائية، وحساب المهل القانونية (استئناف/نقض).",
             path: "/tools",
             delay: "animation-delay-600",
             iconColor: "text-cyan-400",
@@ -143,12 +162,22 @@ const HomePage: React.FC = () => {
                 <div className="inline-block mb-4 px-4 py-1.5 rounded-full bg-amber-900/30 border border-amber-500/30 text-amber-400 text-xs font-semibold tracking-wider uppercase">
                     الذكاء الاصطناعي في خدمة العدالة
                 </div>
-                <h1 className="text-4xl md:text-6xl font-extrabold text-transparent bg-clip-text bg-gradient-to-b from-amber-200 to-amber-500 mb-6 leading-tight drop-shadow-sm">
+                <h1 className="text-4xl md:text-6xl font-extrabold text-transparent bg-clip-text bg-gradient-to-b from-amber-200 to-amber-500 mb-6 leading-tight drop-shadow-sm pb-1">
                     المستشار القانوني الفلسطيني
                 </h1>
-                <p className="text-lg md:text-xl text-gray-300 font-light max-w-2xl mx-auto leading-relaxed">
-                    منظومة قانونية ذكية متكاملة، صُممت خصيصاً لتلبية احتياجات المحامي والمواطن الفلسطيني وفق أحدث التشريعات.
+                <p className="text-lg md:text-xl text-gray-300 font-light max-w-2xl mx-auto leading-relaxed mb-8">
+                    منظومة قانونية ذكية متكاملة، صُممت خصيصاً لتلبية احتياجات المحامي والمواطن الفلسطيني وفق أحدث التشريعات (المقتفي، الجريدة الرسمية).
                 </p>
+
+                {/* VOICE TO BRIEF BUTTON */}
+                <button 
+                    onClick={() => setIsVoiceModalOpen(true)}
+                    className="group relative inline-flex items-center justify-center px-8 py-3 font-bold text-white transition-all duration-200 bg-red-600 font-lg rounded-full hover:bg-red-700 hover:shadow-lg hover:shadow-red-900/50 hover:-translate-y-1 focus:outline-none ring-offset-2 focus:ring-2 ring-red-500"
+                >
+                    <span className="absolute w-0 h-0 transition-all duration-500 ease-out bg-white rounded-full group-hover:w-56 group-hover:h-56 opacity-10"></span>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 me-2 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
+                    <span className="relative">اسرد قصتك (صوتياً)</span>
+                </button>
             </div>
 
             {/* --- NAVIGATION GRID --- */}
@@ -187,7 +216,7 @@ const HomePage: React.FC = () => {
                     />
                     <FeatureCard 
                         title="خصوصية وأمان"
-                        desc="يتم تخزين كافة سجلات القضايا والمحادثات محلياً في جهازك، مما يضمن سرية تامة لبيانات الموكلين."
+                        desc="يتم تخزين كافة سجلات القضايا والمحادثات محلياً في جهازك (IndexedDB)، مما يضمن سرية تامة لبيانات الموكلين."
                         delay="animation-delay-300"
                         icon={
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
@@ -199,8 +228,14 @@ const HomePage: React.FC = () => {
             {/* --- FOOTER --- */}
             <footer className="mt-auto text-center text-gray-500 text-sm py-6 w-full border-t border-gray-900/50">
                 <p>© {new Date().getFullYear()} المستشار القانوني الفلسطيني. جميع الحقوق محفوظة.</p>
-                <p className="text-xs mt-1 opacity-60">نسخة تجريبية (Beta v1.0)</p>
+                <p className="text-xs mt-1 opacity-60">نسخة محسنة (v2.0)</p>
             </footer>
+
+            <VoiceBriefModal 
+                isOpen={isVoiceModalOpen} 
+                onClose={() => setIsVoiceModalOpen(false)} 
+                onComplete={handleVoiceComplete}
+            />
 
             <style>{`
                 .animate-fade-in { animation: fadeIn 0.8s ease-out; }

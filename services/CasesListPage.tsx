@@ -1,7 +1,10 @@
+
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import * as ReactRouterDOM from 'react-router-dom';
 import { Case, CaseStatus } from '../types';
 import * as dbService from '../services/dbService';
+
+const { useNavigate } = ReactRouterDOM;
 
 const STATUS_OPTIONS: { value: CaseStatus; label: string; color: string }[] = [
   { value: 'جديدة', label: 'جديدة', color: 'bg-blue-500' },

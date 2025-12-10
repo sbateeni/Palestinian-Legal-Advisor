@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Link } from 'react-router-dom';
+import * as ReactRouterDOM from 'react-router-dom';
 import { useOcrLogic } from '../hooks/useOcrLogic';
 import { AnalysisResult } from '../types';
 import FileUploadArea from '../components/ocr/FileUploadArea';
@@ -8,6 +8,8 @@ import AnalysisConfig from '../components/ocr/AnalysisConfig';
 import ControlActions from '../components/ocr/ControlActions';
 import CaseSelector from '../components/ocr/CaseSelector';
 import ResultsGallery from '../components/ocr/ResultsGallery';
+
+const { Link } = ReactRouterDOM;
 
 // Add AIStudio interface for Gemini API key handling (Global declaration)
 declare global {

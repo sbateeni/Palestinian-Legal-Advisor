@@ -1,10 +1,12 @@
 
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import * as ReactRouterDOM from 'react-router-dom';
 import { useCasesListLogic } from '../hooks/useCasesListLogic';
 import CasesFilterBar from '../components/cases/CasesFilterBar';
 import CaseGridItem from '../components/cases/CaseGridItem';
 import CaseListItem from '../components/cases/CaseListItem';
+
+const { useNavigate } = ReactRouterDOM;
 
 const CasesListPage: React.FC = () => {
     const navigate = useNavigate();

@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { HashRouter, Routes, Route, useParams, Navigate } from 'react-router-dom';
+import * as ReactRouterDOM from 'react-router-dom';
 import Header from './components/Header';
 import HomePage from './pages/HomePage'; // New Import
 import ChatPage from './pages/ChatPage';
@@ -12,6 +12,8 @@ import InheritancePage from './pages/InheritancePage';
 import ShariaPage from './pages/ShariaPage';
 import CaseTypesPage from './pages/CaseTypesPage';
 import ForgeryDetectionPage from './pages/ForgeryDetectionPage'; // New Import
+
+const { HashRouter, Routes, Route, useParams, Navigate } = ReactRouterDOM;
 
 const App: React.FC = () => {
   return (
@@ -51,19 +53,19 @@ const App: React.FC = () => {
 
 // Wrapper to pass caseId as a key for Civil Cases
 const ChatPageWrapper: React.FC = () => {
-    const { caseId } = useParams<{ caseId: string }>();
+    const { caseId } = useParams();
     return <ChatPage key={caseId} caseId={caseId} />;
 };
 
 // Wrapper to pass caseId as a key for Sharia Cases
 const ShariaPageWrapper: React.FC = () => {
-    const { caseId } = useParams<{ caseId: string }>();
+    const { caseId } = useParams();
     return <ShariaPage key={caseId} caseId={caseId} />;
 };
 
 // Wrapper for Forgery Cases
 const ForgeryPageWrapper: React.FC = () => {
-    const { caseId } = useParams<{ caseId: string }>();
+    const { caseId } = useParams();
     return <ForgeryDetectionPage key={caseId} caseId={caseId} />;
 };
 

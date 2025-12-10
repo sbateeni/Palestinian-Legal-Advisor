@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import * as ReactRouterDOM from 'react-router-dom';
 import { v4 as uuidv4 } from 'uuid';
 import { Case, ChatMessage, ApiSource, OpenRouterModel, GroundingMetadata, ActionMode, LegalRegion, CaseType } from '../types';
 import * as dbService from '../services/dbService';
@@ -9,6 +9,8 @@ import { streamChatResponseFromOpenRouter } from '../services/openRouterService'
 import { DEFAULT_OPENROUTER_MODELS } from '../constants';
 import { OCR_STRICT_PROMPT } from '../services/legalPrompts';
 import * as pdfjsLib from 'pdfjs-dist';
+
+const { useNavigate } = ReactRouterDOM;
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://aistudiocdn.com/pdfjs-dist@5.4.394/build/pdf.worker.js';
 

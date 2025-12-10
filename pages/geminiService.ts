@@ -1,8 +1,8 @@
 
 import { GoogleGenAI, Content, Schema, Type } from "@google/genai";
-import { ChatMessage, GroundingMetadata, ActionMode, LegalRegion, InheritanceInput, CaseType } from '../types';
+import { ChatMessage, GroundingMetadata, ActionMode, LegalRegion, InheritanceInput, CaseType, TimelineEvent } from '../types';
 import * as dbService from '../services/dbService';
-import { getInstruction, getInheritanceExtractionPrompt } from '../services/legalPrompts';
+import { getInstruction, getInheritanceExtractionPrompt, getTimelinePrompt } from '../services/legalPrompts';
 
 // Constants for Token Management
 const MAX_HISTORY_MESSAGES = 25;
@@ -56,11 +56,12 @@ async function getGoogleGenAI(): Promise<GoogleGenAI> {
     return new GoogleGenAI({ apiKey });
 }
 
+// OPTIMIZED: History management to save tokens on images
 function chatHistoryToGeminiContents(history: ChatMessage[]): Content[] {
     let lastUserMessageIndex = -1;
+    // Find the very last user message to attach current images to
     for (let i = history.length - 1; i >= 0; i--) {
-        const msg = history[i];
-        if (msg.role === 'user' && msg.images && msg.images.length > 0) {
+        if (history[i].role === 'user') {
             lastUserMessageIndex = i;
             break;
         }
@@ -72,19 +73,27 @@ function chatHistoryToGeminiContents(history: ChatMessage[]): Content[] {
             parts.push({ text: msg.content });
         }
         
+        // Handling Images:
+        // Only attach full base64 data if it's the LAST user message.
+        // For older messages, we strip the heavy base64 to save tokens and avoid limits,
+        // replacing it with a text placeholder so the model knows an image was there.
         if (msg.images && msg.images.length > 0) {
             if (index === lastUserMessageIndex) {
                 msg.images.forEach(image => {
-                    const base64Data = image.dataUrl.split(',')[1];
-                    parts.push({
-                        inlineData: {
-                            data: base64Data,
-                            mimeType: image.mimeType
-                        }
-                    });
+                    // Safe guard for empty data
+                    if (image.dataUrl && image.dataUrl.includes(',')) {
+                        const base64Data = image.dataUrl.split(',')[1];
+                        parts.push({
+                            inlineData: {
+                                data: base64Data,
+                                mimeType: image.mimeType
+                            }
+                        });
+                    }
                 });
             } else {
-                parts.push({ text: `[مرفق صورة سابق: تم تحليله مسبقاً لتوفير الموارد]` });
+                // Placeholder for older images
+                parts.push({ text: `[تم تحليل ${msg.images.length} صورة/صور في هذه الرسالة سابقاً. ارجع للتحليل السابق.]` });
             }
         }
         return { role: msg.role, parts: parts };
@@ -153,6 +162,38 @@ export async function summarizeChatHistory(history: ChatMessage[]): Promise<stri
     });
 }
 
+export async function generateTimelineFromChat(history: ChatMessage[]): Promise<TimelineEvent[]> {
+    if (!history || history.length === 0) return [];
+    return retryOperation(async () => {
+        const ai = await getGoogleGenAI();
+        const model = 'gemini-2.5-flash'; 
+        
+        const fullText = history.map(m => `${m.role === 'user' ? 'الموكل' : 'المستشار'}: ${m.content}`).join('\n\n');
+        const prompt = getTimelinePrompt(fullText);
+
+        const response = await ai.models.generateContent({
+            model: model,
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json"
+            }
+        });
+
+        // Increment Request Count (1 request)
+        dbService.incrementTokenUsage(1);
+
+        const text = response.text;
+        if(!text) return [];
+        
+        try {
+            return JSON.parse(text);
+        } catch(e) {
+            console.error("Timeline parsing error", e);
+            return [];
+        }
+    });
+}
+
 export async function* streamChatResponseFromGemini(
   history: ChatMessage[],
   thinkingMode: boolean,
@@ -168,6 +209,7 @@ export async function* streamChatResponseFromGemini(
     // Retrieve centralized instruction
     const systemInstruction = getInstruction(actionMode, region, caseType);
     
+    // Slice history to keep it manageable
     const historyToSend = history.slice(-MAX_HISTORY_MESSAGES);
     const contents = chatHistoryToGeminiContents(historyToSend);
     const tools = [{ googleSearch: {} }];
@@ -178,7 +220,7 @@ export async function* streamChatResponseFromGemini(
     };
     
     // Configure Thinking Budget for complex tasks
-    const isForensic = actionMode === 'forensic';
+    const isForensic = actionMode === 'forensic' || actionMode === 'pixel_analysis' || actionMode === 'image_comparison';
     if (thinkingMode || isForensic) {
         config.thinkingConfig = { thinkingBudget: THINKING_BUDGET_PRO };
         config.maxOutputTokens = MAX_OUTPUT_TOKENS_FLASH; 

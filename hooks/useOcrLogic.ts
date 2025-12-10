@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import * as ReactRouterDOM from 'react-router-dom';
 import { v4 as uuidv4 } from 'uuid';
 import * as dbService from '../services/dbService';
 import { analyzeImageWithGemini, proofreadTextWithGemini } from '../pages/geminiService';
@@ -9,6 +9,8 @@ import { DEFAULT_OPENROUTER_MODELS } from '../constants';
 import { Case, ChatMessage, OpenRouterModel, SelectedImage, AnalysisResult, AnalysisType, AnalysisProvider, AnalysisProcessState } from '../types';
 import * as pdfjsLib from 'pdfjs-dist';
 import Tesseract from 'tesseract.js';
+
+const { useNavigate } = ReactRouterDOM;
 
 // Configure the worker for pdf.js
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://aistudiocdn.com/pdfjs-dist@5.4.394/build/pdf.worker.js';

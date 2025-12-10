@@ -1,12 +1,14 @@
 
 import React from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import * as ReactRouterDOM from 'react-router-dom';
 import { useForgeryLogic } from '../hooks/useForgeryLogic';
 import ChatHeader from '../components/chat/ChatHeader';
 import PinnedPanel from '../components/chat/PinnedPanel';
 import MessageList from '../components/chat/MessageList';
 import ForgeryToolbar from '../components/ForgeryToolbar';
 import { AGENT_PROMPTS } from '../constants';
+
+const { Link, useNavigate } = ReactRouterDOM;
 
 interface ForgeryDetectionPageProps {
     caseId?: string;

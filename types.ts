@@ -35,6 +35,14 @@ export interface ChatMessage {
 export type CaseStatus = 'جديدة' | 'قيد النظر' | 'مؤجلة' | 'مغلقة' | 'استئناف' | 'أخرى';
 export type CaseType = 'chat' | 'inheritance' | 'sharia' | 'forgery';
 
+// --- Timeline Types ---
+export interface TimelineEvent {
+    date: string; // YYYY-MM-DD or descriptive date
+    title: string;
+    description: string;
+    type: 'legal' | 'incident' | 'procedure'; // To color code
+}
+
 export interface Case {
   id: string;
   title: string;
@@ -48,6 +56,7 @@ export interface Case {
       inputs: InheritanceInput;
       results: InheritanceResult;
   };
+  timeline?: TimelineEvent[]; // Cached timeline data
 }
 
 export type ApiSource = 'gemini' | 'openrouter';

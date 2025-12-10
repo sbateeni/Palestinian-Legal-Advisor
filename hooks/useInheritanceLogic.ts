@@ -1,11 +1,13 @@
 
 import { useState, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import { useSearchParams } from 'react-router-dom';
+import * as ReactRouterDOM from 'react-router-dom';
 import { Case, InheritanceInput, InheritanceResult, HeirResult, ApiSource } from '../types';
 import * as dbService from '../services/dbService';
 import { extractInheritanceFromCase } from '../pages/geminiService';
 import { extractInheritanceFromCaseWithOpenRouter } from '../services/openRouterService';
+
+const { useSearchParams } = ReactRouterDOM;
 
 const DEFAULT_INPUT: InheritanceInput = {
     religion: 'muslim',
