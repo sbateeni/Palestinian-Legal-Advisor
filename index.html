@@ -2,16 +2,18 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>المستشار القانوني الفلسطيني</title>
   
-  <!-- Google Fonts: Cairo (UI) & Amiri (Legal Text) -->
+  <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400&family=Cairo:wght@300;400;600;700;900&display=swap" rel="stylesheet">
   
+  <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
+  
   <style>
     :root {
       --font-ui: 'Cairo', sans-serif;
@@ -22,83 +24,88 @@
       font-family: var(--font-ui);
     }
 
-    /* Basic styles for Tailwind prose on dark background */
     .prose-invert {
-        color: #e5e7eb;
-        font-size: 1rem;
-        line-height: 1.8;
-        font-family: var(--font-ui);
+      color: #374151;
+      font-size: 1rem;
+      line-height: 1.8;
+      font-family: var(--font-ui);
     }
     
-    /* Legal Headers */
-    .prose-invert h1, .prose-invert h2, .prose-invert h3, .prose-invert h4 {
-        color: #fbbf24; /* Amber-400 */
-        font-weight: 700;
-        margin-top: 1.5em;
-        margin-bottom: 0.8em;
-        border-bottom: 1px solid rgba(251, 191, 36, 0.2);
-        padding-bottom: 0.3em;
-        font-family: var(--font-ui);
+    .prose-invert h1, 
+    .prose-invert h2, 
+    .prose-invert h3, 
+    .prose-invert h4 {
+      color: #111827;
+      font-weight: 700;
+      margin-top: 1.5em;
+      margin-bottom: 0.8em;
+      border-bottom: 1px solid #e5e7eb;
+      padding-bottom: 0.3em;
+      font-family: var(--font-ui);
     }
     
-    .prose-invert strong, .prose-invert b {
-        color: #22d3ee; /* Cyan-400 */
-        font-weight: 700;
+    .prose-invert strong, 
+    .prose-invert b {
+      color: #0f172a;
+      font-weight: 700;
     }
     
     .prose-invert a {
-        color: #f472b6;
-        text-decoration: underline;
-        text-underline-offset: 4px;
-        transition: color 0.2s;
+      color: #2563eb;
+      text-decoration: underline;
+      text-underline-offset: 4px;
+      transition: color 0.2s;
     }
+    
     .prose-invert a:hover {
-        color: #fbcfe8;
+      color: #1d4ed8;
     }
     
-    /* Legal Citations & Articles */
     .prose-invert blockquote {
-        border-right: 4px solid #818cf8;
-        background-color: rgba(49, 46, 129, 0.2);
-        color: #c7d2fe;
-        padding: 0.8em 1.2em;
-        margin: 1.5em 0;
-        border-radius: 0.375rem;
-        font-style: normal;
-        font-family: var(--font-legal);
-        font-size: 1.1em;
-        line-height: 2;
-        box-shadow: inset 2px 2px 10px rgba(0,0,0,0.1);
+      border-right: 4px solid #3b82f6;
+      background-color: #f8fafc;
+      color: #334155;
+      padding: 0.8em 1.2em;
+      margin: 1.5em 0;
+      border-radius: 0.375rem;
+      font-style: normal;
+      font-family: var(--font-legal);
+      font-size: 1.1em;
+      line-height: 2;
+      box-shadow: inset 2px 2px 5px rgba(0,0,0,0.05);
+      border: 1px solid #e2e8f0;
     }
     
-    /* Legal Tables */
     .prose-invert table {
-        width: 100%;
-        border-collapse: collapse;
-        margin: 1.5em 0;
-        font-size: 0.9em;
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1.5em 0;
+      font-size: 0.9em;
     }
+    
     .prose-invert th {
-        background-color: rgba(55, 65, 81, 0.7);
-        color: #fbbf24;
-        font-weight: 700;
-        text-align: right;
-        padding: 0.75rem;
-        border: 1px solid #4b5563;
+      background-color: #f3f4f6;
+      color: #1f2937;
+      font-weight: 700;
+      text-align: right;
+      padding: 0.75rem;
+      border: 1px solid #d1d5db;
     }
+    
     .prose-invert td {
-        padding: 0.75rem;
-        border: 1px solid #4b5563;
-        color: #d1d5db;
+      padding: 0.75rem;
+      border: 1px solid #d1d5db;
+      color: #4b5563;
     }
     
     .prose-invert code {
-      color: #e2e8f0;
-      background-color: rgba(51, 65, 85, 0.5);
+      color: #0f172a;
+      background-color: #f1f5f9;
       padding: 0.2em 0.4em;
       border-radius: 0.25rem;
       font-family: ui-monospace, monospace;
       font-size: 0.9em;
+      border: 1px solid #e2e8f0;
     }
 
     html, body, #root {
@@ -106,187 +113,184 @@
       overflow: hidden;
     }
 
-    /* --- FORMAL LEGAL MEMO PRINT STYLES --- */
     @media print {
-        @page { 
-            margin: 1.5cm; 
-            size: A4;
-        }
-        
-        body, html, #root {
-            height: auto !important;
-            overflow: visible !important;
-            background-color: white !important;
-            color: black !important;
-            font-family: var(--font-legal) !important; /* Force Serif for print */
-        }
+      @page { 
+        margin: 1.5cm; 
+        size: A4;
+      }
+      
+      body, html, #root {
+        height: auto !important;
+        overflow: visible !important;
+        background-color: white !important;
+        color: black !important;
+        font-family: var(--font-legal) !important;
+      }
 
-        /* Hide UI elements */
-        header, nav, .no-print, button, input, textarea, select, label, ::-webkit-scrollbar, [role="switch"], .sticky, details > summary {
-            display: none !important;
-        }
-        
-        /* Ensure thought process details are open if printed, or hide them? Usually hide thoughts for formal memo. */
-        details {
-            display: none !important; 
-        }
+      header, nav, .no-print, button, input, textarea, select, label, 
+      ::-webkit-scrollbar, [role="switch"], .sticky, details > summary {
+        display: none !important;
+      }
+      
+      .border-t, .bg-gray-800, .bg-gray-900, .shadow-lg, .backdrop-blur-md {
+        background-color: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+        backdrop-filter: none !important;
+      }
 
-        /* Wrapper cleanup */
-        .border-t, .bg-gray-800, .bg-gray-900, .shadow-lg, .backdrop-blur-md {
-            background-color: transparent !important;
-            border: none !important;
-            box-shadow: none !important;
-            backdrop-filter: none !important;
-        }
+      main {
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        display: block !important;
+        overflow: visible !important;
+      }
 
-        main {
-            width: 100% !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            display: block !important;
-            overflow: visible !important;
-        }
+      body::before {
+        content: "المستشار القانوني الفلسطيني\A مذكرة رأي قانوني";
+        white-space: pre;
+        display: block;
+        text-align: center;
+        font-size: 16pt;
+        font-weight: bold;
+        border-bottom: 3px double #000;
+        margin-bottom: 30px;
+        padding-bottom: 15px;
+        font-family: var(--font-ui);
+        line-height: 1.5;
+      }
 
-        /* --- LETTERHEAD HEADER --- */
-        body::before {
-            content: "المستشار القانوني الفلسطيني\A مذكرة رأي قانوني";
-            white-space: pre;
-            display: block;
-            text-align: center;
-            font-size: 16pt;
-            font-weight: bold;
-            border-bottom: 3px double #000;
-            margin-bottom: 30px;
-            padding-bottom: 15px;
-            font-family: var(--font-ui);
-            line-height: 1.5;
-        }
+      .flex.flex-col.group {
+        display: block !important;
+        margin-bottom: 20px !important;
+        page-break-inside: avoid;
+      }
 
-        /* Chat Message Formatting for Print */
-        .flex.flex-col.group {
-            display: block !important;
-            margin-bottom: 20px !important;
-            page-break-inside: avoid;
-        }
+      .max-w-xl, .lg\:max-w-3xl {
+        max-width: 100% !important;
+        background-color: transparent !important;
+        color: black !important;
+        padding: 0 !important;
+        border: none !important;
+      }
 
-        .max-w-xl, .lg\:max-w-3xl {
-            max-width: 100% !important;
-            background-color: transparent !important;
-            color: black !important;
-            padding: 0 !important;
-            border: none !important;
-        }
+      .items-end .max-w-3xl { 
+        border-bottom: 1px solid #ccc !important;
+        padding-bottom: 10px !important;
+        margin-bottom: 15px !important;
+      }
+      
+      .items-end .max-w-3xl::before {
+        content: "الوقائع والاستفسار:";
+        display: block;
+        font-size: 12pt;
+        font-weight: bold;
+        text-decoration: underline;
+        margin-bottom: 5px;
+      }
 
-        /* User Message (The Facts) */
-        .items-end .max-w-3xl { 
-            border-bottom: 1px solid #ccc !important;
-            padding-bottom: 10px !important;
-            margin-bottom: 15px !important;
-        }
-        .items-end .max-w-3xl::before {
-            content: "الوقائع والاستفسار:";
-            display: block;
-            font-size: 12pt;
-            font-weight: bold;
-            text-decoration: underline;
-            margin-bottom: 5px;
-        }
+      .items-start .max-w-3xl { 
+        text-align: justify;
+        font-size: 12pt;
+        line-height: 1.6;
+      }
+      
+      .items-start .max-w-3xl::before {
+        content: "الرأي القانوني:";
+        display: block;
+        font-size: 12pt;
+        font-weight: bold;
+        text-decoration: underline;
+        margin-bottom: 5px;
+        margin-top: 10px;
+      }
 
-        /* Model Message (The Opinion) */
-        .items-start .max-w-3xl { 
-            text-align: justify;
-            font-size: 12pt;
-            line-height: 1.6;
-        }
-        .items-start .max-w-3xl::before {
-            content: "الرأي القانوني:";
-            display: block;
-            font-size: 12pt;
-            font-weight: bold;
-            text-decoration: underline;
-            margin-bottom: 5px;
-            margin-top: 10px;
-        }
+      .prose-invert {
+        color: black !important;
+        font-family: var(--font-legal) !important;
+      }
+      
+      .prose-invert h1, .prose-invert h2, .prose-invert h3 {
+        color: black !important;
+        border-bottom: 1px solid #000 !important;
+        margin-top: 1em !important;
+        font-size: 14pt !important;
+      }
+      
+      .prose-invert strong, .prose-invert b {
+        color: black !important;
+        font-weight: 900;
+      }
+      
+      .prose-invert blockquote {
+        border-right: 3px solid #000 !important;
+        background-color: #f5f5f5 !important;
+        color: #000 !important;
+        font-style: italic;
+        padding: 10px 15px !important;
+        margin: 10px 0 !important;
+      }
+      
+      .prose-invert a {
+        color: black !important;
+        text-decoration: none !important;
+      }
+      
+      .prose-invert table {
+        border: 1px solid #000 !important;
+        width: 100% !important;
+      }
+      
+      .prose-invert th {
+        background-color: #eee !important;
+        color: #000 !important;
+        border: 1px solid #000 !important;
+      }
+      
+      .prose-invert td {
+        border: 1px solid #000 !important;
+        color: #000 !important;
+      }
 
-        /* Prose Overrides for Print */
-        .prose-invert {
-            color: black !important;
-            font-family: var(--font-legal) !important;
-        }
-        .prose-invert h1, .prose-invert h2, .prose-invert h3 {
-            color: black !important;
-            border-bottom: 1px solid #000 !important;
-            margin-top: 1em !important;
-            font-size: 14pt !important;
-        }
-        .prose-invert strong, .prose-invert b {
-            color: black !important;
-            font-weight: 900;
-        }
-        .prose-invert blockquote {
-            border-right: 3px solid #000 !important;
-            background-color: #f5f5f5 !important;
-            color: #000 !important;
-            font-style: italic;
-            padding: 10px 15px !important;
-            margin: 10px 0 !important;
-        }
-        .prose-invert a {
-            color: black !important;
-            text-decoration: none !important;
-        }
-        
-        /* Table Printing */
-        .prose-invert table {
-            border: 1px solid #000 !important;
-            width: 100% !important;
-        }
-        .prose-invert th {
-            background-color: #eee !important;
-            color: #000 !important;
-            border: 1px solid #000 !important;
-        }
-        .prose-invert td {
-            border: 1px solid #000 !important;
-            color: #000 !important;
-        }
-
-        /* Footer */
-        body::after {
-            content: "تم تحرير هذه المذكرة إلكترونياً عبر نظام المستشار القانوني الفلسطيني.";
-            display: block;
-            text-align: center;
-            font-size: 9pt;
-            color: #666;
-            margin-top: 50px;
-            border-top: 1px solid #ccc;
-            padding-top: 10px;
-        }
+      body::after {
+        content: "تم تحرير هذه المذكرة إلكترونياً عبر نظام المستشار القانوني الفلسطيني.";
+        display: block;
+        text-align: center;
+        font-size: 9pt;
+        color: #666;
+        margin-top: 50px;
+        border-top: 1px solid #ccc;
+        padding-top: 10px;
+      }
     }
   </style>
-<script type="importmap">
+  
+  <script type="importmap">
 {
   "imports": {
-    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.0",
-    "pdfjs-dist/": "https://aistudiocdn.com/pdfjs-dist@^5.4.394/",
-    "pdfjs-dist": "https://aistudiocdn.com/pdfjs-dist@^5.4.394",
-    "react/": "https://aistudiocdn.com/react@^19.2.0/",
-    "react": "https://aistudiocdn.com/react@^19.2.0",
-    "vite": "https://aistudiocdn.com/vite@^7.2.2",
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
-    "react-router-dom": "https://aistudiocdn.com/react-router-dom@^7.9.5",
-    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.29.0",
-    "uuid": "https://aistudiocdn.com/uuid@^13.0.0",
-    "marked": "https://aistudiocdn.com/marked@^17.0.0",
-    "dompurify": "https://aistudiocdn.com/dompurify@^3.3.0",
-    "tesseract.js": "https://aistudiocdn.com/tesseract.js@^5.1.0",
-    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@^2.87.1"
+    "react": "https://esm.sh/react@18.2.0",
+    "react/": "https://esm.sh/react@18.2.0/",
+    "react-dom": "https://esm.sh/react-dom@18.2.0",
+    "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+    "react-router-dom": "https://esm.sh/react-router-dom@6.22.3?deps=react@18.2.0,react-dom@18.2.0",
+    "@google/genai": "https://esm.sh/@google/genai@0.2.1",
+    "uuid": "https://esm.sh/uuid@9.0.1",
+    "marked": "https://esm.sh/marked@12.0.1",
+    "dompurify": "https://esm.sh/dompurify@3.0.11",
+    "tesseract.js": "https://esm.sh/tesseract.js@5.0.5",
+    "pdfjs-dist": "https://esm.sh/pdfjs-dist@4.0.379",
+    "pdfjs-dist/": "https://esm.sh/pdfjs-dist@4.0.379/",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "vite": "https://esm.sh/vite@^7.2.7",
+    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2"
   }
 }
 </script>
+  
   <script type="module" src="/index.tsx"></script>
 </head>
-<body class="bg-gray-900">
+<body class="bg-gray-50 text-gray-900">
   <div id="root"></div>
 </body>
 </html>

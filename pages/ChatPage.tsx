@@ -102,8 +102,8 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
     // 1. Loading State
     if (isLoading && !caseData && caseId) {
         return (
-            <div className="w-full flex-grow flex items-center justify-center p-8 text-lg">
-                <svg className="animate-spin h-6 w-6 text-white me-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+            <div className="w-full flex-grow flex items-center justify-center p-8 text-lg text-gray-600">
+                <svg className="animate-spin h-6 w-6 text-blue-600 me-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
                 <span>جاري استرجاع بيانات القضية...</span>
             </div>
         );
@@ -113,8 +113,8 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
     if (isNotFound) {
         return (
             <div className="w-full flex-grow flex flex-col items-center justify-center text-center p-4">
-                <h2 className="text-2xl font-bold mb-4 text-red-400">عذراً، لم يتم العثور على القضية</h2>
-                <p className="text-gray-400 mb-6">ربما تم حذفها أو أن الرابط غير صحيح.</p>
+                <h2 className="text-2xl font-bold mb-4 text-red-600">عذراً، لم يتم العثور على القضية</h2>
+                <p className="text-gray-500 mb-6">ربما تم حذفها أو أن الرابط غير صحيح.</p>
                 <button onClick={() => navigate('/cases')} className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
                     العودة للقضايا
                 </button>
@@ -129,13 +129,13 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
         const isGemini = apiSource === 'gemini';
         return (
             <div className="w-full flex-grow flex flex-col items-center justify-center text-center p-4">
-                <h2 className="text-2xl font-bold mb-4 text-gray-200">مطلوب مفتاح API</h2>
+                <h2 className="text-2xl font-bold mb-4 text-gray-800">مطلوب مفتاح API</h2>
                 {isGemini ? (
-                    <p className="text-gray-400 mb-6 max-w-2xl">
-                        لاستخدام Gemini، يرجى تحديد مفتاح Google AI API الخاص بك عبر النافذة المنبثقة، أو إدخاله يدويًا في <Link to="/settings" className="text-blue-400 hover:underline">صفحة الإعدادات</Link>.
+                    <p className="text-gray-600 mb-6 max-w-2xl">
+                        لاستخدام Gemini، يرجى تحديد مفتاح Google AI API الخاص بك عبر النافذة المنبثقة، أو إدخاله يدويًا في <Link to="/settings" className="text-blue-600 hover:underline">صفحة الإعدادات</Link>.
                     </p>
                 ) : (
-                    <p className="text-gray-400 mb-6 max-w-2xl">
+                    <p className="text-gray-600 mb-6 max-w-2xl">
                         لاستخدام OpenRouter، يرجى إدخال مفتاح API الخاص بك في صفحة الإعدادات.
                     </p>
                 )}
@@ -145,7 +145,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
                             تحديد مفتاح عبر Google AI
                         </button>
                     )}
-                    <button onClick={() => navigate('/settings')} className="px-8 py-3 bg-gray-600 text-white font-semibold rounded-lg hover:bg-gray-700">
+                    <button onClick={() => navigate('/settings')} className="px-8 py-3 bg-gray-200 text-gray-800 font-semibold rounded-lg hover:bg-gray-300">
                         الانتقال إلى الإعدادات
                     </button>
                 </div>
@@ -154,7 +154,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
     }
 
     return (
-        <div className="w-full flex flex-col flex-grow bg-gray-800 overflow-hidden relative">
+        <div className="w-full flex flex-col flex-grow bg-gray-50 overflow-hidden relative">
             <ChatHeader
                 caseData={caseData}
                 apiSource={apiSource}
@@ -167,15 +167,14 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
                 onSummarize={handleSummarize}
             />
             
-            {/* Timeline Trigger Button (Floating or Header? Let's put it on top right overlay if history exists) */}
             {chatHistory.length > 2 && (
                 <button 
                     onClick={handleGenerateTimeline}
-                    className="absolute top-[70px] left-4 z-20 p-2 bg-gray-700/80 hover:bg-blue-600/90 text-white rounded-full shadow-lg border border-gray-600 transition-all group"
+                    className="absolute top-[70px] left-4 z-20 p-2 bg-white/90 hover:bg-blue-50 text-blue-600 rounded-full shadow-md border border-gray-200 transition-all group"
                     title="عرض المخطط الزمني للقضية"
                 >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                    <span className="absolute right-full top-1/2 -translate-y-1/2 mr-2 px-2 py-1 bg-black text-xs rounded opacity-0 group-hover:opacity-100 whitespace-nowrap transition-opacity pointer-events-none">المخطط الزمني</span>
+                    <span className="absolute right-full top-1/2 -translate-y-1/2 mr-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 whitespace-nowrap transition-opacity pointer-events-none">المخطط الزمني</span>
                 </button>
             )}
 
@@ -194,7 +193,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ caseId }) => {
                 onUnpin={handleUnpinMessage}
             />
 
-            <div ref={chatContainerRef} className="flex-grow p-4 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent">
+            <div ref={chatContainerRef} className="flex-grow p-4 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
                 <MessageList
                     messages={chatHistory}
                     isLoading={isLoading}

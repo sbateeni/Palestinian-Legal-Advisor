@@ -1,8 +1,8 @@
 
 import React from 'react';
-import * as ReactRouterDOM from 'react-router-dom';
+import { HashRouter, Routes, Route, useParams, Navigate } from 'react-router-dom';
 import Header from './components/Header';
-import HomePage from './pages/HomePage'; // New Import
+import HomePage from './pages/HomePage';
 import ChatPage from './pages/ChatPage';
 import CasesListPage from './pages/CasesListPage';
 import SettingsPage from './pages/SettingsPage';
@@ -11,32 +11,38 @@ import ToolsPage from './pages/ToolsPage';
 import InheritancePage from './pages/InheritancePage';
 import ShariaPage from './pages/ShariaPage';
 import CaseTypesPage from './pages/CaseTypesPage';
-import ForgeryDetectionPage from './pages/ForgeryDetectionPage'; // New Import
+import ForgeryDetectionPage from './pages/ForgeryDetectionPage';
 
-const { HashRouter, Routes, Route, useParams, Navigate } = ReactRouterDOM;
+// Wrappers for dynamic routes to handle useParams cleanly
+const ChatPageWrapper: React.FC = () => {
+    const { caseId } = useParams();
+    return <ChatPage key={caseId} caseId={caseId} />;
+};
+
+const ShariaPageWrapper: React.FC = () => {
+    const { caseId } = useParams();
+    return <ShariaPage key={caseId} caseId={caseId} />;
+};
+
+const ForgeryPageWrapper: React.FC = () => {
+    const { caseId } = useParams();
+    return <ForgeryDetectionPage key={caseId} caseId={caseId} />;
+};
 
 const App: React.FC = () => {
   return (
     <HashRouter>
-      <div className="h-full flex flex-col bg-gray-900 text-gray-100">
+      <div className="h-full flex flex-col bg-gray-50 text-gray-900 font-sans">
         <Header />
-        <main className="flex-grow container mx-auto flex flex-col overflow-y-auto scrollbar-hide">
+        <main className="flex-grow container mx-auto flex flex-col overflow-y-auto">
           <Routes>
-            {/* Root is now the Landing/Dashboard Page */}
             <Route path="/" element={<HomePage />} />
-            
-            {/* Info Page */}
             <Route path="/types" element={<CaseTypesPage />} />
-            
-            {/* Civil Case Route */}
             <Route path="/civil" element={<ChatPage key="new-case" />} />
-            
             <Route path="/sharia" element={<ShariaPage key="new-sharia" />} />
             <Route path="/sharia/:caseId" element={<ShariaPageWrapper />} />
-            
             <Route path="/forgery" element={<ForgeryDetectionPage key="new-forgery" />} />
             <Route path="/forgery/:caseId" element={<ForgeryPageWrapper />} />
-
             <Route path="/case" element={<Navigate to="/civil" replace />} />
             <Route path="/case/:caseId" element={<ChatPageWrapper />} />
             <Route path="/cases" element={<CasesListPage />} />
@@ -50,24 +56,5 @@ const App: React.FC = () => {
     </HashRouter>
   );
 };
-
-// Wrapper to pass caseId as a key for Civil Cases
-const ChatPageWrapper: React.FC = () => {
-    const { caseId } = useParams();
-    return <ChatPage key={caseId} caseId={caseId} />;
-};
-
-// Wrapper to pass caseId as a key for Sharia Cases
-const ShariaPageWrapper: React.FC = () => {
-    const { caseId } = useParams();
-    return <ShariaPage key={caseId} caseId={caseId} />;
-};
-
-// Wrapper for Forgery Cases
-const ForgeryPageWrapper: React.FC = () => {
-    const { caseId } = useParams();
-    return <ForgeryDetectionPage key={caseId} caseId={caseId} />;
-};
-
 
 export default App;

@@ -108,24 +108,24 @@ const ChatInput: React.FC<ChatInputProps> = ({
     };
 
     return (
-        <div className="p-4 border-t border-gray-700 bg-gray-800">
+        <div className="p-4 border-t border-gray-200 bg-white shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
             {/* API Key Warning */}
             {!isApiKeyReady && (
-                <div className="mb-3 p-3 bg-yellow-600/20 border border-yellow-500/50 text-yellow-200 rounded-lg text-sm flex items-center justify-between">
+                <div className="mb-3 p-3 bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-lg text-sm flex items-center justify-between">
                     <div className="flex items-center">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 me-2" viewBox="0 0 20 20" fill="currentColor">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 me-2 text-yellow-600" viewBox="0 0 20 20" fill="currentColor">
                             <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                         </svg>
                         <span>وضع القراءة فقط: يجب إدخال مفتاح API لمتابعة المحادثة.</span>
                     </div>
-                    <Link to="/settings" className="bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-1 rounded transition-colors text-xs font-bold">
+                    <Link to="/settings" className="bg-yellow-100 hover:bg-yellow-200 text-yellow-800 px-3 py-1 rounded transition-colors text-xs font-bold">
                         الإعدادات
                     </Link>
                 </div>
             )}
 
             {authError && (
-                <div className="mb-3 p-3 bg-red-500/20 border border-red-500/50 text-red-300 rounded-lg text-sm animate-pulse" role="alert">
+                <div className="mb-3 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm animate-pulse" role="alert">
                     <div className="flex items-start">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 me-2 flex-shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
                             <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.21 3.03-1.742 3.03H4.42c-1.532 0-2.492-1.696-1.742-3.03l5.58-9.92zM10 13a1 1 0 110-2 1 1 0 010 2zm-1-4a1 1 0 011-1h.01a1 1 0 110 2H10a1 1 0 01-1-1z" clipRule="evenodd" />
@@ -133,7 +133,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
                         <div>
                             <h3 className="font-bold">خطأ في المصادقة</h3>
                             <p className="mt-1">{authError}</p>
-                            <Link to="/settings" className="text-red-200 font-semibold hover:underline mt-2 inline-block">
+                            <Link to="/settings" className="text-red-800 font-semibold hover:underline mt-2 inline-block">
                                 الانتقال إلى الإعدادات لتصحيح المفتاح
                             </Link>
                         </div>
@@ -152,7 +152,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
             {!isDisabled && (
                 <div className="mb-3 animate-fade-in">
                     <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
-                        <span className="text-sm text-gray-400 font-medium whitespace-nowrap flex items-center">
+                        <span className="text-sm text-gray-500 font-medium whitespace-nowrap flex items-center">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 me-1 text-amber-500" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" /></svg>
                             اقتراحات للوكيل:
                         </span>
@@ -160,7 +160,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
                             <button
                                 key={`${actionMode}-${index}`}
                                 onClick={() => handleSendMessage(prompt)}
-                                className="px-3 py-1.5 bg-gray-700/80 text-gray-200 rounded-full text-xs font-medium whitespace-nowrap hover:bg-blue-600/30 hover:text-blue-100 hover:border-blue-500/50 border border-gray-600/30 transition-all duration-200"
+                                className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded-full text-xs font-medium whitespace-nowrap hover:bg-blue-50 hover:text-blue-700 hover:border-blue-200 border border-gray-200 transition-all duration-200"
                             >
                                 {prompt}
                             </button>
@@ -171,13 +171,13 @@ const ChatInput: React.FC<ChatInputProps> = ({
 
             {/* Images Preview Gallery */}
             {uploadedImages.length > 0 && (
-                <div className="flex gap-2 mb-3 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-gray-600">
+                <div className="flex gap-2 mb-3 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-gray-300">
                     {uploadedImages.map((img, index) => (
                         <div key={index} className="relative inline-block group flex-shrink-0">
-                            <img src={img.dataUrl} alt={`Preview ${index}`} className="h-20 w-auto rounded-lg object-contain border border-gray-600 bg-gray-900" />
+                            <img src={img.dataUrl} alt={`Preview ${index}`} className="h-20 w-auto rounded-lg object-contain border border-gray-200 bg-gray-50" />
                             <button
                                 onClick={() => removeImage(index)}
-                                className="absolute -top-2 -right-2 bg-red-600 text-white rounded-full p-1 leading-none shadow-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                                className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 leading-none shadow-md hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
                                 aria-label="Remove image"
                             >
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
@@ -189,7 +189,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
 
             {/* Processing Status */}
             {isProcessingFile && (
-                <div className="flex items-center text-blue-300 mb-2 text-sm">
+                <div className="flex items-center text-blue-600 mb-2 text-sm">
                     <svg className="animate-spin h-4 w-4 me-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
                     <span>{processingMessage || 'جاري المعالجة...'}</span>
                 </div>
@@ -198,7 +198,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
             {/* Input Area */}
             <div className="flex items-center space-x-reverse space-x-2">
                 <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*,application/pdf" className="hidden" multiple />
-                <button onClick={() => fileInputRef.current?.click()} disabled={isDisabled} className="p-3 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 disabled:opacity-50 transition-colors flex-shrink-0" aria-label="إرفاق ملف" title="إرفاق صور أو مستندات (يدعم التحديد المتعدد)">
+                <button onClick={() => fileInputRef.current?.click()} disabled={isDisabled} className="p-3 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 disabled:opacity-50 transition-colors flex-shrink-0" aria-label="إرفاق ملف" title="إرفاق صور أو مستندات (يدعم التحديد المتعدد)">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>
                 </button>
                 
@@ -206,7 +206,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
                 <button
                     onClick={toggleListening}
                     disabled={isDisabled}
-                    className={`p-3 rounded-lg transition-colors flex-shrink-0 ${isListening ? 'bg-red-600 text-white animate-pulse' : 'bg-gray-700 text-gray-300 hover:bg-gray-600 disabled:opacity-50'}`}
+                    className={`p-3 rounded-lg transition-colors flex-shrink-0 ${isListening ? 'bg-red-100 text-red-600 animate-pulse' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 disabled:opacity-50'}`}
                     aria-label="إملاء صوتي"
                     title={isListening ? "جاري الاستماع... (انقر للإيقاف)" : "تحدث للكتابة"}
                 >
@@ -230,9 +230,9 @@ const ChatInput: React.FC<ChatInputProps> = ({
                         e.target.style.height = `${e.target.scrollHeight}px`;
                     }}
                     onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }}
-                    className={`flex-grow p-3 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 focus:ring-2 focus:outline-none resize-none transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed ${actionMode === 'loopholes' ? 'focus:ring-rose-500 placeholder-rose-300/30' :
-                        actionMode === 'drafting' ? 'focus:ring-emerald-500 placeholder-emerald-300/30' :
-                            actionMode === 'strategy' ? 'focus:ring-amber-500 placeholder-amber-300/30' :
+                    className={`flex-grow p-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:outline-none resize-none transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed ${actionMode === 'loopholes' ? 'focus:ring-rose-500 placeholder-rose-700/30' :
+                        actionMode === 'drafting' ? 'focus:ring-emerald-500 placeholder-emerald-700/30' :
+                            actionMode === 'strategy' ? 'focus:ring-amber-500 placeholder-amber-700/30' :
                                 'focus:ring-blue-500'
                         }`}
                     placeholder={
@@ -256,7 +256,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
                     <button
                         onClick={() => handleSendMessage()}
                         disabled={isProcessingFile || (!userInput.trim() && uploadedImages.length === 0) || !isApiKeyReady}
-                        className={`p-3 text-white font-semibold rounded-lg disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors flex-shrink-0 ${actionMode === 'loopholes' ? 'bg-rose-600 hover:bg-rose-700' :
+                        className={`p-3 text-white font-semibold rounded-lg disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex-shrink-0 ${actionMode === 'loopholes' ? 'bg-rose-600 hover:bg-rose-700' :
                             actionMode === 'drafting' ? 'bg-emerald-600 hover:bg-emerald-700' :
                                 actionMode === 'strategy' ? 'bg-amber-600 hover:bg-amber-700' :
                                     'bg-blue-600 hover:bg-blue-700'

@@ -42,14 +42,14 @@ const CaseGridItem: React.FC<CaseGridItemProps> = ({
     const isYellow = statusStyle.color.includes('yellow');
     
     return (
-        <div className={`rounded-lg shadow-lg p-5 flex flex-col justify-between transition-all duration-300 hover:scale-[1.02] ${isIslamic ? 'bg-gray-800 border-b-4 border-emerald-600 hover:shadow-emerald-500/20' : 'bg-gray-800 border-b-4 border-blue-600 hover:shadow-blue-500/20'}`}>
+        <div className={`rounded-lg shadow-sm hover:shadow-md p-5 flex flex-col justify-between transition-all duration-300 hover:scale-[1.01] border border-gray-200 ${isIslamic ? 'bg-white border-b-4 border-b-emerald-500' : 'bg-white border-b-4 border-b-blue-600'}`}>
             <div>
                 <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center gap-2 w-full">
                         {isIslamic ? (
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-emerald-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
                         ) : (
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-blue-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3" /></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-blue-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3" /></svg>
                         )}
                         
                         {editingCaseId === caseItem.id ? (
@@ -60,17 +60,17 @@ const CaseGridItem: React.FC<CaseGridItemProps> = ({
                                 onChange={(e) => setNewTitle(e.target.value)}
                                 onBlur={() => handleSaveTitle(caseItem.id)}
                                 onKeyDown={(e) => handleTitleKeyDown(e, caseItem.id)}
-                                className="w-full bg-gray-600 text-gray-100 p-1 rounded text-xl font-semibold"
+                                className="w-full bg-gray-100 text-gray-900 p-1 rounded text-xl font-semibold border border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
                             />
                         ) : (
-                            <h2 className="text-xl font-semibold text-gray-100 break-words w-full me-2 cursor-pointer hover:text-blue-400" onClick={() => onNavigate(caseItem.id)}>
+                            <h2 className="text-xl font-semibold text-gray-800 break-words w-full me-2 cursor-pointer hover:text-blue-600" onClick={() => onNavigate(caseItem.id)}>
                                 {caseItem.title}
                             </h2>
                         )}
                     </div>
-                    <button onClick={() => editingCaseId === caseItem.id ? handleSaveTitle(caseItem.id) : handleEditClick(caseItem)} className="p-1 text-gray-400 hover:text-white flex-shrink-0">
+                    <button onClick={() => editingCaseId === caseItem.id ? handleSaveTitle(caseItem.id) : handleEditClick(caseItem)} className="p-1 text-gray-400 hover:text-gray-700 flex-shrink-0">
                         {editingCaseId === caseItem.id ? (
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-600" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
                         ) : (
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.5L15.232 5.232z" /></svg>
                         )}
@@ -85,12 +85,12 @@ const CaseGridItem: React.FC<CaseGridItemProps> = ({
                         <svg className="h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                     </button>
                     {openStatusMenu === caseItem.id && (
-                        <div ref={statusMenuRef} className="absolute top-full start-0 mt-2 w-36 bg-gray-700 border border-gray-600 rounded-md shadow-lg z-20">
+                        <div ref={statusMenuRef} className="absolute top-full start-0 mt-2 w-36 bg-white border border-gray-200 rounded-md shadow-xl z-20">
                             {STATUS_OPTIONS.map(option => (
                                 <button 
                                     key={option.value} 
                                     onClick={(e) => { e.stopPropagation(); handleStatusChange(caseItem.id, option.value); setOpenStatusMenu(null); }} 
-                                    className="block w-full text-right px-3 py-1.5 text-sm text-gray-200 hover:bg-gray-600"
+                                    className="block w-full text-right px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100"
                                 >
                                     {option.label}
                                 </button>
@@ -99,10 +99,10 @@ const CaseGridItem: React.FC<CaseGridItemProps> = ({
                     )}
                 </div>
 
-                <div className="bg-gray-900 border border-gray-700 rounded-md p-3 my-4 ms-2">
-                    <p className="text-gray-300 text-sm break-words line-clamp-3 leading-relaxed">{caseItem.summary}</p>
+                <div className="bg-gray-50 border border-gray-100 rounded-md p-3 my-4 ms-2">
+                    <p className="text-gray-600 text-sm break-words line-clamp-3 leading-relaxed">{caseItem.summary}</p>
                 </div>
-                <p className="text-xs text-gray-500 mb-4 ms-2">
+                <p className="text-xs text-gray-400 mb-4 ms-2">
                     تاريخ الإنشاء: {new Date(caseItem.createdAt).toLocaleString('ar-EG')}
                 </p>
             </div>
@@ -118,7 +118,7 @@ const CaseGridItem: React.FC<CaseGridItemProps> = ({
                     </button>
                 )}
                 
-                <button onClick={(e) => { e.stopPropagation(); deleteCase(caseItem.id); }} className="p-2 text-gray-400 hover:text-red-500 hover:bg-gray-700 rounded-full transition-colors" aria-label="حذف القضية">
+                <button onClick={(e) => { e.stopPropagation(); deleteCase(caseItem.id); }} className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors" aria-label="حذف القضية">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                 </button>
             </div>

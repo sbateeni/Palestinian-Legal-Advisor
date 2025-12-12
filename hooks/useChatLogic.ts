@@ -12,7 +12,8 @@ import * as pdfjsLib from 'pdfjs-dist';
 
 const { useNavigate } = ReactRouterDOM;
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://aistudiocdn.com/pdfjs-dist@5.4.394/build/pdf.worker.js';
+// Use the correct worker version matching importmap
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://esm.sh/pdfjs-dist@4.0.379/build/pdf.worker.min.mjs';
 
 export const useChatLogic = (caseId?: string, initialCaseType: CaseType = 'chat') => {
     const navigate = useNavigate();

@@ -12,8 +12,8 @@ import Tesseract from 'tesseract.js';
 
 const { useNavigate } = ReactRouterDOM;
 
-// Configure the worker for pdf.js
-pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://aistudiocdn.com/pdfjs-dist@5.4.394/build/pdf.worker.js';
+// Use the correct worker version matching importmap
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://esm.sh/pdfjs-dist@4.0.379/build/pdf.worker.min.mjs';
 
 export const useOcrLogic = () => {
     const navigate = useNavigate();

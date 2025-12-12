@@ -32,8 +32,15 @@ async function retryOperation<T>(operation: () => Promise<T>, maxRetries: number
 async function getGoogleGenAI(): Promise<GoogleGenAI> {
     let apiKey = '';
 
-    if (process.env.API_KEY) {
-        apiKey = process.env.API_KEY;
+    // SAFELY check for process.env to avoid "process is not defined" error in browser
+    try {
+        // @ts-ignore
+        if (typeof process !== 'undefined' && process.env && process.env.API_KEY) {
+            // @ts-ignore
+            apiKey = process.env.API_KEY;
+        }
+    } catch (e) {
+        // Ignore environment access errors
     }
 
     if (!apiKey) {

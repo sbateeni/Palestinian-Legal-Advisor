@@ -10,38 +10,36 @@ const Header: React.FC = () => {
   const isHome = location.pathname === '/';
 
   return (
-    <header className="bg-gray-800/95 backdrop-blur-md shadow-lg sticky top-0 z-50 border-b border-gray-700 safe-area-padding">
+    <header className="bg-white/90 backdrop-blur-md shadow-sm sticky top-0 z-50 border-b border-gray-200 safe-area-padding">
       <nav className="container mx-auto px-4">
         <div className="flex justify-between items-center h-16">
           
           {/* Right Side: Logo / Home */}
           <div className="flex items-center">
             <NavLink to="/" className="flex items-center space-x-3 space-x-reverse group">
-              <div className="bg-gray-700/50 p-2 rounded-xl group-hover:bg-gray-600 transition-colors">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-6 w-6 text-amber-500">
+              <div className="bg-blue-50 p-2 rounded-xl group-hover:bg-blue-100 transition-colors border border-blue-100">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-6 w-6 text-blue-600">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 21v-8.25M15.75 21v-8.25M8.25 21v-8.25M3 9l9-6 9 6m-1.5 12V10.332A48.36 48.36 0 0 0 12 9.75c-2.551 0-5.056.2-7.5.582V21M3 21h18M12 6.75h.008v.008H12V6.75Z" />
                 </svg>
               </div>
               {!isHome && (
-                 <span className="font-bold text-gray-100 text-lg hidden sm:block">المستشار القانوني</span>
+                 <span className="font-bold text-gray-800 text-lg hidden sm:block">المستشار القانوني</span>
               )}
               {isHome && (
-                 <span className="font-bold text-gray-100 text-lg">القائمة الرئيسية</span>
+                 <span className="font-bold text-gray-800 text-lg">القائمة الرئيسية</span>
               )}
             </NavLink>
           </div>
 
-          {/* Center Title (Optional - visible mostly on mobile on specific pages if needed) */}
-          
           {/* Left Side: Settings & Tools & TokenTracker */}
           <div className="flex items-center gap-3">
             {/* Token Tracker */}
             <TokenTracker />
 
-            {/* Forgery Detection Link (New) */}
+            {/* Forgery Detection Link */}
             <NavLink 
               to="/forgery" 
-              className={({ isActive }) => `hidden md:block p-2 rounded-xl transition-all duration-200 ${isActive ? 'bg-red-600/20 text-red-400' : 'text-gray-400 hover:bg-gray-700 hover:text-gray-100'}`}
+              className={({ isActive }) => `hidden md:block p-2 rounded-xl transition-all duration-200 ${isActive ? 'bg-red-50 text-red-600' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'}`}
               title="المختبر الجنائي الرقمي"
             >
                <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -52,7 +50,7 @@ const Header: React.FC = () => {
             {/* Case Types Guide Link */}
             <NavLink 
               to="/types" 
-              className={({ isActive }) => `p-2 rounded-xl transition-all duration-200 ${isActive ? 'bg-amber-600/20 text-amber-400' : 'text-gray-400 hover:bg-gray-700 hover:text-gray-100'}`}
+              className={({ isActive }) => `p-2 rounded-xl transition-all duration-200 ${isActive ? 'bg-amber-50 text-amber-600' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'}`}
               title="دليل أنواع القضايا"
             >
                <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -63,7 +61,7 @@ const Header: React.FC = () => {
             {/* Settings Link */}
             <NavLink 
               to="/settings" 
-              className={({ isActive }) => `p-2 rounded-xl transition-all duration-200 ${isActive ? 'bg-blue-600/20 text-blue-400' : 'text-gray-400 hover:bg-gray-700 hover:text-gray-100'}`}
+              className={({ isActive }) => `p-2 rounded-xl transition-all duration-200 ${isActive ? 'bg-blue-50 text-blue-600' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'}`}
               title="الإعدادات"
             >
                <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
