@@ -94,26 +94,26 @@ const HomePage: React.FC = () => {
             )
         },
         {
-            title: "حاسبة المواريث الذكية",
-            description: "محرك حساب دقيق للأنصبة الشرعية والقانونية وتوزيع التركات بالأسهم.",
-            path: "/inheritance",
+            title: "البحث القانوني والتشريعات",
+            description: "محرك بحث متخصص في القوانين السارية (المقتفي، الجريدة الرسمية).",
+            path: "/research",
             delay: "animation-delay-300",
-            iconColor: "text-amber-500",
+            iconColor: "text-purple-600",
             icon: (
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
                 </svg>
             )
         },
         {
-            title: "سجل القضايا المحفوظة",
-            description: "الأرشيف الكامل لجميع القضايا والاستشارات السابقة (يعمل دون إنترنت).",
-            path: "/cases",
+            title: "حاسبة المواريث الذكية",
+            description: "محرك حساب دقيق للأنصبة الشرعية والقانونية وتوزيع التركات بالأسهم.",
+            path: "/inheritance",
             delay: "animation-delay-400",
-            iconColor: "text-indigo-600",
+            iconColor: "text-amber-500",
             icon: (
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.2} d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2v5a2 2 0 01-2 2z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                 </svg>
             )
         },
@@ -130,10 +130,22 @@ const HomePage: React.FC = () => {
             )
         },
         {
+            title: "سجل القضايا المحفوظة",
+            description: "الأرشيف الكامل لجميع القضايا والاستشارات السابقة (يعمل دون إنترنت).",
+            path: "/cases",
+            delay: "animation-delay-600",
+            iconColor: "text-indigo-600",
+            icon: (
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.2} d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2v5a2 2 0 01-2 2z" />
+                </svg>
+            )
+        },
+        {
             title: "الأدوات القانونية",
             description: "حاسبة الرسوم القضائية، وحساب المهل القانونية (استئناف/نقض).",
             path: "/tools",
-            delay: "animation-delay-600",
+            delay: "animation-delay-700",
             iconColor: "text-cyan-600",
             icon: (
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -247,6 +259,7 @@ const HomePage: React.FC = () => {
                 .animation-delay-400 { animation-delay: 0.25s; }
                 .animation-delay-500 { animation-delay: 0.3s; }
                 .animation-delay-600 { animation-delay: 0.35s; }
+                .animation-delay-700 { animation-delay: 0.4s; }
             `}</style>
         </div>
     );

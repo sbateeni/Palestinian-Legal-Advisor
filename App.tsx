@@ -12,6 +12,7 @@ import InheritancePage from './pages/InheritancePage';
 import ShariaPage from './pages/ShariaPage';
 import CaseTypesPage from './pages/CaseTypesPage';
 import ForgeryDetectionPage from './pages/ForgeryDetectionPage';
+import ResearchPage from './pages/ResearchPage';
 
 // Wrappers for dynamic routes to handle useParams cleanly
 const ChatPageWrapper: React.FC = () => {
@@ -43,6 +44,7 @@ const App: React.FC = () => {
             <Route path="/sharia/:caseId" element={<ShariaPageWrapper />} />
             <Route path="/forgery" element={<ForgeryDetectionPage key="new-forgery" />} />
             <Route path="/forgery/:caseId" element={<ForgeryPageWrapper />} />
+            <Route path="/research" element={<ResearchPage />} />
             <Route path="/case" element={<Navigate to="/civil" replace />} />
             <Route path="/case/:caseId" element={<ChatPageWrapper />} />
             <Route path="/cases" element={<CasesListPage />} />
