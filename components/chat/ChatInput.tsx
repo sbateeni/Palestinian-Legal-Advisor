@@ -47,32 +47,62 @@ const ChatInput: React.FC<ChatInputProps> = ({
     isApiKeyReady
 }) => {
     const [isListening, setIsListening] = useState(false);
-    const [recognition, setRecognition] = useState<any>(null);
-    const baseInputRef = useRef(''); // Stores text before recording starts
+    const recognitionRef = useRef<any>(null);
+    const baseTextRef = useRef(''); // Stores the text present BEFORE starting the current voice session
 
     // Derived state
     const isDisabled = isLoading || isProcessingFile || !isApiKeyReady;
     
-    // Get dynamic prompts based on current agent mode, fallback to analysis
     const activePrompts = AGENT_PROMPTS[actionMode] || AGENT_PROMPTS['analysis'];
 
+    // Initialize Web Speech API (Native Browser Tool)
     useEffect(() => {
         if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
             const recog = new SpeechRecognition();
-            recog.continuous = true;
-            recog.interimResults = true;
-            recog.lang = 'ar-PS';
+            recog.continuous = true; // Keep listening even if user pauses
+            recog.interimResults = true; // Show words as they are being spoken (Real-time)
+            recog.lang = 'ar-PS'; // Palestinian Arabic
+
+            recog.onstart = () => {
+                setIsListening(true);
+                // Lock the current text as the "base" to append to
+                baseTextRef.current = userInput; 
+            };
 
             recog.onresult = (event: any) => {
-                // Cleanest way to get full session transcript without duplication
-                const sessionTranscript = Array.from(event.results)
-                    .map((result: any) => result[0].transcript)
-                    .join('');
+                let interimTranscript = '';
+                let finalTranscript = '';
+
+                // Loop through the results from the current session
+                for (let i = event.resultIndex; i < event.results.length; ++i) {
+                    if (event.results[i].isFinal) {
+                        finalTranscript += event.results[i][0].transcript;
+                    } else {
+                        interimTranscript += event.results[i][0].transcript;
+                    }
+                }
+
+                // Logic: Old Text + Finalized New Text + Interim (Gray) Text
+                // We update the state immediately to show typing effect
+                // Using functional update to ensure we don't lose characters if user types simultaneously
+                setUserInput((prev) => {
+                    // To avoid complex merging issues, during dictation we rely on baseTextRef
+                    // This creates a stable anchor.
+                    const prefix = baseTextRef.current;
+                    const separator = (prefix && !prefix.endsWith(' ') && !prefix.endsWith('\n')) ? ' ' : '';
+                    
+                    // Note: In a real "keyboard" scenario, we might want to insert at cursor.
+                    // For simplicity and stability, we append.
+                    return prefix + separator + finalTranscript + interimTranscript;
+                });
                 
-                // Combine the text that existed before recording with the new speech
-                const separator = baseInputRef.current && !baseInputRef.current.match(/\s$/) ? ' ' : '';
-                setUserInput(baseInputRef.current + separator + sessionTranscript);
+                // If we have final transcript, update baseTextRef for next chunks so we don't duplicate
+                if (finalTranscript) {
+                     const prefix = baseTextRef.current;
+                     const separator = (prefix && !prefix.endsWith(' ') && !prefix.endsWith('\n')) ? ' ' : '';
+                     baseTextRef.current = prefix + separator + finalTranscript;
+                }
             };
 
             recog.onend = () => {
@@ -84,24 +114,29 @@ const ChatInput: React.FC<ChatInputProps> = ({
                 setIsListening(false);
             };
 
-            setRecognition(recog);
+            recognitionRef.current = recog;
         }
-    }, [setUserInput]);
+    }, []); // Empty dependency array: Initialize once.
+
+    // Update baseTextRef if user types manually while NOT listening
+    useEffect(() => {
+        if (!isListening) {
+            baseTextRef.current = userInput;
+        }
+    }, [userInput, isListening]);
 
     const toggleListening = () => {
-        if (!recognition) {
-            alert("متصفحك لا يدعم خاصية الإملاء الصوتي.");
+        if (!recognitionRef.current) {
+            alert("متصفحك لا يدعم خاصية الإملاء الصوتي (Web Speech API). يرجى استخدام Google Chrome.");
             return;
         }
 
         if (isListening) {
-            recognition.stop();
-            setIsListening(false);
+            recognitionRef.current.stop();
         } else {
-            // Snapshot current input before starting
-            baseInputRef.current = userInput; 
-            recognition.start();
-            setIsListening(true);
+            // Update base text right before starting to capture latest manual edits
+            baseTextRef.current = userInput;
+            recognitionRef.current.start();
         }
     };
 
@@ -150,7 +185,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
                 disabled={isDisabled}
             />
 
-            {/* Dynamic Suggested Prompts based on Active Agent */}
+            {/* Dynamic Suggested Prompts */}
             {!isDisabled && (
                 <div className="mb-3 animate-fade-in">
                     <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
@@ -198,23 +233,27 @@ const ChatInput: React.FC<ChatInputProps> = ({
             )}
 
             {/* Input Area */}
-            <div className="flex items-center space-x-reverse space-x-2">
+            <div className="flex items-center space-x-reverse space-x-2 relative">
                 <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*,application/pdf" className="hidden" multiple />
                 <button onClick={() => fileInputRef.current?.click()} disabled={isDisabled} className="p-3 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 disabled:opacity-50 transition-colors flex-shrink-0" aria-label="إرفاق ملف" title="إرفاق صور أو مستندات (يدعم التحديد المتعدد)">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>
                 </button>
                 
-                {/* Voice Dictation Button */}
+                {/* Voice Dictation Button - Native Style */}
                 <button
                     onClick={toggleListening}
                     disabled={isDisabled}
-                    className={`p-3 rounded-lg transition-colors flex-shrink-0 ${isListening ? 'bg-red-100 text-red-600 animate-pulse' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 disabled:opacity-50'}`}
+                    className={`p-3 rounded-lg transition-all duration-200 flex-shrink-0 ${
+                        isListening 
+                        ? 'bg-red-500 text-white shadow-lg scale-110 animate-pulse ring-2 ring-red-300' 
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200 disabled:opacity-50'
+                    }`}
                     aria-label="إملاء صوتي"
-                    title={isListening ? "جاري الاستماع... (انقر للإيقاف)" : "تحدث للكتابة"}
+                    title={isListening ? "جاري الاستماع... (انقر للإيقاف)" : "تحدث للكتابة (إدخال صوتي مباشر)"}
                 >
                     {isListening ? (
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
-                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 002 0V8a1 1 0 00-1-1zm4 0a1 1 0 00-1 1v4a1 1 0 002 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                            <path fillRule="evenodd" d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm4 10.93A7.001 7.001 0 0017 8a1 1 0 10-2 0A5 5 0 015 8a1 1 0 00-2 0 7.001 7.001 0 006 6.93V17H6a1 1 0 100 2h8a1 1 0 100-2h-3v-2.07z" clipRule="evenodd" />
                         </svg>
                     ) : (
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -232,22 +271,25 @@ const ChatInput: React.FC<ChatInputProps> = ({
                         e.target.style.height = `${e.target.scrollHeight}px`;
                     }}
                     onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }}
-                    className={`flex-grow p-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-outline-none resize-none transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed ${actionMode === 'loopholes' ? 'focus:ring-rose-500 placeholder-rose-700/30' :
+                    className={`flex-grow p-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-outline-none resize-none transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed ${
+                        actionMode === 'loopholes' ? 'focus:ring-rose-500 placeholder-rose-700/30' :
                         actionMode === 'drafting' ? 'focus:ring-emerald-500 placeholder-emerald-700/30' :
-                            actionMode === 'strategy' ? 'focus:ring-amber-500 placeholder-amber-700/30' :
-                                'focus:ring-blue-500'
-                        }`}
+                        actionMode === 'strategy' ? 'focus:ring-amber-500 placeholder-amber-700/30' :
+                        'focus:ring-blue-500'
+                    } ${isListening ? 'border-red-400 bg-red-50' : ''}`}
                     placeholder={
+                        isListening ? "جاري الاستماع... تحدث الآن..." :
                         !isApiKeyReady ? "يرجى إدخال مفتاح API للمتابعة..." :
                         actionMode === 'loopholes' ? "أدخل تفاصيل القضية لكشف الثغرات ومهاجمة الأدلة..." :
-                            actionMode === 'drafting' ? "أدخل الوقائع لصياغة وثيقة قانونية رسمية..." :
-                                actionMode === 'strategy' ? "اشرح الوضع للحصول على خطة فوز استراتيجية..." :
-                                    "اكتب رسالتك، أو استخدم الميكروفون للتحدث..."
+                        actionMode === 'drafting' ? "أدخل الوقائع لصياغة وثيقة قانونية رسمية..." :
+                        actionMode === 'strategy' ? "اشرح الوضع للحصول على خطة فوز استراتيجية..." :
+                        "اكتب رسالتك، أو استخدم الميكروفون للتحدث..."
                     }
                     rows={1}
                     style={{ maxHeight: '10rem' }}
                     disabled={isDisabled}
                 />
+                
                 {isLoading ? (
                     <button onClick={handleStopGenerating} className="p-3 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition-colors flex-shrink-0" aria-label="إيقاف الإنشاء">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
@@ -258,11 +300,12 @@ const ChatInput: React.FC<ChatInputProps> = ({
                     <button
                         onClick={() => handleSendMessage()}
                         disabled={isProcessingFile || (!userInput.trim() && uploadedImages.length === 0) || !isApiKeyReady}
-                        className={`p-3 text-white font-semibold rounded-lg disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex-shrink-0 ${actionMode === 'loopholes' ? 'bg-rose-600 hover:bg-rose-700' :
+                        className={`p-3 text-white font-semibold rounded-lg disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex-shrink-0 ${
+                            actionMode === 'loopholes' ? 'bg-rose-600 hover:bg-rose-700' :
                             actionMode === 'drafting' ? 'bg-emerald-600 hover:bg-emerald-700' :
-                                actionMode === 'strategy' ? 'bg-amber-600 hover:bg-amber-700' :
-                                    'bg-blue-600 hover:bg-blue-700'
-                            }`}
+                            actionMode === 'strategy' ? 'bg-amber-600 hover:bg-amber-700' :
+                            'bg-blue-600 hover:bg-blue-700'
+                        }`}
                         aria-label="إرسال"
                     >
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>

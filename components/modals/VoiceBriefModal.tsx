@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 interface VoiceBriefModalProps {
     isOpen: boolean;
@@ -10,7 +10,8 @@ interface VoiceBriefModalProps {
 const VoiceBriefModal: React.FC<VoiceBriefModalProps> = ({ isOpen, onClose, onComplete }) => {
     const [isListening, setIsListening] = useState(false);
     const [transcript, setTranscript] = useState('');
-    const [recognition, setRecognition] = useState<any>(null);
+    const recognitionRef = useRef<any>(null);
+    const fullTranscriptRef = useRef(''); // Stores finalized text
 
     useEffect(() => {
         if (isOpen && ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
@@ -18,39 +19,56 @@ const VoiceBriefModal: React.FC<VoiceBriefModalProps> = ({ isOpen, onClose, onCo
             const recog = new SpeechRecognition();
             recog.continuous = true;
             recog.interimResults = true;
-            recog.lang = 'ar-PS'; // Palestinian/Arabic dialect support
+            recog.lang = 'ar-PS'; // Palestinian dialect
 
+            recog.onstart = () => setIsListening(true);
+            
             recog.onresult = (event: any) => {
-                // Optimized approach to prevent duplication:
-                // Map over the results and join them directly.
-                const currentTranscript = Array.from(event.results)
-                    .map((result: any) => result[0].transcript)
-                    .join('');
-                
-                setTranscript(currentTranscript);
+                let interim = '';
+                let final = '';
+
+                // Iterate through *current session* results starting from resultIndex
+                for (let i = event.resultIndex; i < event.results.length; ++i) {
+                    if (event.results[i].isFinal) {
+                        final += event.results[i][0].transcript;
+                    } else {
+                        interim += event.results[i][0].transcript;
+                    }
+                }
+
+                if (final) {
+                    // Append finalized text to our persistent ref
+                    fullTranscriptRef.current += (fullTranscriptRef.current ? ' ' : '') + final;
+                }
+
+                // Update UI: Persistent Text + Current Interim Text
+                setTranscript(fullTranscriptRef.current + (interim ? ' ' + interim : ''));
             };
 
             recog.onend = () => setIsListening(false);
-            setRecognition(recog);
+            
+            recognitionRef.current = recog;
+            // Clear transcript when opening fresh
+            fullTranscriptRef.current = '';
+            setTranscript('');
         }
     }, [isOpen]);
 
     const toggleRecording = () => {
-        if (!recognition) return;
+        if (!recognitionRef.current) return;
         if (isListening) {
-            recognition.stop();
-            setIsListening(false);
+            recognitionRef.current.stop();
         } else {
-            setTranscript(''); 
-            recognition.start();
-            setIsListening(true);
+            recognitionRef.current.start();
         }
     };
 
     const handleFinish = () => {
-        if (recognition) recognition.stop();
-        onComplete(transcript);
+        if (recognitionRef.current) recognitionRef.current.stop();
+        // Send the finalized text (or whatever is in state if interim became final logic wasn't perfect)
+        onComplete(transcript || fullTranscriptRef.current);
         setTranscript('');
+        fullTranscriptRef.current = '';
         onClose();
     };
 
@@ -65,9 +83,9 @@ const VoiceBriefModal: React.FC<VoiceBriefModalProps> = ({ isOpen, onClose, onCo
                 </button>
 
                 <h2 className="text-2xl font-bold text-gray-100 mb-2">اسرد قصتك (Voice-to-Brief)</h2>
-                <p className="text-gray-400 mb-8 text-sm">تحدث براحتك عن تفاصيل المشكلة، وسأقوم بصياغتها قانونياً كلائحة دعوى.</p>
+                <p className="text-gray-400 mb-8 text-sm">تحدث براحتك، وسيقوم المتصفح بكتابة النص مباشرة (بدون ذكاء اصطناعي).</p>
 
-                {/* Mic Visualizer (Simple CSS Animation) */}
+                {/* Mic Visualizer */}
                 <div className="relative mx-auto w-32 h-32 mb-8 flex items-center justify-center">
                     {isListening && (
                         <>
@@ -83,9 +101,15 @@ const VoiceBriefModal: React.FC<VoiceBriefModalProps> = ({ isOpen, onClose, onCo
                     </button>
                 </div>
 
-                <div className="bg-gray-900/50 rounded-lg p-3 min-h-[80px] mb-6 text-right text-gray-300 text-sm max-h-40 overflow-y-auto border border-gray-700">
-                    {transcript || "النص المسجل سيظهر هنا..."}
-                </div>
+                <textarea 
+                    value={transcript}
+                    onChange={(e) => {
+                        setTranscript(e.target.value);
+                        fullTranscriptRef.current = e.target.value;
+                    }}
+                    className="w-full bg-gray-900/50 rounded-lg p-3 min-h-[120px] mb-6 text-right text-gray-200 text-lg border border-gray-600 focus:border-blue-500 outline-none resize-none"
+                    placeholder="النص المسجل سيظهر هنا..."
+                />
 
                 <button 
                     onClick={handleFinish}
