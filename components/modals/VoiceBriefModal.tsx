@@ -21,15 +21,13 @@ const VoiceBriefModal: React.FC<VoiceBriefModalProps> = ({ isOpen, onClose, onCo
             recog.lang = 'ar-PS'; // Palestinian/Arabic dialect support
 
             recog.onresult = (event: any) => {
-                let final = '';
-                for (let i = event.resultIndex; i < event.results.length; ++i) {
-                    if (event.results[i].isFinal) {
-                        final += event.results[i][0].transcript;
-                    }
-                }
-                if (final) {
-                    setTranscript(prev => prev + ' ' + final);
-                }
+                // Optimized approach to prevent duplication:
+                // Map over the results and join them directly.
+                const currentTranscript = Array.from(event.results)
+                    .map((result: any) => result[0].transcript)
+                    .join('');
+                
+                setTranscript(currentTranscript);
             };
 
             recog.onend = () => setIsListening(false);
@@ -43,6 +41,7 @@ const VoiceBriefModal: React.FC<VoiceBriefModalProps> = ({ isOpen, onClose, onCo
             recognition.stop();
             setIsListening(false);
         } else {
+            setTranscript(''); 
             recognition.start();
             setIsListening(true);
         }

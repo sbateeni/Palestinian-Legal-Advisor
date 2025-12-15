@@ -1,4 +1,5 @@
-import React, { useMemo } from 'react';
+
+import React, { useMemo, useState } from 'react';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 
@@ -16,12 +17,57 @@ marked.setOptions({ renderer });
 interface ChatMessageItemProps {
     content: string;
     isModel: boolean;
+    messageId?: string;
+    onEdit?: (id: string, newContent: string) => void;
 }
 
-const ChatMessageItem: React.FC<ChatMessageItemProps> = ({ content, isModel }) => {
+const ChatMessageItem: React.FC<ChatMessageItemProps> = ({ content, isModel, messageId, onEdit }) => {
+    const [isEditing, setIsEditing] = useState(false);
+    const [editText, setEditText] = useState(content);
+
+    const handleSaveEdit = () => {
+        if (onEdit && messageId) {
+            onEdit(messageId, editText);
+            setIsEditing(false);
+        }
+    };
+
+    const handleCancelEdit = () => {
+        setEditText(content);
+        setIsEditing(false);
+    };
+
     // User messages are rendered simply
     if (!isModel) {
-        return <div className="prose prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(marked.parse(content, { breaks: true }) as string) }}></div>;
+        if (isEditing) {
+            return (
+                <div className="flex flex-col gap-2 w-full">
+                    <textarea 
+                        value={editText} 
+                        onChange={(e) => setEditText(e.target.value)}
+                        className="w-full p-2 bg-white/10 border border-white/20 rounded text-white focus:outline-none focus:ring-2 focus:ring-white/50 text-sm min-h-[100px]"
+                    />
+                    <div className="flex gap-2 justify-end">
+                        <button onClick={handleCancelEdit} className="px-3 py-1 text-xs bg-white/10 hover:bg-white/20 rounded text-white transition-colors">إلغاء</button>
+                        <button onClick={handleSaveEdit} className="px-3 py-1 text-xs bg-green-600 hover:bg-green-500 rounded text-white transition-colors">حفظ</button>
+                    </div>
+                </div>
+            );
+        }
+        return (
+            <div className="relative group/edit">
+                <div className="prose prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(marked.parse(content, { breaks: true }) as string) }}></div>
+                {onEdit && (
+                    <button 
+                        onClick={() => { setEditText(content); setIsEditing(true); }}
+                        className="absolute -top-3 -right-3 p-1 bg-white/20 hover:bg-white/30 rounded-full opacity-0 group-hover/edit:opacity-100 transition-opacity"
+                        title="تعديل الرسالة"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-white" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" /></svg>
+                    </button>
+                )}
+            </div>
+        );
     }
 
     // Model messages need complex parsing for thought blocks and tool codes
@@ -31,7 +77,6 @@ const ChatMessageItem: React.FC<ChatMessageItemProps> = ({ content, isModel }) =
         let th: string | null = null;
 
         // 1. Extract tool_code if present at the start
-        // Pattern: starts with tool_code, captures until 'thought' or Arabic chars or end of string
         const toolCodeRegex = /^tool_code\s*\n([\s\S]*?)(?=\n(thought|[\u0600-\u06FF]|$))/;
         const tcMatch = c.match(toolCodeRegex);
         if (tcMatch) {
@@ -40,16 +85,12 @@ const ChatMessageItem: React.FC<ChatMessageItemProps> = ({ content, isModel }) =
         }
 
         // 2. Extract thought if present (after tool_code removal)
-        // Pattern: starts with thought, captures until it hits an Arabic character on a new line (heuristically the start of the answer)
-        // or a double newline followed by non-whitespace.
         const thoughtRegex = /^thought\s*\n([\s\S]*?)(?=\n[\u0600-\u06FF]|$)/;
         const thMatch = c.match(thoughtRegex);
         if (thMatch) {
             th = thMatch[1].trim();
             c = c.replace(thMatch[0], '').trim();
         } else if (c.startsWith('thought')) {
-             // Fallback for streaming where the end might not be clear yet
-             // If we are strictly in 'thought' block (entire content is thought)
              th = c.replace(/^thought\s*\n/, '').trim();
              c = ''; // Hide content until real answer appears or stream finishes
         }
@@ -57,8 +98,34 @@ const ChatMessageItem: React.FC<ChatMessageItemProps> = ({ content, isModel }) =
         return { toolCode: tc, thought: th, finalContent: c };
     }, [content]);
 
+    if (isEditing) {
+        return (
+            <div className="flex flex-col gap-2 w-full">
+                <textarea 
+                    value={editText} 
+                    onChange={(e) => setEditText(e.target.value)}
+                    className="w-full p-2 bg-white border border-gray-300 rounded text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm min-h-[150px]"
+                />
+                <div className="flex gap-2 justify-end">
+                    <button onClick={handleCancelEdit} className="px-3 py-1 text-xs bg-gray-200 hover:bg-gray-300 rounded text-gray-800 transition-colors">إلغاء</button>
+                    <button onClick={handleSaveEdit} className="px-3 py-1 text-xs bg-blue-600 hover:bg-blue-500 rounded text-white transition-colors">حفظ التعديلات</button>
+                </div>
+            </div>
+        );
+    }
+
     return (
-        <div className="flex flex-col gap-y-2 w-full">
+        <div className="flex flex-col gap-y-2 w-full relative group/edit">
+            {onEdit && (
+                <button 
+                    onClick={() => { setEditText(content); setIsEditing(true); }}
+                    className="absolute -top-3 -right-3 p-1.5 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-full opacity-0 group-hover/edit:opacity-100 transition-opacity z-10 shadow-sm"
+                    title="تعديل الرد"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-gray-600" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" /></svg>
+                </button>
+            )}
+
             {/* Hidden Debug Info - Tool Code */}
             {toolCode && (
                 <details className="group bg-black/40 rounded-md border border-gray-800 overflow-hidden">

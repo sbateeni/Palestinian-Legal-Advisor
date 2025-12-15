@@ -10,6 +10,7 @@ interface MessageListProps {
     onPinMessage: (msg: ChatMessage) => void;
     onConvertCaseType?: (type: CaseType) => void;
     onFollowUpAction?: (mode: ActionMode, prompt: string) => void;
+    onEditMessage?: (id: string, newContent: string) => void;
 }
 
 interface SuggestedAction {
@@ -18,7 +19,15 @@ interface SuggestedAction {
     prompt: string;
 }
 
-const MessageList: React.FC<MessageListProps> = ({ messages, isLoading, pinnedMessages, onPinMessage, onConvertCaseType, onFollowUpAction }) => {
+const MessageList: React.FC<MessageListProps> = ({ 
+    messages, 
+    isLoading, 
+    pinnedMessages, 
+    onPinMessage, 
+    onConvertCaseType, 
+    onFollowUpAction,
+    onEditMessage 
+}) => {
     const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
     const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(null);
 
@@ -167,7 +176,7 @@ const MessageList: React.FC<MessageListProps> = ({ messages, isLoading, pinnedMe
                         <div className={`max-w-xl lg:max-w-3xl px-5 py-4 rounded-2xl relative shadow-sm border ${msg.isError ? 'bg-red-50 text-red-800 border-red-200' : msg.role === 'user' ? 'bg-blue-600 text-white rounded-br-sm border-blue-600' : 'bg-white text-gray-800 rounded-bl-sm border-gray-200'}`}>
                             
                             {!redirectData && (
-                                <div className="absolute top-2 left-2 flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity no-print">
+                                <div className="absolute top-2 left-2 flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity no-print z-10">
                                     <button onClick={() => onPinMessage(msg)} className="p-1.5 bg-gray-200/50 hover:bg-gray-300 rounded-full text-gray-500 hover:text-gray-700 disabled:opacity-50 disabled:cursor-default transition-colors" title={isPinned ? "تم التثبيت" : "تثبيت الرسالة"} disabled={isPinned}>
                                         <svg xmlns="http://www.w3.org/2000/svg" className={`h-3.5 w-3.5 ${isPinned ? 'text-yellow-500' : ''}`} viewBox="0 0 20 20" fill="currentColor">
                                             <path fillRule="evenodd" d="M10.49 2.23a.75.75 0 00-1.02-.04l-7.5 6.25a.75.75 0 00.99 1.18L8 5.44V14a1 1 0 102 0V5.44l5.03 4.18a.75.75 0 00.99-1.18l-7.5-6.25z" clipRule="evenodd" />
@@ -234,7 +243,12 @@ const MessageList: React.FC<MessageListProps> = ({ messages, isLoading, pinnedMe
                                     </div>
                                 </div>
                             ) : (
-                                <ChatMessageItem content={displayContent || '...'} isModel={msg.role === 'model'} />
+                                <ChatMessageItem 
+                                    content={displayContent || '...'} 
+                                    isModel={msg.role === 'model'}
+                                    messageId={msg.id}
+                                    onEdit={onEditMessage} 
+                                />
                             )}
 
                             {/* NEXT ACTIONS (Buttons) */}

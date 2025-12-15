@@ -1,5 +1,5 @@
 
-import React, { RefObject, useState, useEffect } from 'react';
+import React, { RefObject, useState, useEffect, useRef } from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
 import { ActionMode } from '../../types';
 import { AGENT_PROMPTS } from '../../constants';
@@ -48,6 +48,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
 }) => {
     const [isListening, setIsListening] = useState(false);
     const [recognition, setRecognition] = useState<any>(null);
+    const baseInputRef = useRef(''); // Stores text before recording starts
 
     // Derived state
     const isDisabled = isLoading || isProcessingFile || !isApiKeyReady;
@@ -64,15 +65,14 @@ const ChatInput: React.FC<ChatInputProps> = ({
             recog.lang = 'ar-PS';
 
             recog.onresult = (event: any) => {
-                let finalTranscript = '';
-                for (let i = event.resultIndex; i < event.results.length; ++i) {
-                    if (event.results[i].isFinal) {
-                        finalTranscript += event.results[i][0].transcript;
-                    }
-                }
-                if (finalTranscript) {
-                    setUserInput((prev: string) => prev.trim() + (prev.trim() ? ' ' : '') + finalTranscript);
-                }
+                // Cleanest way to get full session transcript without duplication
+                const sessionTranscript = Array.from(event.results)
+                    .map((result: any) => result[0].transcript)
+                    .join('');
+                
+                // Combine the text that existed before recording with the new speech
+                const separator = baseInputRef.current && !baseInputRef.current.match(/\s$/) ? ' ' : '';
+                setUserInput(baseInputRef.current + separator + sessionTranscript);
             };
 
             recog.onend = () => {
@@ -98,6 +98,8 @@ const ChatInput: React.FC<ChatInputProps> = ({
             recognition.stop();
             setIsListening(false);
         } else {
+            // Snapshot current input before starting
+            baseInputRef.current = userInput; 
             recognition.start();
             setIsListening(true);
         }
@@ -230,7 +232,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
                         e.target.style.height = `${e.target.scrollHeight}px`;
                     }}
                     onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }}
-                    className={`flex-grow p-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:outline-none resize-none transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed ${actionMode === 'loopholes' ? 'focus:ring-rose-500 placeholder-rose-700/30' :
+                    className={`flex-grow p-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-outline-none resize-none transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed ${actionMode === 'loopholes' ? 'focus:ring-rose-500 placeholder-rose-700/30' :
                         actionMode === 'drafting' ? 'focus:ring-emerald-500 placeholder-emerald-700/30' :
                             actionMode === 'strategy' ? 'focus:ring-amber-500 placeholder-amber-700/30' :
                                 'focus:ring-blue-500'

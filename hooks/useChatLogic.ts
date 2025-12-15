@@ -175,6 +175,19 @@ export const useChatLogic = (caseId?: string, initialCaseType: CaseType = 'chat'
         }
     };
 
+    const handleEditMessage = async (messageId: string, newContent: string) => {
+        const updatedHistory = chatHistory.map(msg => 
+            msg.id === messageId ? { ...msg, content: newContent } : msg
+        );
+        setChatHistory(updatedHistory);
+        
+        if (caseData) {
+            const updatedCase = { ...caseData, chatHistory: updatedHistory };
+            await dbService.updateCase(updatedCase);
+            setCaseData(updatedCase);
+        }
+    };
+
     const handleConvertCaseType = async (newType: string) => {
         if (!caseData) return;
         const normalizedType: CaseType = newType === 'civil' ? 'chat' : (newType as CaseType);
@@ -496,7 +509,7 @@ export const useChatLogic = (caseId?: string, initialCaseType: CaseType = 'chat'
         actionMode, setActionMode, pinnedMessages, isSummaryLoading,
         isPinnedPanelOpen, setIsPinnedPanelOpen, chatContainerRef, fileInputRef, textareaRef,
         handleSendMessage, handleStopGenerating, handleSummarize, handleSelectApiKey,
-        handleFileChange, handlePinMessage, handleUnpinMessage, handleConvertCaseType,
-        handleFollowUpAction
+        handleFileChange, handlePinMessage, handleUnpinMessage, handleEditMessage, // Added handleEditMessage
+        handleConvertCaseType, handleFollowUpAction
     };
 };
