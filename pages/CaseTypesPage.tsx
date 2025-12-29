@@ -52,6 +52,19 @@ const CaseTypesPage: React.FC = () => {
                 { label: "القضايا الإدارية/البلدية", description: "الطعن في القرارات الإدارية والنزاعات مع البلديات.", targetRoute: "/civil" },
                 { label: "قضايا الإرث والوصايا", description: "توزيع التركة، حصر الإرث، وتنفيذ الوصايا.", targetRoute: "/inheritance" },
             ]
+        },
+        {
+            title: "الأدوات القانونية والبحثية",
+            description: "مجموعة من الأدوات الذكية المساعدة للبحث القانوني، التحليل الفني، وحساب الحقوق المالية.",
+            color: "from-purple-500 to-purple-700",
+            icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" /></svg>,
+            items: [
+                { label: "البحث في التشريعات (Research)", description: "محرك بحث متخصص في القوانين الفلسطينية السارية (المقتفي)، القرارات بقانون، والأوامر العسكرية.", targetRoute: "/research" },
+                { label: "المختبر الجنائي (Forgery Lab)", description: "تحليل المستندات لكشف التزوير، التلاعب الرقمي، ومضاهاة التواقيع.", targetRoute: "/forgery" },
+                { label: "حاسبة المواريث (Inheritance)", description: "نظام ذكي لحساب الأنصبة الشرعية وتوزيع التركات بدقة.", targetRoute: "/inheritance" },
+                { label: "حاسبة الرسوم والمهل", description: "أدوات لحساب الرسوم القضائية ومواعيد الطعون (استئناف/نقض).", targetRoute: "/tools" },
+                { label: "تحليل المستندات (OCR)", description: "تحويل صور المستندات والعقود إلى نصوص قابلة للتعديل والبحث.", targetRoute: "/ocr" },
+            ]
         }
     ];
 
@@ -62,9 +75,9 @@ const CaseTypesPage: React.FC = () => {
                 دليل أنواع القضايا والاختصاص
             </h1>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="grid grid-cols-1 lg:grid-cols-2 lg:grid-rows-[auto,auto] gap-8">
                 {categories.map((cat, idx) => (
-                    <div key={idx} className="flex flex-col h-full">
+                    <div key={idx} className={`flex flex-col h-full ${idx === 2 ? 'lg:col-span-2' : ''}`}>
                         {/* Header Card */}
                         <div className={`rounded-t-2xl p-6 bg-gradient-to-r ${cat.color} shadow-lg relative overflow-hidden`}>
                             <div className="absolute top-0 left-0 p-4 opacity-10 transform -translate-y-2 -translate-x-2 scale-150">
@@ -83,7 +96,7 @@ const CaseTypesPage: React.FC = () => {
 
                         {/* Items List */}
                         <div className="bg-gray-800 rounded-b-2xl shadow-xl border border-t-0 border-gray-700 p-4 flex-grow">
-                            <div className="grid gap-3">
+                            <div className={`grid gap-3 ${idx === 2 ? 'md:grid-cols-2' : ''}`}>
                                 {cat.items.map((item, i) => (
                                     <div 
                                         key={i} 

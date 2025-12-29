@@ -1,5 +1,38 @@
+import { CaseStatus, ActionMode, GeminiModel } from './types';
 
-import { CaseStatus, ActionMode } from './types';
+// Gemini Models List - Combining 2.5 Free Tier and 3.0 Experimental
+export const DEFAULT_GEMINI_MODELS: GeminiModel[] = [
+  { 
+    id: 'gemini-2.5-flash', 
+    name: 'Gemini 2.5 Flash', 
+    limitRPD: 250, 
+    description: 'الأكثر توازناً (~250 طلب/يوم) - الخيار الأفضل للبدء' 
+  },
+  { 
+    id: 'gemini-2.5-pro', 
+    name: 'Gemini 2.5 Pro', 
+    limitRPD: 50, 
+    description: 'الأقوى والأذكى (~50 طلب/يوم) - للمهام المعقدة جداً' 
+  },
+  { 
+    id: 'gemini-2.5-flash-lite', 
+    name: 'Gemini 2.5 Flash-Lite', 
+    limitRPD: 1000, 
+    description: 'الأسرع والأخف (~1000 طلب/يوم) - للمهام البسيطة والأسئلة المتكررة' 
+  },
+  { 
+    id: 'gemini-3-flash-preview', 
+    name: 'Gemini 3 Flash (تجريبي)', 
+    limitRPD: 2000, 
+    description: 'الجيل القادم - سرعة فائقة ودقة محسنة' 
+  },
+  { 
+    id: 'gemini-3-pro-preview', 
+    name: 'Gemini 3 Pro (تجريبي)', 
+    limitRPD: 50, 
+    description: 'الجيل القادم - ذكاء مطلق للتحليل والاستنباط القانوني' 
+  }
+];
 
 // Dynamic Prompts per Agent Mode
 export const AGENT_PROMPTS: Record<string, string[]> = {
@@ -68,7 +101,7 @@ export const AGENT_PROMPTS: Record<string, string[]> = {
   // 8. المفاوض
   'negotiator': [
     "اقترح عرض تسوية مالية منصف.",
-    "ما هو أفضل بديل (BATNA) إذا فشل الصلح؟",
+    "ما هو أفضل بديل (BATNA) إذا فشل الصلح?.",
     "اكتب سيناريو للحوار مع محامي الخصم.",
     "كيف أقنع الخصم بالتنازل دون محكمة؟"
   ],
@@ -115,7 +148,7 @@ export const AGENT_PROMPTS: Record<string, string[]> = {
   ],
 
   // 14. المختبر الجنائي (تزوير)
-  'forensic': [
+  'forgery': [
     "قم بتحليل شامل لهذه الوثيقة بحثاً عن التزوير.",
     "هل التوقيع يبدو متطابقاً مع الانسيابية الطبيعية؟",
     "افحص الأختام والتواويخ بدقة.",

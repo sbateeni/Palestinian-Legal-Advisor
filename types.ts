@@ -70,8 +70,14 @@ export interface OpenRouterModel {
   supportsImages: boolean;
 }
 
+export interface GeminiModel {
+  id: string;
+  name: string;
+  limitRPD: number;
+  description: string;
+}
+
 // Define the allowed Legal Action Modes
-// Added Forgery Detection modes including image_comparison
 export type ActionMode = 
     | 'analysis' | 'loopholes' | 'drafting' | 'strategy' | 'research' | 'interrogator' | 'verifier' | 'forensic' | 'negotiator' | 'contract_review'
     | 'sharia_advisor' | 'reconciliation' | 'custody' | 'alimony'

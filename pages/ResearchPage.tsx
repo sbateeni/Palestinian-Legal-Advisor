@@ -19,23 +19,9 @@ const ResearchPage: React.FC = () => {
             const storedRegion = await dbService.getSetting<LegalRegion>('legalRegion');
             if (storedRegion) setRegion(storedRegion);
 
-            // Check Gemini Key (Strict requirement for search tool)
-            let hasKey = false;
-            if (window.aistudio) {
-                try {
-                    hasKey = await window.aistudio.hasSelectedApiKey();
-                } catch (e) { console.error(e); }
-            }
-            if (!hasKey) {
-                const storedKey = await dbService.getSetting<string>('geminiApiKey');
-                hasKey = !!storedKey;
-            }
-            // Also check env var safely
-            // @ts-ignore
-            if (!hasKey && typeof process !== 'undefined' && process.env && process.env.API_KEY) {
-                 hasKey = true;
-            }
-            setIsApiKeyReady(hasKey);
+            // FIX: Enforcing exclusive reliance on process.env.API_KEY for the application.
+            const hasEnvKey = typeof process !== 'undefined' && process.env && !!process.env.API_KEY;
+            setIsApiKeyReady(hasEnvKey);
         };
         loadSettings();
     }, []);
@@ -47,20 +33,11 @@ const ResearchPage: React.FC = () => {
         setResult(''); // Clear previous results
 
         try {
-            // Initialize Gemini (Assuming Key context is handled globally via env or DB in service usually, 
-            // but here we might need to instantiate directly or reuse service logic. 
-            // For cleaner code, we'll fetch key like geminiService does)
+            // FIX: Initialized GoogleGenAI strictly using process.env.API_KEY as required.
+            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
             
-            let apiKey = '';
-            // @ts-ignore
-            if (typeof process !== 'undefined' && process.env && process.env.API_KEY) apiKey = process.env.API_KEY;
-            if (!apiKey) apiKey = await dbService.getSetting<string>('geminiApiKey') || '';
-            
-            // Note: In a real app, strict handling of window.aistudio via geminiService is better, 
-            // but strictly following the prompt rules, we use standard init.
-            
-            const ai = new GoogleGenAI({ apiKey });
-            const model = 'gemini-2.5-flash';
+            // FIX: Use gemini-3-pro-preview for advanced legal reasoning and high-fidelity research tasks.
+            const model = 'gemini-3-pro-preview';
 
             const researchPrompt = getResearchPrompt(query, region);
 
@@ -70,6 +47,8 @@ const ResearchPage: React.FC = () => {
                 config: {
                     tools: [{ googleSearch: {} }], // Enable Search Tool
                     systemInstruction: "أنت باحث قانوني مختص. التزم حرفياً بالبحث في المصادر المحددة فقط.",
+                    // FIX: Guideline reminder - when using complex text tasks, provide thinkingBudget.
+                    thinkingConfig: { thinkingBudget: 2048 }
                 }
             });
 
@@ -99,15 +78,6 @@ const ResearchPage: React.FC = () => {
         }
     };
 
-    const handleSelectApiKey = async () => {
-        if (window.aistudio) {
-            try {
-                await window.aistudio.openSelectKey();
-                setIsApiKeyReady(true);
-            } catch (e) { console.error(e); }
-        }
-    };
-
     if (isApiKeyReady === false) {
         return (
             <div className="w-full h-full flex flex-col items-center justify-center p-6 text-center">
@@ -115,12 +85,7 @@ const ResearchPage: React.FC = () => {
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg>
                 </div>
                 <h2 className="text-2xl font-bold text-gray-800 mb-2">مطلوب مفتاح API للبحث</h2>
-                <p className="text-gray-600 mb-6 max-w-lg">خدمة البحث القانوني تتطلب الوصول المباشر إلى نماذج Google Gemini مع تفعيل خاصية البحث (Grounding).</p>
-                {window.aistudio && (
-                    <button onClick={handleSelectApiKey} className="px-8 py-3 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 transition-colors">
-                        تحديد مفتاح عبر Google AI
-                    </button>
-                )}
+                <p className="text-gray-600 mb-6 max-w-lg">يرجى التأكد من توفر متغير البيئة API_KEY لتتمكن من استخدام ميزة البحث القانوني.</p>
             </div>
         );
     }

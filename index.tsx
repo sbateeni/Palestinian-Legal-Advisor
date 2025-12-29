@@ -1,4 +1,4 @@
-import React, { ReactNode } from 'react';
+import React, { ReactNode, Component, ErrorInfo } from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 
@@ -11,21 +11,31 @@ interface ErrorBoundaryState {
   error: any;
 }
 
-class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+// FIX: Explicitly inherit from Component with generics and declare state/props to ensure TypeScript recognition.
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  // FIX: Explicitly declare the state property. This resolves the "Property 'state' does not exist" error.
+  public state: ErrorBoundaryState = {
+    hasError: false,
+    error: null
+  };
+
+  // FIX: Constructor to pass props to the base class.
   constructor(props: ErrorBoundaryProps) {
     super(props);
-    this.state = { hasError: false, error: null };
   }
 
-  static getDerivedStateFromError(error: any) {
+  // FIX: Correct signature for getDerivedStateFromError return type.
+  static getDerivedStateFromError(error: any): ErrorBoundaryState {
     return { hasError: true, error };
   }
 
-  componentDidCatch(error: any, errorInfo: any) {
+  // FIX: Explicitly type ErrorInfo in componentDidCatch.
+  componentDidCatch(error: any, errorInfo: ErrorInfo) {
     console.error("Critical Application Error:", error, errorInfo);
   }
 
   render() {
+    // FIX: this.state is now correctly recognized.
     if (this.state.hasError) {
       return (
         <div style={{
@@ -80,6 +90,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
       );
     }
 
+    // FIX: this.props.children is now correctly inherited and recognized.
     return this.props.children;
   }
 }
