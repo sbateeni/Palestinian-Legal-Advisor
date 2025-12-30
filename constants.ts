@@ -1,3 +1,4 @@
+
 import { CaseStatus, ActionMode, GeminiModel } from './types';
 
 // Gemini Models List - Added Smart Routing as the default option
@@ -53,14 +54,25 @@ export const AGENT_MODEL_ROUTING: Record<string, string> = {
   'negotiator': 'gemini-2.5-flash'
 };
 
-// ... other constants remain the same
 export const AGENT_PROMPTS: Record<string, string[]> = {
   'analysis': ["حلل الموقف القانوني بناءً على ما سبق.", "ما هو التكييف القانوني الصحيح لهذه الواقعة؟"],
   'loopholes': ["هل هناك تناقض في أقوال الخصم أو البينات؟", "ابحث عن ثغرات إجرائية في التبليغات."],
   'drafting': ["صغ لائحة دعوى بناءً على التحليل السابق.", "اكتب إخطاراً عدلياً يتضمن الوقائع المذكورة."],
   'strategy': ["ضع خطة دفاع استراتيجية للفوز.", "ما هي نقاط القوة التي يجب التركيز عليها؟"],
   'research': ["ابحث عن نصوص قانونية تدعم موقفي في هذه القضية.", "هل هناك سوابق قضائية مشابهة لهذه الحالة؟"],
-  'sharia_advisor': ["ما الحكم الشرعي بناءً على حالة الزوجين المذكورة؟", "حساب المهر المؤجل وفقاً للتاريخ المذكور."]
+  'verifier': ["تأكد من سريان القانون وعدم إلغائه.", "هل هذا النص القانوني محدث؟"],
+  'interrogator': ["ما هي الأسئلة التي يجب طرحها على الموكل؟", "استخرج الوقائع الغامضة من القصة."],
+  'contract_review': ["حلل هذا العقد واكتشف الثغرات.", "هل هناك بنود مجحفة في هذا الاتفاق؟"],
+  'negotiator': ["اقترح استراتيجية للتفاوض والصلح.", "ما هي أفضل تسوية ممكنة في هذه الحالة؟"],
+  'forensic': ["حلل المستند جنائياً واكتشف التلاعب.", "هل هناك شبهة تزوير في هذا التوقيع؟"],
+  'pixel_analysis': ["افحص بكسلات الصورة بحثاً عن تعديل.", "هل تم التلاعب بمحتوى هذه الصورة رقمياً؟"],
+  'ai_detect': ["هل تم توليد هذا المحتوى بالذكاء الاصطناعي؟", "ابحث عن علامات التزييف العميق."],
+  'signature_verify': ["قارن بين التواقيع واكتشف الفروقات.", "هل هذا التوقيع أصلي أم مقلد؟"],
+  'image_comparison': ["قارن بين النسخة الأصلية والمشتبه بها.", "استخرج الاختلافات الدقيقة بين الصورتين."],
+  'sharia_advisor': ["ما الحكم الشرعي بناءً على حالة الزوجين المذكورة؟", "حساب المهر المؤجل وفقاً للتاريخ المذكور."],
+  'reconciliation': ["كيف يمكن إصلاح ذات البين في هذه المشكلة؟", "اقترح حلاً للشقاق والنزاع القائم."],
+  'custody': ["من الأحق بالحضانة في هذه الظروف؟", "ما هي ضوابط المشاهدة والاستضافة؟"],
+  'alimony': ["احسب قيمة النفقة المستحقة تقديرياً.", "هل تستحق الزوجة نفقة عدة ومتعة؟"]
 };
 
 export const DEFAULT_OPENROUTER_MODELS = [
@@ -73,7 +85,10 @@ export const DEFAULT_OPENROUTER_MODELS = [
 export const STATUS_OPTIONS: { value: CaseStatus; label: string; color: string }[] = [
   { value: 'جديدة', label: 'جديدة', color: 'bg-blue-500' },
   { value: 'قيد النظر', label: 'قيد النظر', color: 'bg-yellow-500' },
+  { value: 'مؤجلة', label: 'مؤجلة', color: 'bg-gray-500' },
   { value: 'مغلقة', label: 'مغلقة', color: 'bg-green-500' },
+  { value: 'استئناف', label: 'استئناف', color: 'bg-purple-500' },
+  { value: 'أخرى', label: 'أخرى', color: 'bg-indigo-500' },
 ];
 
 export const STATUS_MAP: Record<CaseStatus, { label: string; color: string }> = 

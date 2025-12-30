@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { ChatMessage, CaseType, ActionMode } from '../../types';
 import ChatMessageItem from '../ChatMessageItem';
@@ -105,7 +104,7 @@ const MessageList: React.FC<MessageListProps> = ({
         return { text: content, actions: [] };
     };
 
-    if (messages.length === 0 && !isLoading) {
+    if (!Array.isArray(messages) || (messages.length === 0 && !isLoading)) {
         return (
             <div className="text-center text-gray-500 flex flex-col items-center justify-center h-full p-8 no-print">
                 <div className="bg-white p-8 rounded-full mb-6 border border-gray-200 shadow-xl">
@@ -124,7 +123,8 @@ const MessageList: React.FC<MessageListProps> = ({
     return (
         <div className="space-y-6 pb-4">
             {messages.map((msg) => {
-                const isPinned = pinnedMessages.some(p => p.id === msg.id);
+                if (!msg) return null;
+                const isPinned = Array.isArray(pinnedMessages) && pinnedMessages.some(p => p.id === msg.id);
                 const hasGrounding = msg.groundingMetadata?.groundingChunks && msg.groundingMetadata.groundingChunks.length > 0;
                 
                 let redirectData = null;
@@ -212,7 +212,7 @@ const MessageList: React.FC<MessageListProps> = ({
                                         🔗 المصادر والمراجع المتحقق منها
                                     </p>
                                     <div className="space-y-2">
-                                        {msg.groundingMetadata?.groundingChunks.map((chunk, idx) => (
+                                        {msg.groundingMetadata?.groundingChunks?.map((chunk, idx) => (
                                             chunk.web && (
                                                 <a key={idx} href={chunk.web.uri} target="_blank" rel="noopener noreferrer" className="flex items-center p-2 rounded bg-white hover:bg-blue-50 border border-gray-200 transition-all group/link">
                                                     <span className="flex-shrink-0 w-5 h-5 rounded bg-blue-100 text-blue-600 flex items-center justify-center text-[10px] me-2 font-mono border border-blue-200">{idx + 1}</span>

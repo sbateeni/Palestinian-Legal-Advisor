@@ -1,4 +1,3 @@
-
 import React, { useMemo, useState } from 'react';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
@@ -48,13 +47,18 @@ const ChatMessageItem: React.FC<ChatMessageItemProps> = ({ content, isModel, mes
         }
 
         let processedContent = content;
-        const supports = [...groundingMetadata.groundingSupports].sort((a, b) => b.segment.startIndex - a.segment.startIndex);
+        // Defensive check for supports array before spreading
+        const supports = [...(groundingMetadata.groundingSupports || [])].sort((a, b) => {
+            if (!a.segment || !b.segment) return 0;
+            return b.segment.startIndex - a.segment.startIndex;
+        });
 
         for (const support of supports) {
+            if (!support.segment) continue;
             const { startIndex, endIndex } = support.segment;
             const chunkIndices = support.groundingChunkIndices;
             
-            if (chunkIndices && chunkIndices.length > 0) {
+            if (Array.isArray(chunkIndices) && chunkIndices.length > 0) {
                 const firstChunkIndex = chunkIndices[0];
                 const chunk = groundingMetadata.groundingChunks[firstChunkIndex];
                 
@@ -90,7 +94,7 @@ const ChatMessageItem: React.FC<ChatMessageItemProps> = ({ content, isModel, mes
         }
         return (
             <div className="relative group/edit">
-                <div className="prose prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(marked.parse(content, { breaks: true }) as string) }}></div>
+                <div className="prose prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(marked.parse(content || '', { breaks: true }) as string) }}></div>
                 {onEdit && (
                     <button 
                         onClick={() => { setEditText(content); setIsEditing(true); }}

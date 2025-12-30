@@ -1,4 +1,3 @@
-
 import React, { RefObject, useState, useEffect, useRef } from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
 import { ActionMode } from '../../types';
@@ -53,7 +52,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
     // Derived state
     const isDisabled = isLoading || isProcessingFile || !isApiKeyReady;
     
-    const activePrompts = AGENT_PROMPTS[actionMode] || AGENT_PROMPTS['analysis'];
+    const activePrompts = AGENT_PROMPTS[actionMode] || AGENT_PROMPTS['analysis'] || [];
 
     // Initialize Web Speech API (Native Browser Tool)
     useEffect(() => {
@@ -186,7 +185,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
             />
 
             {/* Dynamic Suggested Prompts */}
-            {!isDisabled && (
+            {!isDisabled && Array.isArray(activePrompts) && activePrompts.length > 0 && (
                 <div className="mb-3 animate-fade-in">
                     <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
                         <span className="text-sm text-gray-500 font-medium whitespace-nowrap flex items-center">

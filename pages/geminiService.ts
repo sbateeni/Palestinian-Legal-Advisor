@@ -28,6 +28,7 @@ async function getModelForMode(mode: ActionMode): Promise<string> {
 }
 
 function chatHistoryToGeminiContents(history: ChatMessage[]): Content[] {
+    if (!Array.isArray(history)) return [];
     return history.map((msg) => {
         const parts: any[] = [];
         if (msg.content) parts.push({ text: msg.content });
@@ -47,6 +48,7 @@ function chatHistoryToGeminiContents(history: ChatMessage[]): Content[] {
 // FIX: Added missing exported function to count tokens using Gemini models.
 export async function countTokensForGemini(history: ChatMessage[]): Promise<number> {
     try {
+        if (!Array.isArray(history)) return 0;
         const ai = await getGoogleGenAI();
         const contents = chatHistoryToGeminiContents(history);
         const response = await ai.models.countTokens({
@@ -62,6 +64,7 @@ export async function countTokensForGemini(history: ChatMessage[]): Promise<numb
 
 // FIX: Added missing exported function to summarize chat history.
 export async function summarizeChatHistory(history: ChatMessage[]): Promise<string> {
+    if (!Array.isArray(history)) return "";
     const ai = await getGoogleGenAI();
     const contents = chatHistoryToGeminiContents(history);
     const response = await ai.models.generateContent({
@@ -120,6 +123,7 @@ export async function extractInheritanceFromCase(caseText: string): Promise<Part
 
 // FIX: Added missing exported function to generate a timeline of events from chat history.
 export async function generateTimelineFromChat(history: ChatMessage[]): Promise<TimelineEvent[]> {
+    if (!Array.isArray(history)) return [];
     const ai = await getGoogleGenAI();
     const context = history.map(m => `${m.role}: ${m.content}`).join('\n');
     const prompt = getTimelinePrompt(context);
@@ -167,7 +171,7 @@ export async function* streamChatResponseFromGemini(
     const systemInstruction = getInstruction(actionMode, region, caseType);
     
     // CONTINUITY: We send more history to ensure the AI "remembers" the case facts
-    const historyToSend = history.slice(-MAX_HISTORY_MESSAGES);
+    const historyToSend = Array.isArray(history) ? history.slice(-MAX_HISTORY_MESSAGES) : [];
     const contents = chatHistoryToGeminiContents(historyToSend);
     
     const config: any = {

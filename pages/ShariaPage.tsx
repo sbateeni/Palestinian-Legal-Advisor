@@ -74,7 +74,8 @@ const ShariaPage: React.FC<ShariaPageProps> = ({ caseId }) => {
 
     // Custom Input Component Wrapper to replace LegalToolbar with ShariaToolbar
     const ShariaChatInput = () => {
-        const activePrompts = AGENT_PROMPTS[logic.actionMode] || AGENT_PROMPTS['sharia_advisor'];
+        // FIX: Ensure activePrompts is always an array to prevent mapping undefined
+        const activePrompts = AGENT_PROMPTS[logic.actionMode] || AGENT_PROMPTS['sharia_advisor'] || [];
 
         return (
             <div className="p-4 border-t border-gray-200 bg-white shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] border-t-4 border-emerald-500/20">
@@ -92,7 +93,7 @@ const ShariaPage: React.FC<ShariaPageProps> = ({ caseId }) => {
                 />
 
                 {/* Suggestions Bar */}
-                {logic.isApiKeyReady && !logic.isLoading && (
+                {logic.isApiKeyReady && !logic.isLoading && activePrompts.length > 0 && (
                     <div className="mb-3 animate-fade-in">
                         <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
                             <span className="text-sm text-gray-500 font-medium whitespace-nowrap flex items-center">
