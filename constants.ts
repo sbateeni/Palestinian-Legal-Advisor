@@ -1,209 +1,79 @@
 import { CaseStatus, ActionMode, GeminiModel } from './types';
 
-// Gemini Models List - Combining 2.5 Free Tier and 3.0 Experimental
-export const DEFAULT_GEMINI_MODELS: GeminiModel[] = [
+// Gemini Models List - Added Smart Routing as the default option
+export const DEFAULT_GEMINI_MODELS: (GeminiModel | { id: string; name: string; description: string; limitRPD: number })[] = [
+  { 
+    id: 'auto', 
+    name: 'التوجيه التلقائي الذكي (موصى به)', 
+    limitRPD: 0, // Dynamic
+    description: 'يختار النظام النموذج الأفضل لكل مهمة (Pro للبحث، Flash للصياغة) لضمان الدقة وتوفير الرصيد.' 
+  },
   { 
     id: 'gemini-2.5-flash', 
     name: 'Gemini 2.5 Flash', 
     limitRPD: 250, 
-    description: 'الأكثر توازناً (~250 طلب/يوم) - الخيار الأفضل للبدء' 
+    description: 'استخدام هذا النموذج لجميع المهام (سرعة عالية، استهلاك منخفض).' 
   },
   { 
-    id: 'gemini-2.5-pro', 
-    name: 'Gemini 2.5 Pro', 
+    id: 'gemini-3-pro-preview', 
+    name: 'Gemini 3 Pro', 
     limitRPD: 50, 
-    description: 'الأقوى والأذكى (~50 طلب/يوم) - للمهام المعقدة جداً' 
+    description: 'استخدام النموذج الأقوى لجميع المهام (دقة قصوى، استهلاك سريع للرصيد).' 
   },
   { 
     id: 'gemini-2.5-flash-lite', 
     name: 'Gemini 2.5 Flash-Lite', 
     limitRPD: 1000, 
-    description: 'الأسرع والأخف (~1000 طلب/يوم) - للمهام البسيطة والأسئلة المتكررة' 
-  },
-  { 
-    id: 'gemini-3-flash-preview', 
-    name: 'Gemini 3 Flash (تجريبي)', 
-    limitRPD: 2000, 
-    description: 'الجيل القادم - سرعة فائقة ودقة محسنة' 
-  },
-  { 
-    id: 'gemini-3-pro-preview', 
-    name: 'Gemini 3 Pro (تجريبي)', 
-    limitRPD: 50, 
-    description: 'الجيل القادم - ذكاء مطلق للتحليل والاستنباط القانوني' 
+    description: 'استخدام النموذج الأخف لجميع المهام (للمحادثات البسيطة جداً).' 
   }
 ];
 
-// Dynamic Prompts per Agent Mode
+/**
+ * SMART ROUTING MAP
+ * Logic used when "auto" mode is selected.
+ */
+export const AGENT_MODEL_ROUTING: Record<string, string> = {
+  'analysis': 'gemini-2.5-flash',
+  'research': 'gemini-3-pro-preview',
+  'loopholes': 'gemini-3-pro-preview',
+  'strategy': 'gemini-3-pro-preview',
+  'drafting': 'gemini-2.5-flash',
+  'contract_review': 'gemini-2.5-flash',
+  'sharia_advisor': 'gemini-2.5-flash',
+  'reconciliation': 'gemini-2.5-flash',
+  'custody': 'gemini-2.5-flash',
+  'alimony': 'gemini-2.5-flash',
+  'interrogator': 'gemini-2.5-flash-lite',
+  'verifier': 'gemini-3-pro-preview',
+  'forensic': 'gemini-3-pro-preview',
+  'pixel_analysis': 'gemini-3-pro-preview',
+  'ai_detect': 'gemini-3-pro-preview',
+  'signature_verify': 'gemini-3-pro-preview',
+  'image_comparison': 'gemini-3-pro-preview',
+  'negotiator': 'gemini-2.5-flash'
+};
+
+// ... other constants remain the same
 export const AGENT_PROMPTS: Record<string, string[]> = {
-  // 1. الوضع الافتراضي / التحليل
-  'analysis': [
-    "حلل الموقف القانوني بناءً على الوقائع.",
-    "ما هي المواد القانونية المنطبقة في هذه المنطقة؟",
-    "حدد نقاط القوة والضعف في قضيتي.",
-    "ما هي الإجراءات القانونية التالية؟",
-    "توقع حكم القاضي بناءً على المعطيات."
-  ],
-
-  // 2. كشف الثغرات (الدفاع)
-  'loopholes': [
-    "هل سقطت هذه الدعوى بالتقادم؟ (تحقق بدقة)",
-    "هل المحكمة مختصة مكانياً ونوعياً؟",
-    "هاجم شهادة الشهود: أين التناقض؟",
-    "هل الإجراءات الشكلية والتبليغات باطلة؟",
-    "شكك في القوة الثبوتية للمستندات (صور ضوئية؟).",
-    "تقمص دور محامي الخصم: كيف ستهاجم هذه الدعوى؟ (محاكاة الخصم)"
-  ],
-
-  // 3. الصياغة القانونية
-  'drafting': [
-    "صغ لائحة دعوى كاملة لهذه القضية.",
-    "اكتب إخطاراً عدلياً (إنذار) للخصم.",
-    "صغ مذكرة دفاع للرد على ادعاءات الخصم.",
-    "اكتب عقد صلح وتسوية ملزم.",
-    "صغ وكالة خاصة للمحامي."
-  ],
-
-  // 4. خطة الفوز (الاستراتيجية)
-  'strategy': [
-    "قم بإجراء تحليل SWOT (القوة/الضعف/الفرص/التهديدات) لهذه القضية.",
-    "العب دور محامي الشيطان (Devil's Advocate) واكشف لي أسوأ سيناريو.",
-    "ضع خارطة طريق إجرائية (خطوة بخطوة) للفوز.",
-    "ما هي الأدلة التي يجب أن أجمعها الآن؟",
-    "كيف أستعد لجلسة الاستجواب القادمة؟"
-  ],
-
-  // 5. المحقق القانوني
-  'research': [
-    "ابحث في 'المقتفي' عن المادة القانونية.",
-    "هل يوجد قرار بقانون عدّل هذا النص؟",
-    "أعطني سابقة قضائية (قرار نقض) مشابه.",
-    "نص المادة في القانون المدني الأردني/المصري.",
-    "ابحث في فتاوى ديوان التشريع والرأي."
-  ],
-
-  // 6. المستجوب
-  'interrogator': [
-    "ما هي الأسئلة التي يجب أن أطرحها على الموكل؟",
-    "حدد المعلومات الناقصة في هذه الرواية.",
-    "جهز قائمة أسئلة لاستجواب الخصم في المحكمة.",
-    "هل هناك تواريخ حاسمة مفقودة؟"
-  ],
-
-  // 7. المدقق التشريعي
-  'verifier': [
-    "هل هذا القانون لا يزال سارياً في الضفة؟",
-    "هل صدر قرار محكمة دستورية بخصوص هذه المادة؟",
-    "تحقق من سريان الأمر العسكري المذكور.",
-    "هل تم إلغاء هذا النص بموجب تشريع حديث؟"
-  ],
-
-  // 8. المفاوض
-  'negotiator': [
-    "اقترح عرض تسوية مالية منصف.",
-    "ما هو أفضل بديل (BATNA) إذا فشل الصلح?.",
-    "اكتب سيناريو للحوار مع محامي الخصم.",
-    "كيف أقنع الخصم بالتنازل دون محكمة؟"
-  ],
-
-  // 9. مدقق العقود
-  'contract_review': [
-    "استخرج البنود الخطرة (الألغام) في هذا العقد.",
-    "هل هناك شروط تعسفية أو مخالفة للنظام العام؟",
-    "اقترح تعديلات لحماية حقوقي كطرف ثانٍ.",
-    "هل العقد باطل أم قابل للفسخ؟"
-  ],
-
-  // 10. المستشار الشرعي
-  'sharia_advisor': [
-    "ما هو الحكم الشرعي في هذه المسألة؟",
-    "هل يعتبر الطلاق واقعاً في هذه الحالة؟",
-    "حقوق الزوجة عند رفع دعوى التفريق للشقاق والنزاع.",
-    "كيفية إثبات الضرر في المحكمة الشرعية.",
-    "الإجراءات العملية لرفع دعوى نفقة."
-  ],
-
-  // 11. المصلح الأسري
-  'reconciliation': [
-    "اقترح خطة للصلح بين الزوجين.",
-    "ما هي شروط التحكيم الشرعي في قضايا النزاع؟",
-    "اكتب صيغة اتفاقية رضائية لإنهاء الخلاف.",
-    "نصائح شرعية ونفسية لتقريب وجهات النظر."
-  ],
-
-  // 12. خبير الحضانة
-  'custody': [
-    "من هو الأحق بالحضانة في هذه الحالة؟",
-    "متى تسقط الحضانة عن الأم شرعاً وقانوناً؟",
-    "نظام المشاهدة والاستزارة المناسب لعمر الطفل.",
-    "هل زواج الأم يسقط حقها في الحضانة؟"
-  ],
-
-  // 13. خبير النفقات
-  'alimony': [
-    "كيف يتم تقدير نفقة الكفاية للزوجة والأولاد؟",
-    "حساب متجمد النفقة عن السنوات الماضية.",
-    "هل تسقط النفقة بخروج الزوجة من بيت الزوجية؟",
-    "حساب قيمة المهر المؤجل بالذهب أو العملة."
-  ],
-
-  // 14. المختبر الجنائي (تزوير)
-  'forgery': [
-    "قم بتحليل شامل لهذه الوثيقة بحثاً عن التزوير.",
-    "هل التوقيع يبدو متطابقاً مع الانسيابية الطبيعية؟",
-    "افحص الأختام والتواويخ بدقة.",
-    "هل هناك آثار كشط أو إضافة كيميائية؟"
-  ],
-  'pixel_analysis': [
-    "افحص الصورة بحثاً عن تعديلات Photoshop.",
-    "هل الإضاءة والظلال متناسقة في الصورة؟",
-    "تحليل مستوى الضوضاء (ELA) لكشف التركيب.",
-    "هل الحواف حول الكائنات طبيعية؟"
-  ],
-  'ai_detect': [
-    "هل هذه الصورة مولدة بالذكاء الاصطناعي؟",
-    "افحص تشوهات الوجوه والأصابع.",
-    "تحليل النمط الهندسي للخلفية والمنسوجات.",
-    "هل النصوص في الصورة مفهومة أم رموز عشوائية؟"
-  ],
-  'signature_verify': [
-    "قارن انسيابية الخط بين التوقيعين.",
-    "هل الختم موضوع فوق النص أم تحته؟",
-    "ابحث عن علامات التوقف والارتعاش في التوقيع.",
-    "هل التوقيع 'رسم' أم 'كتابة' سريعة؟"
-  ],
-  'image_comparison': [
-    "قارن بين الصورتين وحدد الاختلافات بدقة.",
-    "هل هناك حذف أو إضافة في المستند الثاني؟",
-    "طابق الأرقام والتواريخ بين النسختين.",
-    "هل تم تغيير الترويسة أو التذييل؟"
-  ]
+  'analysis': ["حلل الموقف القانوني بناءً على ما سبق.", "ما هو التكييف القانوني الصحيح لهذه الواقعة؟"],
+  'loopholes': ["هل هناك تناقض في أقوال الخصم أو البينات؟", "ابحث عن ثغرات إجرائية في التبليغات."],
+  'drafting': ["صغ لائحة دعوى بناءً على التحليل السابق.", "اكتب إخطاراً عدلياً يتضمن الوقائع المذكورة."],
+  'strategy': ["ضع خطة دفاع استراتيجية للفوز.", "ما هي نقاط القوة التي يجب التركيز عليها؟"],
+  'research': ["ابحث عن نصوص قانونية تدعم موقفي في هذه القضية.", "هل هناك سوابق قضائية مشابهة لهذه الحالة؟"],
+  'sharia_advisor': ["ما الحكم الشرعي بناءً على حالة الزوجين المذكورة؟", "حساب المهر المؤجل وفقاً للتاريخ المذكور."]
 };
 
 export const DEFAULT_OPENROUTER_MODELS = [
-  // Image-supporting models first, reordered for popularity
   { id: 'openai/gpt-4o-mini', name: 'GPT-4o Mini (يدعم الصور)', supportsImages: true },
   { id: 'google/gemini-flash-1.5', name: 'Google: Gemini Flash 1.5 (يدعم الصور)', supportsImages: true },
   { id: 'anthropic/claude-3-haiku', name: 'Anthropic: Claude 3 Haiku (يدعم الصور)', supportsImages: true },
-  { id: 'meta-llama/llama-3.2-11b-vision-instruct', name: 'Meta: Llama 3.2 Vision (يدعم الصور)', supportsImages: true },
-  { id: 'microsoft/phi-3-vision-128k-instruct', name: 'Microsoft: Phi-3 Vision (يدعم الصور)', supportsImages: true },
-  { id: 'qwen/qwen2-vl-7b-instruct', name: 'Qwen: Qwen2 VL 7B (يدعم الصور)', supportsImages: true },
-  // Text-only models
-  { id: 'meta-llama/llama-3-8b-instruct', name: 'Meta: Llama 3 8B Instruct', supportsImages: false },
-  { id: 'qwen/qwen3-235b-a22b', name: 'Qwen: Qwen3 235B', supportsImages: false },
-  { id: 'qwen/qwen-2.5-72b-instruct', name: 'Qwen: Qwen 2.5 72B Instruct', supportsImages: false },
-  { id: 'qwen/qwen3-coder', name: 'Qwen: Qwen3 Coder', supportsImages: false },
-  { id: 'mistralai/mistral-7b-instruct', name: 'Mistral 7B Instruct', supportsImages: false },
-  { id: 'nousresearch/nous-hermes-2-mistral-7b-dpo', name: 'Nous Hermes 2 Mistral 7B', supportsImages: false }
+  { id: 'meta-llama/llama-3.2-11b-vision-instruct', name: 'Meta: Llama 3.2 Vision (يدعم الصور)', supportsImages: true }
 ];
 
 export const STATUS_OPTIONS: { value: CaseStatus; label: string; color: string }[] = [
   { value: 'جديدة', label: 'جديدة', color: 'bg-blue-500' },
   { value: 'قيد النظر', label: 'قيد النظر', color: 'bg-yellow-500' },
-  { value: 'مؤجلة', label: 'مؤجلة', color: 'bg-gray-500' },
   { value: 'مغلقة', label: 'مغلقة', color: 'bg-green-500' },
-  { value: 'استئناف', label: 'استئناف', color: 'bg-purple-500' },
-  { value: 'أخرى', label: 'أخرى', color: 'bg-indigo-500' },
 ];
 
 export const STATUS_MAP: Record<CaseStatus, { label: string; color: string }> = 

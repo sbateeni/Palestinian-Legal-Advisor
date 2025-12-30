@@ -2,15 +2,14 @@
 import React, { useMemo, useState } from 'react';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
+import { GroundingMetadata } from '../types';
 
-// Configure marked to open links in a new tab for security and better UX
+// Configure marked to open links in a new tab
 const renderer = new marked.Renderer();
 const linkRenderer = renderer.link;
-// FIX: Cast to 'any' to handle type definition changes in marked v12+ (args vs object)
 renderer.link = function (this: any, ...args: any[]) {
     const html = linkRenderer.apply(this, args as any);
-    // Use rel="noopener noreferrer" for security
-    return html.replace(/^<a /, '<a target="_blank" rel="noopener noreferrer" ');
+    return html.replace(/^<a /, '<a target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline font-bold" ');
 } as any;
 marked.setOptions({ renderer });
 
@@ -18,10 +17,11 @@ interface ChatMessageItemProps {
     content: string;
     isModel: boolean;
     messageId?: string;
+    groundingMetadata?: GroundingMetadata;
     onEdit?: (id: string, newContent: string) => void;
 }
 
-const ChatMessageItem: React.FC<ChatMessageItemProps> = ({ content, isModel, messageId, onEdit }) => {
+const ChatMessageItem: React.FC<ChatMessageItemProps> = ({ content, isModel, messageId, groundingMetadata, onEdit }) => {
     const [isEditing, setIsEditing] = useState(false);
     const [editText, setEditText] = useState(content);
 
@@ -37,7 +37,41 @@ const ChatMessageItem: React.FC<ChatMessageItemProps> = ({ content, isModel, mes
         setIsEditing(false);
     };
 
-    // User messages are rendered simply
+    /**
+     * PRO-LOGIC: Source Injection
+     * This function maps grounding metadata (search results) directly onto the text.
+     * It looks for supports provided by Gemini and wraps them in styled links.
+     */
+    const contentWithGrounding = useMemo(() => {
+        if (!isModel || !groundingMetadata?.groundingSupports || !groundingMetadata?.groundingChunks) {
+            return content;
+        }
+
+        let processedContent = content;
+        const supports = [...groundingMetadata.groundingSupports].sort((a, b) => b.segment.startIndex - a.segment.startIndex);
+
+        for (const support of supports) {
+            const { startIndex, endIndex } = support.segment;
+            const chunkIndices = support.groundingChunkIndices;
+            
+            if (chunkIndices && chunkIndices.length > 0) {
+                const firstChunkIndex = chunkIndices[0];
+                const chunk = groundingMetadata.groundingChunks[firstChunkIndex];
+                
+                if (chunk?.web?.uri) {
+                    const originalText = processedContent.substring(startIndex, endIndex);
+                    // Wrap the legal text in a styled blue link
+                    const linkedText = `[${originalText}](${chunk.web.uri})`;
+                    processedContent = 
+                        processedContent.substring(0, startIndex) + 
+                        linkedText + 
+                        processedContent.substring(endIndex);
+                }
+            }
+        }
+        return processedContent;
+    }, [content, isModel, groundingMetadata]);
+
     if (!isModel) {
         if (isEditing) {
             return (
@@ -61,7 +95,6 @@ const ChatMessageItem: React.FC<ChatMessageItemProps> = ({ content, isModel, mes
                     <button 
                         onClick={() => { setEditText(content); setIsEditing(true); }}
                         className="absolute -top-3 -right-3 p-1 bg-white/20 hover:bg-white/30 rounded-full opacity-0 group-hover/edit:opacity-100 transition-opacity"
-                        title="تعديل الرسالة"
                     >
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-white" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" /></svg>
                     </button>
@@ -70,13 +103,11 @@ const ChatMessageItem: React.FC<ChatMessageItemProps> = ({ content, isModel, mes
         );
     }
 
-    // Model messages need complex parsing for thought blocks and tool codes
     const { toolCode, thought, finalContent } = useMemo(() => {
-        let c = content || '';
+        let c = contentWithGrounding || '';
         let tc: string | null = null;
         let th: string | null = null;
 
-        // 1. Extract tool_code if present at the start
         const toolCodeRegex = /^tool_code\s*\n([\s\S]*?)(?=\n(thought|[\u0600-\u06FF]|$))/;
         const tcMatch = c.match(toolCodeRegex);
         if (tcMatch) {
@@ -84,7 +115,6 @@ const ChatMessageItem: React.FC<ChatMessageItemProps> = ({ content, isModel, mes
              c = c.replace(tcMatch[0], '').trim();
         }
 
-        // 2. Extract thought if present (after tool_code removal)
         const thoughtRegex = /^thought\s*\n([\s\S]*?)(?=\n[\u0600-\u06FF]|$)/;
         const thMatch = c.match(thoughtRegex);
         if (thMatch) {
@@ -92,11 +122,11 @@ const ChatMessageItem: React.FC<ChatMessageItemProps> = ({ content, isModel, mes
             c = c.replace(thMatch[0], '').trim();
         } else if (c.startsWith('thought')) {
              th = c.replace(/^thought\s*\n/, '').trim();
-             c = ''; // Hide content until real answer appears or stream finishes
+             c = ''; 
         }
         
         return { toolCode: tc, thought: th, finalContent: c };
-    }, [content]);
+    }, [contentWithGrounding]);
 
     if (isEditing) {
         return (
@@ -120,13 +150,11 @@ const ChatMessageItem: React.FC<ChatMessageItemProps> = ({ content, isModel, mes
                 <button 
                     onClick={() => { setEditText(content); setIsEditing(true); }}
                     className="absolute -top-3 -right-3 p-1.5 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-full opacity-0 group-hover/edit:opacity-100 transition-opacity z-10 shadow-sm"
-                    title="تعديل الرد"
                 >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-gray-600" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" /></svg>
                 </button>
             )}
 
-            {/* Hidden Debug Info - Tool Code */}
             {toolCode && (
                 <details className="group bg-black/40 rounded-md border border-gray-800 overflow-hidden">
                     <summary className="px-3 py-1.5 text-xs font-mono text-gray-600 cursor-pointer hover:bg-gray-900/50 hover:text-gray-400 transition-colors flex items-center select-none">
@@ -139,7 +167,6 @@ const ChatMessageItem: React.FC<ChatMessageItemProps> = ({ content, isModel, mes
                 </details>
             )}
             
-            {/* Legal Reasoning - Thought Process */}
             {thought && (
                 <details className="group bg-indigo-950/30 rounded-lg border border-indigo-500/20 overflow-hidden mb-3 shadow-sm">
                     <summary className="px-4 py-2 text-xs font-bold text-indigo-300 cursor-pointer hover:bg-indigo-900/40 transition-all flex items-center select-none border-b border-transparent group-open:border-indigo-500/20">
@@ -147,14 +174,12 @@ const ChatMessageItem: React.FC<ChatMessageItemProps> = ({ content, isModel, mes
                         <span className="flex-grow tracking-wide">عملية التفكير والتحليل القانوني (أنقر للعرض)</span>
                         <svg className="w-3 h-3 transition-transform group-open:rotate-90 text-indigo-400/70" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                     </summary>
-                    {/* Render thought content with markdown parsing for better structure */}
                     <div className="p-4 text-indigo-100/90 text-sm leading-relaxed bg-indigo-900/10">
                          <div className="prose prose-invert prose-sm max-w-none prose-p:my-1 prose-ul:my-1" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(marked.parse(thought) as string) }}></div>
                     </div>
                 </details>
             )}
 
-            {/* Final Answer */}
             {finalContent && (
                 <div className="prose prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(marked.parse(finalContent, { breaks: true }) as string) }}></div>
             )}

@@ -10,6 +10,7 @@ const SettingsPage: React.FC = () => {
         apiSource, handleApiSourceChange,
         region, handleRegionChange,
         geminiInputValue, setGeminiInputValue, handleSaveGeminiKey, geminiSaved,
+        geminiModelId, handleGeminiModelChange, // FIX: Correctly deconstructed missing state and handlers
         openRouterInputValue, setOpenRouterInputValue, handleSaveOpenRouterKey, openRouterSaved,
         openRouterModelId, handleModelChange, openRouterModels,
         newModelId, setNewModelId, newModelSupportsImages, setNewModelSupportsImages, handleAddModel, handleDeleteModel,
@@ -32,6 +33,7 @@ const SettingsPage: React.FC = () => {
             <ServiceConfig 
                 apiSource={apiSource} handleApiSourceChange={handleApiSourceChange}
                 geminiInputValue={geminiInputValue} setGeminiInputValue={setGeminiInputValue} handleSaveGeminiKey={handleSaveGeminiKey} geminiSaved={geminiSaved}
+                geminiModelId={geminiModelId} handleGeminiModelChange={handleGeminiModelChange} // FIX: Passed missing props to ServiceConfig to satisfy TypeScript
                 openRouterInputValue={openRouterInputValue} setOpenRouterInputValue={setOpenRouterInputValue} handleSaveOpenRouterKey={handleSaveOpenRouterKey} openRouterSaved={openRouterSaved}
                 openRouterModelId={openRouterModelId} handleModelChange={handleModelChange} openRouterModels={openRouterModels}
                 newModelId={newModelId} setNewModelId={setNewModelId} newModelSupportsImages={newModelSupportsImages} setNewModelSupportsImages={setNewModelSupportsImages} handleAddModel={handleAddModel} handleDeleteModel={handleDeleteModel}

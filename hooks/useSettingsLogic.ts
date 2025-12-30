@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { ApiSource, Case, OpenRouterModel, LegalRegion, GeminiModel } from '../types';
 import * as dbService from '../services/dbService';
@@ -8,11 +7,11 @@ export const useSettingsLogic = () => {
     const [apiSource, setApiSource] = useState<ApiSource>('gemini');
     const [region, setRegion] = useState<LegalRegion>('westbank'); 
     
-    // Gemini states
+    // Gemini states - Defaulting to 'auto'
     const [geminiApiKey, setGeminiApiKey] = useState('');
     const [geminiInputValue, setGeminiInputValue] = useState('');
     const [geminiSaved, setGeminiSaved] = useState(false);
-    const [geminiModelId, setGeminiModelId] = useState<string>(DEFAULT_GEMINI_MODELS[0].id);
+    const [geminiModelId, setGeminiModelId] = useState<string>('auto');
     
     // OpenRouter states
     const [openRouterApiKey, setOpenRouterApiKey] = useState('');
@@ -43,6 +42,7 @@ export const useSettingsLogic = () => {
 
             const storedGeminiModel = await dbService.getSetting<string>('geminiModelId');
             if (storedGeminiModel) setGeminiModelId(storedGeminiModel);
+            else setGeminiModelId('auto'); // Ensure auto is the default if nothing stored
             
             const storedOpenRouterKey = await dbService.getSetting<string>('openRouterApiKey');
             const storedModelId = await dbService.getSetting<string>('openRouterModel');
@@ -87,7 +87,6 @@ export const useSettingsLogic = () => {
         const newModel = e.target.value;
         setGeminiModelId(newModel);
         await dbService.setSetting({ key: 'geminiModelId', value: newModel });
-        // Dispatch event so TokenTracker updates limit immediately
         window.dispatchEvent(new CustomEvent('geminiModelChanged', { detail: newModel }));
     };
 
