@@ -1,11 +1,9 @@
-
 import React, { useEffect, useState } from 'react';
 import { getTokenUsage } from '../services/dbService';
-import { DEFAULT_GEMINI_MODELS } from '../constants';
 
 const TokenTracker: React.FC = () => {
   const [requests, setRequests] = useState(0);
-  const [limit, setLimit] = useState(250);
+  const limit = 250;
 
   const updateUsage = async () => {
     const count = await getTokenUsage();
@@ -20,18 +18,24 @@ const TokenTracker: React.FC = () => {
   }, []);
 
   const percentage = Math.min(100, (requests / limit) * 100);
+  const remaining = Math.max(0, limit - requests);
   
   return (
-    <div className="flex flex-col items-end px-3 py-1 bg-slate-900/40 rounded-lg border border-white/10" title="استهلاك اليوم لنموذج Flash الأساسي">
-      <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400">
-         <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-         <span>الرصيد المتاح (Flash)</span>
-         <span className="text-white font-mono">{250 - requests}/250</span>
+    <div className="flex flex-col items-end px-2 sm:px-3 py-1 bg-blue-50/50 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-800 transition-all duration-300 shadow-sm" title="استهلاك اليوم لنموذج Flash">
+      <div className="flex items-center gap-2 text-[10px] font-bold text-blue-700 dark:text-blue-300">
+         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+         <span>الرصيد المتاح (Flash):</span>
+         <span className="text-gray-900 dark:text-white font-mono text-xs">{remaining}/{limit}</span>
       </div>
-      <div className="w-24 h-1 bg-slate-700 rounded-full mt-1 overflow-hidden">
-        <div className={`h-full bg-blue-500 transition-all duration-1000`} style={{ width: `${percentage}%` }}></div>
+      <div className="w-24 sm:w-32 h-1.5 bg-gray-200 dark:bg-slate-700 rounded-full mt-1 overflow-hidden border border-gray-100 dark:border-slate-800">
+        <div 
+          className={`h-full transition-all duration-1000 ${percentage > 90 ? 'bg-red-500' : percentage > 70 ? 'bg-amber-500' : 'bg-blue-600'}`} 
+          style={{ width: `${percentage}%` }}
+        ></div>
       </div>
-      <div className="text-[8px] text-slate-500 mt-0.5">يتم توجيه المهام تلقائياً للنموذج الأنسب</div>
+      <div className="text-[8px] font-medium text-gray-500 dark:text-slate-400 mt-1 whitespace-nowrap">
+        يتم توجيه المهام تلقائياً للنموذج الأنسب
+      </div>
     </div>
   );
 };
