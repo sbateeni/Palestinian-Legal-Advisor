@@ -1,4 +1,3 @@
-
 import React, { useEffect } from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
 import { useChatLogic } from '../hooks/useChatLogic';
@@ -50,7 +49,7 @@ const ShariaPage: React.FC<ShariaPageProps> = ({ caseId }) => {
     }
 
     // 3. API Key Check
-    const isNewCaseWithoutKey = logic.isApiKeyReady === false && logic.chatHistory.length === 0;
+    const isNewCaseWithoutKey = logic.isApiKeyReady === false && (logic.chatHistory || []).length === 0;
 
     if (isNewCaseWithoutKey) {
         const isGemini = logic.apiSource === 'gemini';
@@ -74,8 +73,9 @@ const ShariaPage: React.FC<ShariaPageProps> = ({ caseId }) => {
 
     // Custom Input Component Wrapper to replace LegalToolbar with ShariaToolbar
     const ShariaChatInput = () => {
-        // FIX: Ensure activePrompts is always an array to prevent mapping undefined
-        const activePrompts = AGENT_PROMPTS[logic.actionMode] || AGENT_PROMPTS['sharia_advisor'] || [];
+        // Robust fallback logic for prompts
+        const rawPrompts = (AGENT_PROMPTS && AGENT_PROMPTS[logic.actionMode]) || (AGENT_PROMPTS && AGENT_PROMPTS['sharia_advisor']) || [];
+        const activePrompts = Array.isArray(rawPrompts) ? rawPrompts : [];
 
         return (
             <div className="p-4 border-t border-gray-200 bg-white shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] border-t-4 border-emerald-500/20">
@@ -120,7 +120,7 @@ const ShariaPage: React.FC<ShariaPageProps> = ({ caseId }) => {
                     </button>
                     
                     {/* Images Preview in Sharia Page */}
-                    {logic.uploadedImages.length > 0 && (
+                    {Array.isArray(logic.uploadedImages) && logic.uploadedImages.length > 0 && (
                         <div className="flex gap-1 overflow-x-auto max-w-[150px] scrollbar-hide">
                             {logic.uploadedImages.map((img, i) => (
                                 <div key={i} className="relative group flex-shrink-0">
@@ -144,7 +144,7 @@ const ShariaPage: React.FC<ShariaPageProps> = ({ caseId }) => {
                         style={{ maxHeight: '10rem' }}
                         disabled={logic.isLoading || !logic.isApiKeyReady}
                     />
-                    <button onClick={() => logic.handleSendMessage()} disabled={logic.isLoading || (!logic.userInput.trim() && logic.uploadedImages.length === 0) || !logic.isApiKeyReady} className="p-3 bg-emerald-600 text-white font-semibold rounded-lg hover:bg-emerald-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors">
+                    <button onClick={() => logic.handleSendMessage()} disabled={logic.isLoading || (!logic.userInput.trim() && (logic.uploadedImages || []).length === 0) || !logic.isApiKeyReady} className="p-3 bg-emerald-600 text-white font-semibold rounded-lg hover:bg-emerald-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
                     </button>
                 </div>
@@ -174,7 +174,7 @@ const ShariaPage: React.FC<ShariaPageProps> = ({ caseId }) => {
             </div>
 
             <PinnedPanel
-                messages={logic.pinnedMessages}
+                messages={Array.isArray(logic.pinnedMessages) ? logic.pinnedMessages : []}
                 isOpen={logic.isPinnedPanelOpen}
                 setIsOpen={logic.setIsPinnedPanelOpen}
                 onUnpin={logic.handleUnpinMessage}
@@ -182,9 +182,9 @@ const ShariaPage: React.FC<ShariaPageProps> = ({ caseId }) => {
 
             <div ref={logic.chatContainerRef} className="flex-grow p-4 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
                 <MessageList
-                    messages={logic.chatHistory}
+                    messages={Array.isArray(logic.chatHistory) ? logic.chatHistory : []}
                     isLoading={logic.isLoading}
-                    pinnedMessages={logic.pinnedMessages}
+                    pinnedMessages={Array.isArray(logic.pinnedMessages) ? logic.pinnedMessages : []}
                     onPinMessage={logic.handlePinMessage}
                     onConvertCaseType={logic.handleConvertCaseType} 
                     onFollowUpAction={logic.handleFollowUpAction} // Pass handler

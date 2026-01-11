@@ -1,4 +1,3 @@
-
 import React from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
 import { useForgeryLogic } from '../hooks/useForgeryLogic';
@@ -29,7 +28,7 @@ const ForgeryDetectionPage: React.FC<ForgeryDetectionPageProps> = ({ caseId }) =
     }
 
     // 2. API Key Check
-    const isNewCaseWithoutKey = logic.isApiKeyReady === false && logic.chatHistory.length === 0;
+    const isNewCaseWithoutKey = logic.isApiKeyReady === false && (logic.chatHistory || []).length === 0;
 
     if (isNewCaseWithoutKey) {
         const isGemini = logic.apiSource === 'gemini';
@@ -52,8 +51,9 @@ const ForgeryDetectionPage: React.FC<ForgeryDetectionPageProps> = ({ caseId }) =
     }
 
     const ForgeryInput = () => {
-        // FIX: Ensure activePrompts is always an array to prevent mapping undefined
-        const activePrompts = AGENT_PROMPTS[logic.actionMode] || AGENT_PROMPTS['forensic'] || [];
+        // Robust fallback logic for prompts
+        const rawPrompts = (AGENT_PROMPTS && AGENT_PROMPTS[logic.actionMode]) || (AGENT_PROMPTS && AGENT_PROMPTS['forensic']) || [];
+        const activePrompts = Array.isArray(rawPrompts) ? rawPrompts : [];
 
         return (
             <div className="p-4 border-t border-gray-200 bg-white shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] border-t-4 border-red-600/20">
@@ -92,7 +92,7 @@ const ForgeryDetectionPage: React.FC<ForgeryDetectionPageProps> = ({ caseId }) =
                 )}
     
                 {/* Images Preview in Forgery Page */}
-                {logic.uploadedImages.length > 0 && (
+                {Array.isArray(logic.uploadedImages) && logic.uploadedImages.length > 0 && (
                     <div className="flex gap-2 mb-3 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-gray-300">
                         {logic.uploadedImages.map((img, i) => (
                             <div key={i} className="relative group flex-shrink-0">
@@ -126,7 +126,7 @@ const ForgeryDetectionPage: React.FC<ForgeryDetectionPageProps> = ({ caseId }) =
                         style={{ maxHeight: '10rem' }}
                         disabled={logic.isLoading || !logic.isApiKeyReady}
                     />
-                    <button onClick={() => logic.handleSendMessage()} disabled={logic.isLoading || (!logic.userInput.trim() && logic.uploadedImages.length === 0) || !logic.isApiKeyReady} className="p-3 bg-red-700 text-white font-semibold rounded-lg hover:bg-red-800 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors shadow-lg shadow-red-900/20">
+                    <button onClick={() => logic.handleSendMessage()} disabled={logic.isLoading || (!logic.userInput.trim() && (logic.uploadedImages || []).length === 0) || !logic.isApiKeyReady} className="p-3 bg-red-700 text-white font-semibold rounded-lg hover:bg-red-800 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors shadow-lg shadow-red-900/20">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
                     </button>
                 </div>
@@ -155,7 +155,7 @@ const ForgeryDetectionPage: React.FC<ForgeryDetectionPageProps> = ({ caseId }) =
             </div>
 
             <PinnedPanel
-                messages={logic.pinnedMessages}
+                messages={Array.isArray(logic.pinnedMessages) ? logic.pinnedMessages : []}
                 isOpen={logic.isPinnedPanelOpen}
                 setIsOpen={logic.setIsPinnedPanelOpen}
                 onUnpin={logic.handleUnpinMessage}
@@ -163,9 +163,9 @@ const ForgeryDetectionPage: React.FC<ForgeryDetectionPageProps> = ({ caseId }) =
 
             <div ref={logic.chatContainerRef} className="flex-grow p-4 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
                 <MessageList
-                    messages={logic.chatHistory}
+                    messages={Array.isArray(logic.chatHistory) ? logic.chatHistory : []}
                     isLoading={logic.isLoading}
-                    pinnedMessages={logic.pinnedMessages}
+                    pinnedMessages={Array.isArray(logic.pinnedMessages) ? logic.pinnedMessages : []}
                     onPinMessage={logic.handlePinMessage}
                     onFollowUpAction={logic.handleFollowUpAction}
                 />

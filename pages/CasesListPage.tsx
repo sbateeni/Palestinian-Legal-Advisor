@@ -1,4 +1,3 @@
-
 import React from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
 import { useCasesListLogic } from '../hooks/useCasesListLogic';
@@ -46,15 +45,15 @@ const CasesListPage: React.FC = () => {
 
     if (isLoading) {
         return (
-            <div className="w-full flex-grow flex items-center justify-center p-8 text-lg">
-                <svg className="animate-spin h-6 w-6 text-white me-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+            <div className="w-full flex-grow flex items-center justify-center p-8 text-lg text-gray-800 dark:text-slate-200">
+                <svg className="animate-spin h-6 w-6 text-blue-600 dark:text-blue-400 me-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
                 <span>جاري تحميل القضايا...</span>
             </div>
         );
     }
 
     return (
-        <div className="w-full p-4">
+        <div className="w-full p-4 dark:bg-slate-950 transition-colors duration-300">
             <CasesFilterBar 
                 searchTerm={searchTerm} setSearchTerm={setSearchTerm}
                 viewMode={viewMode} setViewMode={setViewMode}
@@ -67,13 +66,13 @@ const CasesListPage: React.FC = () => {
 
             {displayedCases.length === 0 ? (
                 <div className="text-center py-16">
-                    <p className="text-gray-400 text-lg">
+                    <p className="text-gray-400 dark:text-slate-500 text-lg">
                         {searchTerm || statusFilter !== 'all' || startDate || endDate 
                             ? 'لا توجد قضايا تطابق معايير البحث.' 
                             : 'لم يتم حفظ أي قضايا بعد.'}
                     </p>
                     {(!searchTerm && statusFilter === 'all' && !startDate && !endDate) && (
-                        <button onClick={() => navigate('/')} className="mt-4 px-6 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors">
+                        <button onClick={() => navigate('/')} className="mt-4 px-6 py-2 bg-blue-600 dark:bg-blue-700 text-white font-semibold rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors">
                             ابدأ قضية جديدة
                         </button>
                     )}
@@ -102,7 +101,7 @@ const CasesListPage: React.FC = () => {
                         ))}
                     </div>
                 ) : (
-                    <div className="space-y-3 bg-gray-800 rounded-lg p-2">
+                    <div className="space-y-3 bg-gray-800 dark:bg-slate-900 rounded-lg p-2 transition-colors">
                         {displayedCases.map(caseItem => (
                             <CaseListItem 
                                 key={caseItem.id}

@@ -10,8 +10,26 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400&family=Cairo:wght@300;400;600;700;900&display=swap" rel="stylesheet">
   
-  <!-- Tailwind CSS CDN -->
+  <!-- Tailwind CSS CDN with Config -->
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Cairo', 'sans-serif'],
+            serif: ['Amiri', 'serif'],
+          },
+          colors: {
+            slate: {
+              950: '#020617',
+            }
+          }
+        }
+      }
+    }
+  </script>
   
   <style>
     :root {
@@ -21,90 +39,54 @@
 
     body {
       font-family: var(--font-ui);
+      transition: background-color 0.3s ease, color 0.3s ease;
     }
 
+    /* Improved Prose Styling for Dark Mode Contrast */
     .prose-invert {
       color: #374151;
       font-size: 1rem;
       line-height: 1.8;
-      font-family: var(--font-ui);
     }
     
-    .prose-invert h1, 
-    .prose-invert h2, 
-    .prose-invert h3, 
-    .prose-invert h4 {
-      color: #111827;
-      font-weight: 700;
+    .dark .prose-invert {
+      color: #f1f5f9; /* slate-100: high contrast */
+    }
+    
+    .prose-invert h1, .prose-invert h2, .prose-invert h3 {
+      color: #0f172a;
+      font-weight: 800;
       margin-top: 1.5em;
       margin-bottom: 0.8em;
-      border-bottom: 1px solid #e5e7eb;
-      padding-bottom: 0.3em;
-      font-family: var(--font-ui);
+    }
+
+    .dark .prose-invert h1, 
+    .dark .prose-invert h2, 
+    .dark .prose-invert h3 {
+      color: #ffffff;
+      border-bottom: 1px solid #334155;
     }
     
-    .prose-invert strong, 
-    .prose-invert b {
-      color: #0f172a;
-      font-weight: 700;
+    .prose-invert strong {
+      color: #1e293b;
     }
-    
-    .prose-invert a {
-      color: #2563eb;
-      text-decoration: underline;
-      text-underline-offset: 4px;
-      transition: color 0.2s;
+    .dark .prose-invert strong {
+      color: #60a5fa; /* blue-400: very bright on dark */
     }
-    
-    .prose-invert a:hover {
-      color: #1d4ed8;
-    }
-    
+
     .prose-invert blockquote {
       border-right: 4px solid #3b82f6;
       background-color: #f8fafc;
       color: #334155;
       padding: 0.8em 1.2em;
-      margin: 1.5em 0;
       border-radius: 0.375rem;
-      font-style: normal;
       font-family: var(--font-legal);
-      font-size: 1.1em;
-      line-height: 2;
-      box-shadow: inset 2px 2px 5px rgba(0,0,0,0.05);
-      border: 1px solid #e2e8f0;
     }
-    
-    .prose-invert table {
-      width: 100%;
-      border-collapse: collapse;
-      margin: 1.5em 0;
-      font-size: 0.9em;
-    }
-    
-    .prose-invert th {
-      background-color: #f3f4f6;
-      color: #1f2937;
-      font-weight: 700;
-      text-align: right;
-      padding: 0.75rem;
-      border: 1px solid #d1d5db;
-    }
-    
-    .prose-invert td {
-      padding: 0.75rem;
-      border: 1px solid #d1d5db;
-      color: #4b5563;
-    }
-    
-    .prose-invert code {
-      color: #0f172a;
-      background-color: #f1f5f9;
-      padding: 0.2em 0.4em;
-      border-radius: 0.25rem;
-      font-family: ui-monospace, monospace;
-      font-size: 0.9em;
-      border: 1px solid #e2e8f0;
+
+    .dark .prose-invert blockquote {
+      background-color: #0f172a;
+      color: #e2e8f0;
+      border-right-color: #60a5fa;
     }
 
     html, body, #root {
@@ -112,156 +94,12 @@
       overflow: hidden;
     }
 
-    @media print {
-      @page { 
-        margin: 1.5cm; 
-        size: A4;
-      }
-      
-      body, html, #root {
-        height: auto !important;
-        overflow: visible !important;
-        background-color: white !important;
-        color: black !important;
-        font-family: var(--font-legal) !important;
-      }
-
-      header, nav, .no-print, button, input, textarea, select, label, 
-      ::-webkit-scrollbar, [role="switch"], .sticky, details > summary {
-        display: none !important;
-      }
-      
-      .border-t, .bg-gray-800, .bg-gray-900, .shadow-lg, .backdrop-blur-md {
-        background-color: transparent !important;
-        border: none !important;
-        box-shadow: none !important;
-        backdrop-filter: none !important;
-      }
-
-      main {
-        width: 100% !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        display: block !important;
-        overflow: visible !important;
-      }
-
-      body::before {
-        content: "المستشار القانوني الفلسطيني\A مذكرة رأي قانوني";
-        white-space: pre;
-        display: block;
-        text-align: center;
-        font-size: 16pt;
-        font-weight: bold;
-        border-bottom: 3px double #000;
-        margin-bottom: 30px;
-        padding-bottom: 15px;
-        font-family: var(--font-ui);
-        line-height: 1.5;
-      }
-
-      .flex.flex-col.group {
-        display: block !important;
-        margin-bottom: 20px !important;
-        page-break-inside: avoid;
-      }
-
-      .max-w-xl, .lg\:max-w-3xl {
-        max-width: 100% !important;
-        background-color: transparent !important;
-        color: black !important;
-        padding: 0 !important;
-        border: none !important;
-      }
-
-      .items-end .max-w-3xl { 
-        border-bottom: 1px solid #ccc !important;
-        padding-bottom: 10px !important;
-        margin-bottom: 15px !important;
-      }
-      
-      .items-end .max-w-3xl::before {
-        content: "الوقائع والاستفسار:";
-        display: block;
-        font-size: 12pt;
-        font-weight: bold;
-        text-decoration: underline;
-        margin-bottom: 5px;
-      }
-
-      .items-start .max-w-3xl { 
-        text-align: justify;
-        font-size: 12pt;
-        line-height: 1.6;
-      }
-      
-      .items-start .max-w-3xl::before {
-        content: "الرأي القانوني:";
-        display: block;
-        font-size: 12pt;
-        font-weight: bold;
-        text-decoration: underline;
-        margin-bottom: 5px;
-        margin-top: 10px;
-      }
-
-      .prose-invert {
-        color: black !important;
-        font-family: var(--font-legal) !important;
-      }
-      
-      .prose-invert h1, .prose-invert h2, .prose-invert h3 {
-        color: black !important;
-        border-bottom: 1px solid #000 !important;
-        margin-top: 1em !important;
-        font-size: 14pt !important;
-      }
-      
-      .prose-invert strong, .prose-invert b {
-        color: black !important;
-        font-weight: 900;
-      }
-      
-      .prose-invert blockquote {
-        border-right: 3px solid #000 !important;
-        background-color: #f5f5f5 !important;
-        color: #000 !important;
-        font-style: italic;
-        padding: 10px 15px !important;
-        margin: 10px 0 !important;
-      }
-      
-      .prose-invert a {
-        color: black !important;
-        text-decoration: none !important;
-      }
-      
-      .prose-invert table {
-        border: 1px solid #000 !important;
-        width: 100% !important;
-      }
-      
-      .prose-invert th {
-        background-color: #eee !important;
-        color: #000 !important;
-        border: 1px solid #000 !important;
-      }
-      
-      .prose-invert td {
-        border: 1px solid #000 !important;
-        color: #000 !important;
-      }
-
-      body::after {
-        content: "تم تحرير هذه المذكرة إلكترونياً عبر نظام المستشار القانوني الفلسطيني.";
-        display: block;
-        text-align: center;
-        font-size: 9pt;
-        color: #666;
-        margin-top: 50px;
-        border-top: 1px solid #ccc;
-        padding-top: 10px;
-      }
+    /* Scrollbar high contrast */
+    .dark ::-webkit-scrollbar-thumb {
+      background: #475569;
+    }
+    .dark ::-webkit-scrollbar-thumb:hover {
+      background: #64748b;
     }
   </style>
   
@@ -289,7 +127,7 @@
   
   <script type="module" src="/index.tsx"></script>
 </head>
-<body class="bg-gray-50 text-gray-900">
+<body class="bg-gray-50 text-gray-900 dark:bg-slate-950 dark:text-slate-50 transition-colors duration-300">
   <div id="root"></div>
 </body>
 </html>

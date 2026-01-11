@@ -13,15 +13,17 @@ interface ErrorBoundaryState {
 
 // FIX: Explicitly inherit from Component with generics and declare state/props to ensure TypeScript recognition.
 class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  // FIX: Explicitly declare the state property. This resolves the "Property 'state' does not exist" error.
+  // FIX: Explicitly declare the props and state property. This resolves the "Property 'state'/'props' does not exist" error.
+  public props: ErrorBoundaryProps;
   public state: ErrorBoundaryState = {
     hasError: false,
     error: null
   };
 
-  // FIX: Constructor to pass props to the base class.
+  // FIX: Constructor to pass props to the base class and assign it locally to satisfy the TypeScript compiler.
   constructor(props: ErrorBoundaryProps) {
     super(props);
+    this.props = props;
   }
 
   // FIX: Correct signature for getDerivedStateFromError return type.
@@ -90,7 +92,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
       );
     }
 
-    // FIX: this.props.children is now correctly inherited and recognized.
+    // FIX: this.props.children is now correctly recognized due to explicit member declaration above.
     return this.props.children;
   }
 }

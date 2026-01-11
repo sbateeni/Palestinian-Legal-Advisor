@@ -1,8 +1,6 @@
-
 import React, { useState } from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
 import VoiceBriefModal from '../components/modals/VoiceBriefModal';
-import { useChatLogic } from '../hooks/useChatLogic';
 
 const { useNavigate } = ReactRouterDOM;
 
@@ -21,27 +19,19 @@ const NavCircle: React.FC<NavItemProps> = ({ title, description, icon, path, del
     return (
         <div 
             onClick={() => navigate(path)}
-            className={`group relative flex flex-col items-center justify-center w-full max-w-[240px] aspect-square rounded-full cursor-pointer transition-all duration-500 animate-fade-in-up ${delay} bg-white border border-gray-200 shadow-xl hover:shadow-2xl hover:-translate-y-2 overflow-hidden hover:border-blue-300`}
+            className={`group relative flex flex-col items-center justify-center w-full max-w-[240px] aspect-square rounded-full cursor-pointer transition-all duration-500 animate-fade-in-up ${delay} bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 shadow-xl hover:shadow-2xl dark:hover:shadow-blue-900/20 hover:-translate-y-2 overflow-hidden hover:border-blue-300 dark:hover:border-blue-700`}
             style={{ touchAction: 'manipulation' }}
         >
-            {/* Background Glow Effect */}
-            <div className="absolute inset-0 bg-gradient-to-b from-blue-50/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+            <div className="absolute inset-0 bg-gradient-to-b from-blue-50/50 dark:from-blue-900/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
             
-            {/* Content Container */}
             <div className="relative z-10 flex flex-col items-center justify-center h-full w-full px-6 py-4 text-center">
-                
-                {/* Icon */}
                 <div className={`mb-3 transition-transform duration-300 group-hover:scale-110 ${iconColor}`}>
                     {icon}
                 </div>
-
-                {/* Title */}
-                <h3 className="text-base sm:text-lg font-bold text-gray-800 mb-2 leading-tight group-hover:text-blue-700 transition-colors duration-300">
+                <h3 className="text-base sm:text-lg font-bold text-gray-800 dark:text-gray-100 mb-2 leading-tight group-hover:text-blue-700 dark:group-hover:text-blue-400 transition-colors duration-300">
                     {title}
                 </h3>
-
-                {/* Description */}
-                <p className="text-[11px] sm:text-xs text-gray-500 font-medium leading-relaxed line-clamp-3 px-1 group-hover:text-gray-700 transition-colors duration-300 opacity-90">
+                <p className="text-[11px] sm:text-xs text-gray-500 dark:text-slate-400 font-medium leading-relaxed line-clamp-3 px-1 group-hover:text-gray-700 dark:group-hover:text-slate-300 transition-colors duration-300 opacity-90">
                     {description}
                 </p>
             </div>
@@ -50,12 +40,12 @@ const NavCircle: React.FC<NavItemProps> = ({ title, description, icon, path, del
 };
 
 const FeatureCard: React.FC<{ title: string; desc: string; icon: React.ReactNode; delay: string }> = ({ title, desc, icon, delay }) => (
-    <div className={`flex flex-col items-start p-6 bg-white border border-gray-100 rounded-2xl shadow-sm hover:shadow-md hover:border-blue-200 transition-all duration-300 animate-fade-in-up ${delay}`}>
-        <div className="p-3 bg-blue-50 rounded-lg mb-4 text-blue-600 shadow-sm border border-blue-100 group-hover:scale-105 transition-transform">
+    <div className={`flex flex-col items-start p-6 bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-2xl shadow-sm hover:shadow-md hover:border-blue-200 dark:hover:border-blue-800 transition-all duration-300 animate-fade-in-up ${delay}`}>
+        <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg mb-4 text-blue-600 dark:text-blue-400 shadow-sm border border-blue-100 dark:border-blue-900/30 group-hover:scale-105 transition-transform">
             {icon}
         </div>
-        <h3 className="text-lg font-bold text-gray-900 mb-2">{title}</h3>
-        <p className="text-sm text-gray-600 leading-relaxed">{desc}</p>
+        <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">{title}</h3>
+        <p className="text-sm text-gray-600 dark:text-slate-400 leading-relaxed">{desc}</p>
     </div>
 );
 
@@ -74,7 +64,7 @@ const HomePage: React.FC = () => {
             description: "المستشار العام: تحليل القضايا، صيد الثغرات، صياغة اللوائح، وبناء الاستراتيجيات.",
             path: "/civil",
             delay: "animation-delay-100",
-            iconColor: "text-blue-600",
+            iconColor: "text-blue-600 dark:text-blue-400",
             icon: (
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.2} d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3" />
@@ -86,7 +76,7 @@ const HomePage: React.FC = () => {
             description: "القضاء الشرعي: زواج، طلاق، حضانة، نفقات، ومنازعات الشقاق والنزاع.",
             path: "/sharia",
             delay: "animation-delay-200",
-            iconColor: "text-emerald-600",
+            iconColor: "text-emerald-600 dark:text-emerald-400",
             icon: (
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
@@ -98,7 +88,7 @@ const HomePage: React.FC = () => {
             description: "محرك بحث متخصص في القوانين السارية (المقتفي، الجريدة الرسمية).",
             path: "/research",
             delay: "animation-delay-300",
-            iconColor: "text-purple-600",
+            iconColor: "text-purple-600 dark:text-purple-400",
             icon: (
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
@@ -110,7 +100,7 @@ const HomePage: React.FC = () => {
             description: "محرك حساب دقيق للأنصبة الشرعية والقانونية وتوزيع التركات بالأسهم.",
             path: "/inheritance",
             delay: "animation-delay-400",
-            iconColor: "text-amber-500",
+            iconColor: "text-amber-500 dark:text-amber-400",
             icon: (
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
@@ -122,7 +112,7 @@ const HomePage: React.FC = () => {
             description: "الكشف عن التزوير، مطابقة الصور، وتحليل التلاعب الرقمي (Forensics).",
             path: "/forgery",
             delay: "animation-delay-500",
-            iconColor: "text-red-600",
+            iconColor: "text-red-600 dark:text-red-400",
             icon: (
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
@@ -134,41 +124,28 @@ const HomePage: React.FC = () => {
             description: "الأرشيف الكامل لجميع القضايا والاستشارات السابقة (يعمل دون إنترنت).",
             path: "/cases",
             delay: "animation-delay-600",
-            iconColor: "text-indigo-600",
+            iconColor: "text-indigo-600 dark:text-indigo-400",
             icon: (
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.2} d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2v5a2 2 0 01-2 2z" />
-                </svg>
-            )
-        },
-        {
-            title: "الأدوات القانونية",
-            description: "حاسبة الرسوم القضائية، وحساب المهل القانونية (استئناف/نقض).",
-            path: "/tools",
-            delay: "animation-delay-700",
-            iconColor: "text-cyan-600",
-            icon: (
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
             )
         }
     ];
 
     return (
-        <div className="flex flex-col items-center min-h-full py-10 px-4 relative overflow-x-hidden w-full bg-gray-50">
+        <div className="flex flex-col items-center min-h-full py-10 px-4 relative overflow-x-hidden w-full bg-gray-50 dark:bg-slate-950 transition-colors duration-300">
             
             {/* --- HERO SECTION --- */}
             <div className="text-center mb-16 animate-fade-in w-full max-w-4xl mx-auto relative">
-                <div className="inline-block mb-4 px-4 py-1.5 rounded-full bg-blue-100 border border-blue-200 text-blue-700 text-xs font-semibold tracking-wider uppercase">
+                <div className="inline-block mb-4 px-4 py-1.5 rounded-full bg-blue-100 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 text-xs font-semibold tracking-wider uppercase">
                     الذكاء الاصطناعي في خدمة العدالة
                 </div>
-                <h1 className="text-4xl md:text-6xl font-extrabold text-gray-900 mb-6 leading-tight drop-shadow-sm pb-1">
+                <h1 className="text-4xl md:text-6xl font-extrabold text-gray-900 dark:text-gray-100 mb-6 leading-tight drop-shadow-sm pb-1">
                     المستشار القانوني الفلسطيني
                 </h1>
-                <p className="text-lg md:text-xl text-gray-600 font-light max-w-2xl mx-auto leading-relaxed mb-8">
-                    منظومة قانونية ذكية متكاملة، صُممت خصيصاً لتلبية احتياجات المحامي والمواطن الفلسطيني وفق أحدث التشريعات (المقتفي، الجريدة الرسمية).
+                <p className="text-lg md:text-xl text-gray-600 dark:text-slate-400 font-light max-w-2xl mx-auto leading-relaxed mb-8">
+                    منظومة قانونية ذكية متكاملة، صُممت خصيصاً لتلبية احتياجات المحامي والمواطن الفلسطيني وفق أحدث التشريعات.
                 </p>
 
                 {/* VOICE TO BRIEF BUTTON */}
@@ -193,9 +170,9 @@ const HomePage: React.FC = () => {
             </div>
 
             {/* --- FEATURES / INFO SECTION --- */}
-            <div className="w-full max-w-6xl border-t border-gray-200 pt-16 pb-8">
+            <div className="w-full max-w-6xl border-t border-gray-200 dark:border-slate-800 pt-16 pb-8">
                 <div className="text-center mb-12">
-                    <h2 className="text-2xl font-bold text-gray-800 mb-2">لماذا تختار هذه المنظومة؟</h2>
+                    <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-200 mb-2">لماذا تختار هذه المنظومة؟</h2>
                     <div className="h-1 w-20 bg-blue-500 mx-auto rounded-full"></div>
                 </div>
 
@@ -228,9 +205,8 @@ const HomePage: React.FC = () => {
             </div>
 
             {/* --- FOOTER --- */}
-            <footer className="mt-auto text-center text-gray-500 text-sm py-6 w-full border-t border-gray-200">
+            <footer className="mt-auto text-center text-gray-500 dark:text-slate-500 text-sm py-6 w-full border-t border-gray-200 dark:border-slate-800">
                 <p>© {new Date().getFullYear()} المستشار القانوني الفلسطيني. جميع الحقوق محفوظة.</p>
-                <p className="text-xs mt-1 opacity-60">نسخة محسنة (v2.0)</p>
             </footer>
 
             <VoiceBriefModal 

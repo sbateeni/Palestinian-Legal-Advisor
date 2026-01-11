@@ -1,5 +1,4 @@
-
-import React from 'react';
+import React, { useEffect } from 'react';
 import { HashRouter, Routes, Route, useParams, Navigate } from 'react-router-dom';
 import Header from './components/Header';
 import HomePage from './pages/HomePage';
@@ -31,9 +30,19 @@ const ForgeryPageWrapper: React.FC = () => {
 };
 
 const App: React.FC = () => {
+  // Initial theme setup
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, []);
+
   return (
     <HashRouter>
-      <div className="h-full flex flex-col bg-gray-50 text-gray-900 font-sans">
+      <div className="h-full flex flex-col bg-gray-50 text-gray-900 dark:bg-slate-950 dark:text-slate-100 font-sans transition-colors duration-300">
         <Header />
         <main className="flex-grow container mx-auto flex flex-col overflow-y-auto">
           <Routes>
