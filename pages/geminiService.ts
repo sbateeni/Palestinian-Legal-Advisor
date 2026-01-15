@@ -13,7 +13,9 @@ const THINKING_BUDGET_PRO = 4000;
  * Strictly uses process.env.API_KEY as per GenAI Coding Guidelines.
  */
 function getAI() {
-    return new GoogleGenAI({ apiKey: process.env.API_KEY });
+    // Robust check: Ensure we don't crash if the key is missing during dev/init
+    const apiKey = process.env.API_KEY || 'MISSING_KEY_PLACEHOLDER';
+    return new GoogleGenAI({ apiKey: apiKey });
 }
 
 /**
@@ -56,7 +58,7 @@ export async function countTokensForGemini(history: ChatMessage[]): Promise<numb
         });
         return response.totalTokens || 0;
     } catch (e) {
-        console.error("Token counting error:", e);
+        // Silent fail for token counting to avoid disrupting UI flow
         return 0;
     }
 }

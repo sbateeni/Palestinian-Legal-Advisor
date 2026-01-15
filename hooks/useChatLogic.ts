@@ -87,8 +87,8 @@ export const useChatLogic = (caseId?: string, initialCaseType: CaseType = 'chat'
                         setIsApiKeyReady(false);
                     }
                 } else {
-                    // For Gemini, we exclusively rely on process.env.API_KEY
-                    setIsApiKeyReady(true);
+                    // For Gemini, verify environment variable exists
+                    setIsApiKeyReady(!!process.env.API_KEY && process.env.API_KEY !== 'undefined');
                 }
 
                 try {
@@ -98,7 +98,9 @@ export const useChatLogic = (caseId?: string, initialCaseType: CaseType = 'chat'
                         setChatHistory(loadedCase.chatHistory || []);
                         setPinnedMessages(loadedCase.pinnedMessages || []);
                         if (storedApiSource !== 'openrouter') {
-                            countTokensForGemini(loadedCase.chatHistory).then(setTokenCount);
+                            countTokensForGemini(loadedCase.chatHistory)
+                                .then(setTokenCount)
+                                .catch(() => setTokenCount(0));
                         }
                     } else {
                         setIsNotFound(true);
@@ -120,8 +122,12 @@ export const useChatLogic = (caseId?: string, initialCaseType: CaseType = 'chat'
     }, [chatHistory]);
 
     const handleSelectApiKey = async () => {
-        // Handled by environment in Gemini mode
-        if (apiSource === 'openrouter') {
+        if (apiSource === 'gemini' && window.aistudio?.openSelectKey) {
+            try {
+                await window.aistudio.openSelectKey();
+                setIsApiKeyReady(true);
+            } catch (e) { console.error(e); }
+        } else if (apiSource === 'openrouter') {
             navigate('/settings');
         }
     };
@@ -410,7 +416,11 @@ export const useChatLogic = (caseId?: string, initialCaseType: CaseType = 'chat'
                 }
             }
             
-            if (apiSource === 'gemini') countTokensForGemini([...historyToSend, { ...tempModelMessage, content: fullResponse }]).then(setTokenCount);
+            if (apiSource === 'gemini') {
+                countTokensForGemini([...historyToSend, { ...tempModelMessage, content: fullResponse }])
+                    .then(setTokenCount)
+                    .catch(() => setTokenCount(0));
+            }
 
         } catch (error: any) {
             const errorMessage = error.message || 'حدث خطأ غير متوقع.';
