@@ -10,6 +10,7 @@ const SettingsPage: React.FC = () => {
         apiSource, handleApiSourceChange,
         region, handleRegionChange,
         geminiModelId, handleGeminiModelChange,
+        geminiApiKeyInput, setGeminiApiKeyInput, handleSaveGeminiKey, geminiKeySaved,
         openRouterInputValue, setOpenRouterInputValue, handleSaveOpenRouterKey, openRouterSaved,
         openRouterModelId, handleModelChange, openRouterModels,
         newModelId, setNewModelId, newModelSupportsImages, setNewModelSupportsImages, handleAddModel, handleDeleteModel,
@@ -32,6 +33,7 @@ const SettingsPage: React.FC = () => {
             <ServiceConfig 
                 apiSource={apiSource} handleApiSourceChange={handleApiSourceChange}
                 geminiModelId={geminiModelId} handleGeminiModelChange={handleGeminiModelChange}
+                geminiApiKeyInput={geminiApiKeyInput} setGeminiApiKeyInput={setGeminiApiKeyInput} handleSaveGeminiKey={handleSaveGeminiKey} geminiKeySaved={geminiKeySaved}
                 openRouterInputValue={openRouterInputValue} setOpenRouterInputValue={setOpenRouterInputValue} handleSaveOpenRouterKey={handleSaveOpenRouterKey} openRouterSaved={openRouterSaved}
                 openRouterModelId={openRouterModelId} handleModelChange={handleModelChange} openRouterModels={openRouterModels}
                 newModelId={newModelId} setNewModelId={setNewModelId} newModelSupportsImages={newModelSupportsImages} setNewModelSupportsImages={setNewModelSupportsImages} handleAddModel={handleAddModel} handleDeleteModel={handleDeleteModel}

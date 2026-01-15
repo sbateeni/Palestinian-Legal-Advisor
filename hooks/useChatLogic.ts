@@ -24,8 +24,8 @@ export const useChatLogic = (caseId?: string, initialCaseType: CaseType = 'chat'
     const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
     const [userInput, setUserInput] = useState('');
     
-    // Default to true for Gemini, check for OpenRouter
-    const [isApiKeyReady, setIsApiKeyReady] = useState<boolean>(true);
+    // API Key availability state
+    const [isApiKeyReady, setIsApiKeyReady] = useState<boolean | null>(null);
     const [apiSource, setApiSource] = useState<ApiSource>('gemini');
     const [region, setRegion] = useState<LegalRegion>('westbank'); 
     const [openRouterApiKey, setOpenRouterApiKey] = useState<string>('');
@@ -54,13 +54,19 @@ export const useChatLogic = (caseId?: string, initialCaseType: CaseType = 'chat'
     useEffect(() => {
         const loadData = async () => {
             if (!caseId) {
-                // Check if current source needs key
+                // Initial check for API key
                 const storedSource = await dbService.getSetting<ApiSource>('apiSource') || 'gemini';
+                setApiSource(storedSource);
+                
                 if (storedSource === 'openrouter') {
                     const orKey = await dbService.getSetting<string>('openRouterApiKey');
                     setIsApiKeyReady(!!orKey && orKey.trim().length > 0);
                 } else {
-                    setIsApiKeyReady(true); // Assume environment has process.env.API_KEY
+                    // Check env or storage for Gemini
+                    const envKey = process.env.API_KEY;
+                    const hasEnv = !!envKey && envKey !== "" && envKey !== "undefined";
+                    const storedGeminiKey = await dbService.getSetting<string>('geminiApiKey');
+                    setIsApiKeyReady(hasEnv || (!!storedGeminiKey && storedGeminiKey.trim().length > 0));
                 }
                 setIsLoading(false);
                 return;
@@ -86,7 +92,10 @@ export const useChatLogic = (caseId?: string, initialCaseType: CaseType = 'chat'
                         setIsApiKeyReady(false);
                     }
                 } else {
-                    setIsApiKeyReady(true);
+                    const envKey = process.env.API_KEY;
+                    const hasEnv = !!envKey && envKey !== "" && envKey !== "undefined";
+                    const storedGeminiKey = await dbService.getSetting<string>('geminiApiKey');
+                    setIsApiKeyReady(hasEnv || (!!storedGeminiKey && storedGeminiKey.trim().length > 0));
                 }
 
                 const loadedCase = await dbService.getCase(caseId);
@@ -113,13 +122,10 @@ export const useChatLogic = (caseId?: string, initialCaseType: CaseType = 'chat'
         if (apiSource === 'gemini' && window.aistudio?.openSelectKey) {
             await window.aistudio.openSelectKey();
             setIsApiKeyReady(true);
-        } else if (apiSource === 'openrouter') {
+        } else {
             navigate('/settings');
         }
     };
-
-    // ... rest of the hook implementation remains the same
-    // (OMITTED FOR BREVITY - assuming other handlers are unchanged)
 
     useEffect(() => {
         chatContainerRef.current?.scrollTo(0, chatContainerRef.current.scrollHeight);

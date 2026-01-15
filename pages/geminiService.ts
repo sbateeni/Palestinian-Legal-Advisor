@@ -9,6 +9,30 @@ const MAX_HISTORY_MESSAGES = 40;
 const THINKING_BUDGET_PRO = 4000; 
 
 /**
+ * Robustly retrieves the API key from either process.env or IndexedDB (for Vercel/Standalone use).
+ */
+async function getEffectiveApiKey(): Promise<string> {
+    // 1. Check process.env.API_KEY (Vercel Dashboard or AI Studio)
+    const envKey = process.env.API_KEY;
+    if (envKey && envKey !== "" && envKey !== "undefined" && envKey !== 'MISSING_KEY_PLACEHOLDER') {
+        return envKey;
+    }
+
+    // 2. Fallback to browser storage (entered by user in settings)
+    const storedKey = await dbService.getSetting<string>('geminiApiKey');
+    return storedKey || "";
+}
+
+/**
+ * Initializes a new AI instance for every call to ensure the latest key is used.
+ */
+async function createAIClient() {
+    const apiKey = await getEffectiveApiKey();
+    if (!apiKey) throw new Error("مفتاح API لـ Gemini غير متوفر. يرجى إعداده في الإعدادات.");
+    return new GoogleGenAI({ apiKey });
+}
+
+/**
  * SELECTS MODEL BASED ON SETTINGS OR SMART ROUTING
  */
 async function getModelForMode(mode: ActionMode): Promise<string> {
@@ -40,7 +64,7 @@ function chatHistoryToGeminiContents(history: ChatMessage[]) {
 export async function countTokensForGemini(history: ChatMessage[]): Promise<number> {
     try {
         if (!Array.isArray(history)) return 0;
-        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+        const ai = await createAIClient();
         const contents = chatHistoryToGeminiContents(history);
         const response = await ai.models.countTokens({
             model: 'gemini-3-flash-preview',
@@ -55,7 +79,7 @@ export async function countTokensForGemini(history: ChatMessage[]): Promise<numb
 export async function summarizeChatHistory(history: ChatMessage[]): Promise<string> {
     if (!Array.isArray(history)) return "";
     try {
-        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+        const ai = await createAIClient();
         const contents = chatHistoryToGeminiContents(history);
         const response = await ai.models.generateContent({
             model: 'gemini-3-flash-preview',
@@ -73,7 +97,7 @@ export async function summarizeChatHistory(history: ChatMessage[]): Promise<stri
 
 export async function proofreadTextWithGemini(text: string): Promise<string> {
     try {
-        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+        const ai = await createAIClient();
         const response = await ai.models.generateContent({
             model: 'gemini-3-flash-preview',
             contents: `أنت مدقق لغوي خبير. قم بتصحيح الأخطاء الإملائية والنحوية في النص التالي المستخرج من OCR مع الحفاظ على المصطلحات القانونية:\n\n${text}`,
@@ -85,7 +109,7 @@ export async function proofreadTextWithGemini(text: string): Promise<string> {
 }
 
 export async function extractInheritanceFromCase(caseText: string): Promise<Partial<InheritanceInput>> {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = await createAIClient();
     const prompt = getInheritanceExtractionPrompt(caseText);
     const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
@@ -120,7 +144,7 @@ export async function extractInheritanceFromCase(caseText: string): Promise<Part
 export async function generateTimelineFromChat(history: ChatMessage[]): Promise<TimelineEvent[]> {
     if (!Array.isArray(history)) return [];
     try {
-        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+        const ai = await createAIClient();
         const context = history.map(m => `${m.role}: ${m.content}`).join('\n');
         const prompt = getTimelinePrompt(context);
         const response = await ai.models.generateContent({
@@ -159,7 +183,7 @@ export async function* streamChatResponseFromGemini(
   signal: AbortSignal
 ): AsyncGenerator<{ text: string; model: string; groundingMetadata?: GroundingMetadata }> {
   try {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = await createAIClient();
     const modelId = await getModelForMode(actionMode);
     const systemInstruction = getInstruction(actionMode, region, caseType);
     const historyToSend = Array.isArray(history) ? history.slice(-MAX_HISTORY_MESSAGES) : [];
@@ -195,6 +219,7 @@ export async function* streamChatResponseFromGemini(
     }
   } catch (error: any) {
     if (signal.aborted) return;
+    // Rule: Handle case where key might be expired/missing entity
     if (error.message?.includes("Requested entity was not found")) {
         if (window.aistudio?.openSelectKey) {
             await window.aistudio.openSelectKey();
@@ -205,7 +230,7 @@ export async function* streamChatResponseFromGemini(
 }
 
 export async function analyzeImageWithGemini(dataUrl: string, mimeType: string, prompt: string): Promise<string> {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = await createAIClient();
     const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash-lite-latest',
         contents: [

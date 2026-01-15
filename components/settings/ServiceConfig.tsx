@@ -8,6 +8,10 @@ interface ServiceConfigProps {
     handleApiSourceChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
     geminiModelId: string;
     handleGeminiModelChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
+    geminiApiKeyInput: string;
+    setGeminiApiKeyInput: (val: string) => void;
+    handleSaveGeminiKey: () => void;
+    geminiKeySaved: boolean;
     openRouterInputValue: string;
     setOpenRouterInputValue: (val: string) => void;
     handleSaveOpenRouterKey: () => void;
@@ -26,6 +30,7 @@ interface ServiceConfigProps {
 const ServiceConfig: React.FC<ServiceConfigProps> = ({
     apiSource, handleApiSourceChange,
     geminiModelId, handleGeminiModelChange,
+    geminiApiKeyInput, setGeminiApiKeyInput, handleSaveGeminiKey, geminiKeySaved,
     openRouterInputValue, setOpenRouterInputValue, handleSaveOpenRouterKey, openRouterSaved,
     openRouterModelId, handleModelChange, openRouterModels,
     newModelId, setNewModelId, newModelSupportsImages, setNewModelSupportsImages, handleAddModel, handleDeleteModel
@@ -43,14 +48,23 @@ const ServiceConfig: React.FC<ServiceConfigProps> = ({
 
             {apiSource === 'gemini' && (
                 <div className="border-t border-gray-700 pt-6">
-                    <h3 className="text-xl font-semibold text-gray-200 mb-2">إعدادات Google Gemini</h3>
+                    <h3 className="text-xl font-semibold text-gray-200 mb-4">إعدادات Google Gemini</h3>
                     
-                    <div className="mb-6 p-4 bg-blue-900/30 border border-blue-600/50 rounded-lg text-blue-200 text-xs leading-relaxed">
-                        <div className="flex items-start">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 me-2 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" /></svg>
-                            <div>
-                                <strong className="block mb-1">إدارة المفتاح:</strong>
-                                يتم إدارة مفتاح Gemini تلقائياً من خلال البيئة المحيطة (AI Studio). لا يتطلب التطبيق إدخال المفتاح يدوياً هنا لضمان الأمان والامتثال لسياسات Google.
+                    <div className="mb-6">
+                        <label htmlFor="gemini-api-key" className="block text-lg font-medium text-gray-200 mb-2">مفتاح API لـ Gemini</label>
+                        <input 
+                            type="password" 
+                            id="gemini-api-key" 
+                            value={geminiApiKeyInput} 
+                            onChange={(e) => setGeminiApiKeyInput(e.target.value)} 
+                            className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 focus:ring-2 focus:ring-blue-500 focus:outline-none" 
+                            placeholder="AIzaSy..." 
+                        />
+                        <div className="flex items-center justify-between mt-2">
+                            <p className="text-xs text-gray-400">سيتم حفظ المفتاح محلياً في متصفحك فقط.</p>
+                            <div className="flex items-center">
+                                {geminiKeySaved && <span className="text-green-400 me-4 text-xs">تم الحفظ!</span>}
+                                <button onClick={handleSaveGeminiKey} className="px-4 py-1.5 bg-blue-600 text-white text-sm font-semibold rounded hover:bg-blue-700 transition-colors">حفظ المفتاح</button>
                             </div>
                         </div>
                     </div>

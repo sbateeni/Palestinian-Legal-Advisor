@@ -10,6 +10,8 @@ export const useSettingsLogic = () => {
     
     // Gemini states
     const [geminiModelId, setGeminiModelId] = useState<string>('auto');
+    const [geminiApiKeyInput, setGeminiApiKeyInput] = useState('');
+    const [geminiKeySaved, setGeminiKeySaved] = useState(false);
     
     // OpenRouter states
     const [openRouterApiKey, setOpenRouterApiKey] = useState('');
@@ -35,6 +37,9 @@ export const useSettingsLogic = () => {
             const storedGeminiModel = await dbService.getSetting<string>('geminiModelId');
             if (storedGeminiModel) setGeminiModelId(storedGeminiModel);
             else setGeminiModelId('auto');
+
+            const storedGeminiKey = await dbService.getSetting<string>('geminiApiKey');
+            if (storedGeminiKey) setGeminiApiKeyInput(storedGeminiKey);
             
             const storedOpenRouterKey = await dbService.getSetting<string>('openRouterApiKey');
             const storedModelId = await dbService.getSetting<string>('openRouterModel');
@@ -71,6 +76,13 @@ export const useSettingsLogic = () => {
         setGeminiModelId(newModel);
         await dbService.setSetting({ key: 'geminiModelId', value: newModel });
         window.dispatchEvent(new CustomEvent('geminiModelChanged', { detail: newModel }));
+    };
+
+    const handleSaveGeminiKey = async () => {
+        const cleanKey = geminiApiKeyInput.trim();
+        await dbService.setSetting({ key: 'geminiApiKey', value: cleanKey });
+        setGeminiKeySaved(true);
+        setTimeout(() => setGeminiKeySaved(false), 3000);
     };
 
     const handleSaveOpenRouterKey = async () => {
@@ -184,6 +196,7 @@ export const useSettingsLogic = () => {
         apiSource, handleApiSourceChange,
         region, handleRegionChange,
         geminiModelId, handleGeminiModelChange,
+        geminiApiKeyInput, setGeminiApiKeyInput, handleSaveGeminiKey, geminiKeySaved,
         openRouterApiKey, openRouterInputValue, setOpenRouterInputValue, handleSaveOpenRouterKey, openRouterSaved,
         openRouterModels, openRouterModelId, handleModelChange,
         newModelId, setNewModelId, newModelSupportsImages, setNewModelSupportsImages, handleAddModel, handleDeleteModel,
