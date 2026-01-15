@@ -87,8 +87,10 @@ export const useChatLogic = (caseId?: string, initialCaseType: CaseType = 'chat'
                         setIsApiKeyReady(false);
                     }
                 } else {
-                    // For Gemini, verify environment variable exists
-                    setIsApiKeyReady(!!process.env.API_KEY && process.env.API_KEY !== 'undefined');
+                    // For Gemini, verify environment variable exists and is valid string
+                    const key = process.env.API_KEY;
+                    const isValidGeminiKey = !!key && key !== 'undefined' && key !== 'MISSING_KEY_PLACEHOLDER' && key.trim() !== '';
+                    setIsApiKeyReady(isValidGeminiKey);
                 }
 
                 try {

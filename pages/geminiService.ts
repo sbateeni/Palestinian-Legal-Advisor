@@ -15,13 +15,19 @@ const PLACEHOLDER_KEY = 'MISSING_KEY_PLACEHOLDER';
  */
 function getAI() {
     // Robust check: Ensure we don't crash if the key is missing during dev/init
+    // Using a placeholder ensures the SDK constructor doesn't throw, 
+    // but actual calls must be guarded by hasValidKey().
     const apiKey = process.env.API_KEY || PLACEHOLDER_KEY;
     return new GoogleGenAI({ apiKey: apiKey });
 }
 
 function hasValidKey(): boolean {
     const key = process.env.API_KEY;
-    return !!key && key !== 'undefined' && key !== PLACEHOLDER_KEY;
+    if (!key) return false;
+    if (key === 'undefined') return false;
+    if (key === PLACEHOLDER_KEY) return false;
+    if (key.trim().length === 0) return false;
+    return true;
 }
 
 /**
