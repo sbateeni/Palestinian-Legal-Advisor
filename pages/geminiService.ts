@@ -7,28 +7,6 @@ import { AGENT_MODEL_ROUTING } from '../constants';
 
 const MAX_HISTORY_MESSAGES = 40;
 const THINKING_BUDGET_PRO = 4000; 
-const PLACEHOLDER_KEY = 'MISSING_KEY_PLACEHOLDER';
-
-/**
- * Initializes the Gemini API client.
- * Strictly uses process.env.API_KEY as per GenAI Coding Guidelines.
- */
-function getAI() {
-    // Robust check: Ensure we don't crash if the key is missing during dev/init
-    // Using a placeholder ensures the SDK constructor doesn't throw, 
-    // but actual calls must be guarded by hasValidKey().
-    const apiKey = process.env.API_KEY || PLACEHOLDER_KEY;
-    return new GoogleGenAI({ apiKey: apiKey });
-}
-
-function hasValidKey(): boolean {
-    const key = process.env.API_KEY;
-    if (!key) return false;
-    if (key === 'undefined') return false;
-    if (key === PLACEHOLDER_KEY) return false;
-    if (key.trim().length === 0) return false;
-    return true;
-}
 
 /**
  * SELECTS MODEL BASED ON SETTINGS OR SMART ROUTING
@@ -60,10 +38,9 @@ function chatHistoryToGeminiContents(history: ChatMessage[]) {
 }
 
 export async function countTokensForGemini(history: ChatMessage[]): Promise<number> {
-    if (!hasValidKey()) return 0;
     try {
         if (!Array.isArray(history)) return 0;
-        const ai = getAI();
+        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
         const contents = chatHistoryToGeminiContents(history);
         const response = await ai.models.countTokens({
             model: 'gemini-3-flash-preview',
@@ -71,15 +48,14 @@ export async function countTokensForGemini(history: ChatMessage[]): Promise<numb
         });
         return response.totalTokens || 0;
     } catch (e) {
-        // Silent fail for token counting to avoid disrupting UI flow
         return 0;
     }
 }
 
 export async function summarizeChatHistory(history: ChatMessage[]): Promise<string> {
-    if (!hasValidKey() || !Array.isArray(history)) return "";
+    if (!Array.isArray(history)) return "";
     try {
-        const ai = getAI();
+        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
         const contents = chatHistoryToGeminiContents(history);
         const response = await ai.models.generateContent({
             model: 'gemini-3-flash-preview',
@@ -96,9 +72,8 @@ export async function summarizeChatHistory(history: ChatMessage[]): Promise<stri
 }
 
 export async function proofreadTextWithGemini(text: string): Promise<string> {
-    if (!hasValidKey()) return text;
     try {
-        const ai = getAI();
+        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
         const response = await ai.models.generateContent({
             model: 'gemini-3-flash-preview',
             contents: `أنت مدقق لغوي خبير. قم بتصحيح الأخطاء الإملائية والنحوية في النص التالي المستخرج من OCR مع الحفاظ على المصطلحات القانونية:\n\n${text}`,
@@ -110,8 +85,7 @@ export async function proofreadTextWithGemini(text: string): Promise<string> {
 }
 
 export async function extractInheritanceFromCase(caseText: string): Promise<Partial<InheritanceInput>> {
-    if (!hasValidKey()) throw new Error("API Key is missing or invalid.");
-    const ai = getAI();
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const prompt = getInheritanceExtractionPrompt(caseText);
     const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
@@ -144,9 +118,9 @@ export async function extractInheritanceFromCase(caseText: string): Promise<Part
 }
 
 export async function generateTimelineFromChat(history: ChatMessage[]): Promise<TimelineEvent[]> {
-    if (!hasValidKey() || !Array.isArray(history)) return [];
+    if (!Array.isArray(history)) return [];
     try {
-        const ai = getAI();
+        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
         const context = history.map(m => `${m.role}: ${m.content}`).join('\n');
         const prompt = getTimelinePrompt(context);
         const response = await ai.models.generateContent({
@@ -184,12 +158,8 @@ export async function* streamChatResponseFromGemini(
   caseType: CaseType,
   signal: AbortSignal
 ): AsyncGenerator<{ text: string; model: string; groundingMetadata?: GroundingMetadata }> {
-  if (!hasValidKey()) {
-      throw new Error("مفتاح API غير متوفر. يرجى إعداده في المتغيرات البيئية أو الإعدادات.");
-  }
-  
   try {
-    const ai = getAI();
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const modelId = await getModelForMode(actionMode);
     const systemInstruction = getInstruction(actionMode, region, caseType);
     const historyToSend = Array.isArray(history) ? history.slice(-MAX_HISTORY_MESSAGES) : [];
@@ -202,8 +172,6 @@ export async function* streamChatResponseFromGemini(
     
     if (thinkingMode || modelId.includes('pro')) {
         config.thinkingConfig = { thinkingBudget: THINKING_BUDGET_PRO };
-    } else {
-        config.thinkingConfig = { thinkingBudget: 0 };
     }
     
     let responseStream = await ai.models.generateContentStream({
@@ -225,17 +193,21 @@ export async function* streamChatResponseFromGemini(
             groundingMetadata: chunk.candidates?.[0]?.groundingMetadata as any 
         };
     }
-  } catch (error) {
+  } catch (error: any) {
     if (signal.aborted) return;
+    if (error.message?.includes("Requested entity was not found")) {
+        if (window.aistudio?.openSelectKey) {
+            await window.aistudio.openSelectKey();
+        }
+    }
     throw error;
   }
 }
 
 export async function analyzeImageWithGemini(dataUrl: string, mimeType: string, prompt: string): Promise<string> {
-    if (!hasValidKey()) throw new Error("API Key is invalid");
-    const ai = getAI();
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash-lite',
+        model: 'gemini-2.5-flash-lite-latest',
         contents: [
             {
                 inlineData: {

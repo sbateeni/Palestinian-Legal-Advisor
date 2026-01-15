@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { ApiSource, Case, OpenRouterModel, LegalRegion, GeminiModel } from '../types';
 import * as dbService from '../services/dbService';
@@ -7,10 +8,7 @@ export const useSettingsLogic = () => {
     const [apiSource, setApiSource] = useState<ApiSource>('gemini');
     const [region, setRegion] = useState<LegalRegion>('westbank'); 
     
-    // Gemini states - Defaulting to 'auto'
-    const [geminiApiKey, setGeminiApiKey] = useState('');
-    const [geminiInputValue, setGeminiInputValue] = useState('');
-    const [geminiSaved, setGeminiSaved] = useState(false);
+    // Gemini states
     const [geminiModelId, setGeminiModelId] = useState<string>('auto');
     
     // OpenRouter states
@@ -34,15 +32,9 @@ export const useSettingsLogic = () => {
             const storedRegion = await dbService.getSetting<LegalRegion>('legalRegion');
             if (storedRegion) setRegion(storedRegion);
 
-            const storedGeminiKey = await dbService.getSetting<string>('geminiApiKey');
-            if (storedGeminiKey) {
-                setGeminiApiKey(storedGeminiKey);
-                setGeminiInputValue(storedGeminiKey);
-            }
-
             const storedGeminiModel = await dbService.getSetting<string>('geminiModelId');
             if (storedGeminiModel) setGeminiModelId(storedGeminiModel);
-            else setGeminiModelId('auto'); // Ensure auto is the default if nothing stored
+            else setGeminiModelId('auto');
             
             const storedOpenRouterKey = await dbService.getSetting<string>('openRouterApiKey');
             const storedModelId = await dbService.getSetting<string>('openRouterModel');
@@ -72,15 +64,6 @@ export const useSettingsLogic = () => {
         const newRegion = e.target.value as LegalRegion;
         await dbService.setSetting({ key: 'legalRegion', value: newRegion });
         setRegion(newRegion);
-    };
-
-    const handleSaveGeminiKey = async () => {
-        const cleanKey = geminiInputValue.replace(/["']/g, '').trim();
-        await dbService.setSetting({ key: 'geminiApiKey', value: cleanKey });
-        setGeminiApiKey(cleanKey);
-        setGeminiInputValue(cleanKey);
-        setGeminiSaved(true);
-        setTimeout(() => setGeminiSaved(false), 3000);
     };
 
     const handleGeminiModelChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -200,7 +183,6 @@ export const useSettingsLogic = () => {
     return {
         apiSource, handleApiSourceChange,
         region, handleRegionChange,
-        geminiApiKey, geminiInputValue, setGeminiInputValue, handleSaveGeminiKey, geminiSaved,
         geminiModelId, handleGeminiModelChange,
         openRouterApiKey, openRouterInputValue, setOpenRouterInputValue, handleSaveOpenRouterKey, openRouterSaved,
         openRouterModels, openRouterModelId, handleModelChange,

@@ -23,8 +23,9 @@ export const useChatLogic = (caseId?: string, initialCaseType: CaseType = 'chat'
     const [caseData, setCaseData] = useState<Case | null>(null);
     const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
     const [userInput, setUserInput] = useState('');
-    // Assume API Key is ready if Gemini is used, as per guidelines
-    const [isApiKeyReady, setIsApiKeyReady] = useState<boolean | null>(true);
+    
+    // Default to true for Gemini, check for OpenRouter
+    const [isApiKeyReady, setIsApiKeyReady] = useState<boolean>(true);
     const [apiSource, setApiSource] = useState<ApiSource>('gemini');
     const [region, setRegion] = useState<LegalRegion>('westbank'); 
     const [openRouterApiKey, setOpenRouterApiKey] = useState<string>('');
@@ -53,32 +54,30 @@ export const useChatLogic = (caseId?: string, initialCaseType: CaseType = 'chat'
     useEffect(() => {
         const loadData = async () => {
             if (!caseId) {
+                // Check if current source needs key
+                const storedSource = await dbService.getSetting<ApiSource>('apiSource') || 'gemini';
+                if (storedSource === 'openrouter') {
+                    const orKey = await dbService.getSetting<string>('openRouterApiKey');
+                    setIsApiKeyReady(!!orKey && orKey.trim().length > 0);
+                } else {
+                    setIsApiKeyReady(true); // Assume environment has process.env.API_KEY
+                }
                 setIsLoading(false);
                 return;
             }
 
             setIsLoading(true);
-            setIsNotFound(false);
-            
             try {
-                const storedApiSource = await dbService.getSetting<ApiSource>('apiSource');
-                if (storedApiSource) setApiSource(storedApiSource);
+                const storedApiSource = await dbService.getSetting<ApiSource>('apiSource') || 'gemini';
+                setApiSource(storedApiSource);
 
                 const storedRegion = await dbService.getSetting<LegalRegion>('legalRegion');
                 if (storedRegion) setRegion(storedRegion);
 
-                const storedCustomModels = await dbService.getSetting<OpenRouterModel[]>('openRouterModels');
-                const availableModels = storedCustomModels && storedCustomModels.length > 0 ? storedCustomModels : DEFAULT_OPENROUTER_MODELS;
-                setOpenRouterModels(availableModels);
-
                 if (storedApiSource === 'openrouter') {
                     const storedApiKey = await dbService.getSetting<string>('openRouterApiKey');
                     const storedModel = await dbService.getSetting<string>('openRouterModel');
-                    if (storedModel && availableModels.some(m => m.id === storedModel)) {
-                        setOpenRouterModel(storedModel.replace(/:free$/, ''));
-                    } else {
-                        setOpenRouterModel(availableModels[0].id);
-                    }
+                    setOpenRouterModel(storedModel || DEFAULT_OPENROUTER_MODELS[0].id);
 
                     if (storedApiKey && storedApiKey.trim().length > 0) {
                         setOpenRouterApiKey(storedApiKey.trim());
@@ -87,27 +86,18 @@ export const useChatLogic = (caseId?: string, initialCaseType: CaseType = 'chat'
                         setIsApiKeyReady(false);
                     }
                 } else {
-                    // For Gemini, verify environment variable exists and is valid string
-                    const key = process.env.API_KEY;
-                    const isValidGeminiKey = !!key && key !== 'undefined' && key !== 'MISSING_KEY_PLACEHOLDER' && key.trim() !== '';
-                    setIsApiKeyReady(isValidGeminiKey);
+                    setIsApiKeyReady(true);
                 }
 
-                try {
-                    const loadedCase = await dbService.getCase(caseId);
-                    if (loadedCase) {
-                        setCaseData(loadedCase);
-                        setChatHistory(loadedCase.chatHistory || []);
-                        setPinnedMessages(loadedCase.pinnedMessages || []);
-                        if (storedApiSource !== 'openrouter') {
-                            countTokensForGemini(loadedCase.chatHistory)
-                                .then(setTokenCount)
-                                .catch(() => setTokenCount(0));
-                        }
-                    } else {
-                        setIsNotFound(true);
+                const loadedCase = await dbService.getCase(caseId);
+                if (loadedCase) {
+                    setCaseData(loadedCase);
+                    setChatHistory(loadedCase.chatHistory || []);
+                    setPinnedMessages(loadedCase.pinnedMessages || []);
+                    if (storedApiSource === 'gemini') {
+                        countTokensForGemini(loadedCase.chatHistory).then(setTokenCount);
                     }
-                } catch (dbError) {
+                } else {
                     setIsNotFound(true);
                 }
             } catch (error) {
@@ -119,20 +109,21 @@ export const useChatLogic = (caseId?: string, initialCaseType: CaseType = 'chat'
         loadData();
     }, [caseId]);
 
-    useEffect(() => {
-        chatContainerRef.current?.scrollTo(0, chatContainerRef.current.scrollHeight);
-    }, [chatHistory]);
-
     const handleSelectApiKey = async () => {
         if (apiSource === 'gemini' && window.aistudio?.openSelectKey) {
-            try {
-                await window.aistudio.openSelectKey();
-                setIsApiKeyReady(true);
-            } catch (e) { console.error(e); }
+            await window.aistudio.openSelectKey();
+            setIsApiKeyReady(true);
         } else if (apiSource === 'openrouter') {
             navigate('/settings');
         }
     };
+
+    // ... rest of the hook implementation remains the same
+    // (OMITTED FOR BREVITY - assuming other handlers are unchanged)
+
+    useEffect(() => {
+        chatContainerRef.current?.scrollTo(0, chatContainerRef.current.scrollHeight);
+    }, [chatHistory]);
 
     const handlePinMessage = async (messageToPin: ChatMessage) => {
         const isPinned = pinnedMessages.some(p => p.id === messageToPin.id);

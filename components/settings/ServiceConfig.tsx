@@ -6,10 +6,6 @@ import { DEFAULT_GEMINI_MODELS } from '../../constants';
 interface ServiceConfigProps {
     apiSource: ApiSource;
     handleApiSourceChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
-    geminiInputValue: string;
-    setGeminiInputValue: (val: string) => void;
-    handleSaveGeminiKey: () => void;
-    geminiSaved: boolean;
     geminiModelId: string;
     handleGeminiModelChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
     openRouterInputValue: string;
@@ -29,7 +25,6 @@ interface ServiceConfigProps {
 
 const ServiceConfig: React.FC<ServiceConfigProps> = ({
     apiSource, handleApiSourceChange,
-    geminiInputValue, setGeminiInputValue, handleSaveGeminiKey, geminiSaved,
     geminiModelId, handleGeminiModelChange,
     openRouterInputValue, setOpenRouterInputValue, handleSaveOpenRouterKey, openRouterSaved,
     openRouterModelId, handleModelChange, openRouterModels,
@@ -50,19 +45,16 @@ const ServiceConfig: React.FC<ServiceConfigProps> = ({
                 <div className="border-t border-gray-700 pt-6">
                     <h3 className="text-xl font-semibold text-gray-200 mb-2">إعدادات Google Gemini</h3>
                     
-                    {/* Privacy Warning */}
-                    <div className="mb-6 p-4 bg-amber-900/30 border border-amber-600/50 rounded-lg text-amber-200 text-xs leading-relaxed">
+                    <div className="mb-6 p-4 bg-blue-900/30 border border-blue-600/50 rounded-lg text-blue-200 text-xs leading-relaxed">
                         <div className="flex items-start">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 me-2 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" /></svg>
                             <div>
-                                <strong className="block mb-1">تنبيه هام حول الخصوصية:</strong>
-                                في الطبقة المجانية (Free Tier)، قد تقوم Google باستخدام مدخلاتك ومخرجات النموذج لتحسين منتجاتها. 
-                                <span className="font-bold"> لا ترسل بيانات حساسة أو سرية للغاية عبر هذه الطبقة.</span>
+                                <strong className="block mb-1">إدارة المفتاح:</strong>
+                                يتم إدارة مفتاح Gemini تلقائياً من خلال البيئة المحيطة (AI Studio). لا يتطلب التطبيق إدخال المفتاح يدوياً هنا لضمان الأمان والامتثال لسياسات Google.
                             </div>
                         </div>
                     </div>
 
-                    {/* Model Selector */}
                     <div className="mb-6">
                         <label htmlFor="gemini-model" className="block text-lg font-medium text-gray-200 mb-2">اختر نموذج Gemini</label>
                         <select 
@@ -75,27 +67,6 @@ const ServiceConfig: React.FC<ServiceConfigProps> = ({
                                 <option key={model.id} value={model.id}>{model.name} - {model.description}</option>
                             ))}
                         </select>
-                    </div>
-
-                    <div className="mb-4">
-                        <div className="flex justify-between items-end mb-2">
-                            <label htmlFor="gemini-api-key" className="block text-lg font-medium text-gray-200">Google Gemini API Key</label>
-                            <a 
-                                href="https://aistudio.google.com/app/apikey" 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                className="px-3 py-1 text-xs font-medium bg-blue-900/30 text-blue-300 border border-blue-500/30 rounded hover:bg-blue-900/50 hover:text-blue-200 transition-colors flex items-center shadow-sm"
-                            >
-                                <span className="me-1">🔑</span>
-                                <span>احصل على المفتاح من هنا</span>
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 ms-1 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
-                            </a>
-                        </div>
-                        <input type="password" id="gemini-api-key" value={geminiInputValue} onChange={(e) => setGeminiInputValue(e.target.value)} className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="أدخل مفتاح Gemini API هنا..." />
-                    </div>
-                    <div className="flex items-center justify-end">
-                        {geminiSaved && <span className="text-green-400 me-4 transition-opacity duration-300">تم حفظ المفتاح!</span>}
-                        <button onClick={handleSaveGeminiKey} className="px-6 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 disabled:bg-gray-500 transition-colors">حفظ مفتاح Gemini</button>
                     </div>
                 </div>
             )}
