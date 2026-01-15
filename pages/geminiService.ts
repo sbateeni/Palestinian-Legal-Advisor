@@ -7,6 +7,7 @@ import { AGENT_MODEL_ROUTING } from '../constants';
 
 const MAX_HISTORY_MESSAGES = 40;
 const THINKING_BUDGET_PRO = 4000; 
+const PLACEHOLDER_KEY = 'MISSING_KEY_PLACEHOLDER';
 
 /**
  * Initializes the Gemini API client.
@@ -14,8 +15,13 @@ const THINKING_BUDGET_PRO = 4000;
  */
 function getAI() {
     // Robust check: Ensure we don't crash if the key is missing during dev/init
-    const apiKey = process.env.API_KEY || 'MISSING_KEY_PLACEHOLDER';
+    const apiKey = process.env.API_KEY || PLACEHOLDER_KEY;
     return new GoogleGenAI({ apiKey: apiKey });
+}
+
+function hasValidKey(): boolean {
+    const key = process.env.API_KEY;
+    return !!key && key !== 'undefined' && key !== PLACEHOLDER_KEY;
 }
 
 /**
@@ -48,6 +54,7 @@ function chatHistoryToGeminiContents(history: ChatMessage[]) {
 }
 
 export async function countTokensForGemini(history: ChatMessage[]): Promise<number> {
+    if (!hasValidKey()) return 0;
     try {
         if (!Array.isArray(history)) return 0;
         const ai = getAI();
@@ -64,29 +71,40 @@ export async function countTokensForGemini(history: ChatMessage[]): Promise<numb
 }
 
 export async function summarizeChatHistory(history: ChatMessage[]): Promise<string> {
-    if (!Array.isArray(history)) return "";
-    const ai = getAI();
-    const contents = chatHistoryToGeminiContents(history);
-    const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: [
-            ...contents,
-            { role: 'user', parts: [{ text: 'لخص المحادثة السابقة بشكل مهني وقانوني مكثف باللغة العربية.' }] }
-        ],
-    });
-    return response.text || "";
+    if (!hasValidKey() || !Array.isArray(history)) return "";
+    try {
+        const ai = getAI();
+        const contents = chatHistoryToGeminiContents(history);
+        const response = await ai.models.generateContent({
+            model: 'gemini-3-flash-preview',
+            contents: [
+                ...contents,
+                { role: 'user', parts: [{ text: 'لخص المحادثة السابقة بشكل مهني وقانوني مكثف باللغة العربية.' }] }
+            ],
+        });
+        return response.text || "";
+    } catch (e) {
+        console.error("Summarize error:", e);
+        return "";
+    }
 }
 
 export async function proofreadTextWithGemini(text: string): Promise<string> {
-    const ai = getAI();
-    const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: `أنت مدقق لغوي خبير. قم بتصحيح الأخطاء الإملائية والنحوية في النص التالي المستخرج من OCR مع الحفاظ على المصطلحات القانونية:\n\n${text}`,
-    });
-    return response.text || "";
+    if (!hasValidKey()) return text;
+    try {
+        const ai = getAI();
+        const response = await ai.models.generateContent({
+            model: 'gemini-3-flash-preview',
+            contents: `أنت مدقق لغوي خبير. قم بتصحيح الأخطاء الإملائية والنحوية في النص التالي المستخرج من OCR مع الحفاظ على المصطلحات القانونية:\n\n${text}`,
+        });
+        return response.text || "";
+    } catch (e) {
+        return text;
+    }
 }
 
 export async function extractInheritanceFromCase(caseText: string): Promise<Partial<InheritanceInput>> {
+    if (!hasValidKey()) throw new Error("API Key is missing or invalid.");
     const ai = getAI();
     const prompt = getInheritanceExtractionPrompt(caseText);
     const response = await ai.models.generateContent({
@@ -120,33 +138,34 @@ export async function extractInheritanceFromCase(caseText: string): Promise<Part
 }
 
 export async function generateTimelineFromChat(history: ChatMessage[]): Promise<TimelineEvent[]> {
-    if (!Array.isArray(history)) return [];
-    const ai = getAI();
-    const context = history.map(m => `${m.role}: ${m.content}`).join('\n');
-    const prompt = getTimelinePrompt(context);
-    const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: prompt,
-        config: {
-            responseMimeType: "application/json",
-            responseSchema: {
-                type: Type.ARRAY,
-                items: {
-                    type: Type.OBJECT,
-                    properties: {
-                        date: { type: Type.STRING },
-                        title: { type: Type.STRING },
-                        description: { type: Type.STRING },
-                        type: { type: Type.STRING }
-                    },
-                    required: ['date', 'title', 'description', 'type']
+    if (!hasValidKey() || !Array.isArray(history)) return [];
+    try {
+        const ai = getAI();
+        const context = history.map(m => `${m.role}: ${m.content}`).join('\n');
+        const prompt = getTimelinePrompt(context);
+        const response = await ai.models.generateContent({
+            model: 'gemini-3-flash-preview',
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.ARRAY,
+                    items: {
+                        type: Type.OBJECT,
+                        properties: {
+                            date: { type: Type.STRING },
+                            title: { type: Type.STRING },
+                            description: { type: Type.STRING },
+                            type: { type: Type.STRING }
+                        },
+                        required: ['date', 'title', 'description', 'type']
+                    }
                 }
             }
-        }
-    });
-    try {
+        });
         return JSON.parse(response.text || "[]");
-    } catch {
+    } catch (e) {
+        console.error("Timeline error:", e);
         return [];
     }
 }
@@ -159,6 +178,10 @@ export async function* streamChatResponseFromGemini(
   caseType: CaseType,
   signal: AbortSignal
 ): AsyncGenerator<{ text: string; model: string; groundingMetadata?: GroundingMetadata }> {
+  if (!hasValidKey()) {
+      throw new Error("مفتاح API غير متوفر. يرجى إعداده في المتغيرات البيئية أو الإعدادات.");
+  }
+  
   try {
     const ai = getAI();
     const modelId = await getModelForMode(actionMode);
@@ -203,6 +226,7 @@ export async function* streamChatResponseFromGemini(
 }
 
 export async function analyzeImageWithGemini(dataUrl: string, mimeType: string, prompt: string): Promise<string> {
+    if (!hasValidKey()) throw new Error("API Key is invalid");
     const ai = getAI();
     const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash-lite',
