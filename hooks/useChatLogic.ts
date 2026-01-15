@@ -23,7 +23,8 @@ export const useChatLogic = (caseId?: string, initialCaseType: CaseType = 'chat'
     const [caseData, setCaseData] = useState<Case | null>(null);
     const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
     const [userInput, setUserInput] = useState('');
-    const [isApiKeyReady, setIsApiKeyReady] = useState<boolean | null>(null);
+    // Assume API Key is ready if Gemini is used, as per guidelines
+    const [isApiKeyReady, setIsApiKeyReady] = useState<boolean | null>(true);
     const [apiSource, setApiSource] = useState<ApiSource>('gemini');
     const [region, setRegion] = useState<LegalRegion>('westbank'); 
     const [openRouterApiKey, setOpenRouterApiKey] = useState<string>('');
@@ -86,12 +87,8 @@ export const useChatLogic = (caseId?: string, initialCaseType: CaseType = 'chat'
                         setIsApiKeyReady(false);
                     }
                 } else {
-                    const storedGeminiKey = await dbService.getSetting<string>('geminiApiKey');
-                    const hasStoredKey = !!storedGeminiKey && storedGeminiKey.trim().length > 0;
-                    const hasEnvKey = !!process.env.API_KEY && process.env.API_KEY.trim().length > 0;
-                    let hasAiStudioKey = false;
-                    try { if (window.aistudio) hasAiStudioKey = await window.aistudio.hasSelectedApiKey(); } catch {}
-                    setIsApiKeyReady(hasStoredKey || hasEnvKey || hasAiStudioKey);
+                    // For Gemini, we exclusively rely on process.env.API_KEY
+                    setIsApiKeyReady(true);
                 }
 
                 try {
@@ -122,33 +119,9 @@ export const useChatLogic = (caseId?: string, initialCaseType: CaseType = 'chat'
         chatContainerRef.current?.scrollTo(0, chatContainerRef.current.scrollHeight);
     }, [chatHistory]);
 
-    useEffect(() => {
-        if (isNewCase) {
-            const checkKeys = async () => {
-                const storedApiSource = await dbService.getSetting<ApiSource>('apiSource') || 'gemini';
-                if (storedApiSource === 'gemini') {
-                    const storedGeminiKey = await dbService.getSetting<string>('geminiApiKey');
-                    const hasEnvKey = !!process.env.API_KEY;
-                    let hasAiStudioKey = false;
-                    try { if (window.aistudio) hasAiStudioKey = await window.aistudio.hasSelectedApiKey(); } catch {}
-                    setIsApiKeyReady(!!storedGeminiKey || hasEnvKey || hasAiStudioKey);
-                } else {
-                    const storedOpenRouterKey = await dbService.getSetting<string>('openRouterApiKey');
-                    setIsApiKeyReady(!!storedOpenRouterKey);
-                }
-            }
-            checkKeys();
-        }
-    }, [isNewCase]);
-
     const handleSelectApiKey = async () => {
-        if (apiSource === 'gemini' && window.aistudio) {
-            try {
-                await window.aistudio.openSelectKey();
-                const hasKey = await window.aistudio.hasSelectedApiKey();
-                if (hasKey) setIsApiKeyReady(true);
-            } catch (error) { console.error(error); }
-        } else {
+        // Handled by environment in Gemini mode
+        if (apiSource === 'openrouter') {
             navigate('/settings');
         }
     };
@@ -220,14 +193,13 @@ export const useChatLogic = (caseId?: string, initialCaseType: CaseType = 'chat'
     const handleSummarize = async () => {
         if (isSummaryLoading || isLoading || chatHistory.length === 0) return;
         setIsSummaryLoading(true);
-        const tempSummaryMessage: ChatMessage = { id: uuidv4(), role: 'model', content: 'جاري إنشاء الملخص...', model: apiSource === 'gemini' ? 'gemini-2.5-flash' : openRouterModel };
+        const tempSummaryMessage: ChatMessage = { id: uuidv4(), role: 'model', content: 'جاري إنشاء الملخص...', model: apiSource === 'gemini' ? 'gemini-3-flash-preview' : openRouterModel };
         const currentChatHistory = [...chatHistory, tempSummaryMessage];
         setChatHistory(currentChatHistory);
 
         try {
             if (apiSource !== 'gemini') throw new Error("خاصية التلخيص متاحة حاليًا لـ Google Gemini فقط.");
-            const historyToSummarize = chatHistory.filter(m => m.id !== tempSummaryMessage.id);
-            const summaryText = await summarizeChatHistory(historyToSummarize);
+            const summaryText = await summarizeChatHistory(chatHistory);
             const finalSummaryContent = `**ملخص المحادثة:**\n\n${summaryText}`;
             const finalHistory = currentChatHistory.map(msg => msg.id === tempSummaryMessage.id ? { ...msg, content: finalSummaryContent } : msg);
             setChatHistory(finalHistory);
@@ -286,7 +258,6 @@ export const useChatLogic = (caseId?: string, initialCaseType: CaseType = 'chat'
                         let fullText = '';
                         
                         for (let i = 1; i <= pdf.numPages; i++) {
-                            setProcessingMessage(`جاري معالجة ملف ${file.name} - صفحة ${i} من ${pdf.numPages}...`);
                             const page = await pdf.getPage(i);
                             const textContent = await page.getTextContent();
                             const items: any[] = textContent.items.filter((item: any) => 'str' in item && item.str.trim().length > 0);
@@ -319,7 +290,6 @@ export const useChatLogic = (caseId?: string, initialCaseType: CaseType = 'chat'
                         setUserInput(prev => prev.trim() + (prev.trim() ? '\n\n' : '') + `--- ملف PDF: ${file.name} ---\n` + fullText.trim());
                     } catch (err) {
                         console.error("PDF Error", err);
-                        alert("فشل في قراءة ملف PDF.");
                     } finally { 
                         processedCount++;
                         if (processedCount === fileList.length) {
@@ -374,42 +344,13 @@ export const useChatLogic = (caseId?: string, initialCaseType: CaseType = 'chat'
 
         let effectiveMode = overrideMode || actionMode;
         
-        // Auto-Pilot Logic
-        if (!overrideMode && (actionMode === 'analysis' || actionMode === 'sharia_advisor')) {
-            const lowerContent = messageContent.toLowerCase();
-            if (lowerContent.match(/(صغ|اكتب|صياغة|تحرير|أنشئ|اعداد).*?(لائحة|عقد|اتفاقية|مذكرة|دعوى|وكالة|إخطار|شكوى)/) || lowerContent.includes('اكتب لي')) {
-                effectiveMode = 'drafting';
-                setActionMode('drafting');
-            } else if (lowerContent.match(/(ثغرة|ثغرات|نقطة ضعف|نقاط ضعف|اخطاء|دفوع|دفاع|طعن|رد على)/)) {
-                effectiveMode = 'loopholes';
-                setActionMode('loopholes');
-            } else if (lowerContent.match(/(ابحث|بحث|تأكد|تحقق|هل يوجد|نص المادة|قرار بقانون|رقم القانون)/)) {
-                effectiveMode = 'research';
-                setActionMode('research');
-            } else if (lowerContent.match(/(ساري المفعول|هل القانون ملغى|هل تم تعديل|تأكد من سريان)/)) {
-                effectiveMode = 'verifier';
-                setActionMode('verifier');
-            } else if (lowerContent.match(/(خطة|استراتيجية|خطوات|ماذا افعل|كيف اتصرف|طريقة|حل|خارطة طريق)/)) {
-                effectiveMode = 'strategy';
-                setActionMode('strategy');
-            } else if (lowerContent.match(/(صلح|تسوية|حل ودي|تفاوض|اتفاق|إنهاء النزاع)/)) {
-                effectiveMode = (initialCaseType === 'sharia' || actionMode === 'sharia_advisor') ? 'reconciliation' : 'negotiator';
-                setActionMode(effectiveMode);
-            }
-        }
-
         setIsLoading(true);
-        
-        const finalMessageContent = messageContent;
-
         const userMessage: ChatMessage = { 
             id: uuidv4(), 
             role: 'user', 
             content: messageContent,
             images: uploadedImages.length > 0 ? uploadedImages : undefined 
         };
-        
-        const apiMessage = { ...userMessage, content: finalMessageContent };
         
         setUserInput('');
         setUploadedImages([]); 
@@ -425,11 +366,10 @@ export const useChatLogic = (caseId?: string, initialCaseType: CaseType = 'chat'
         let currentCaseData = caseData;
 
         try {
-            const initialTitle = messageContent.substring(0, 50) || (uploadedImages.length > 0 ? 'تحليل صور ومستندات' : 'قضية جديدة');
             if (isNewCase) {
                 const newCase: Case = {
                     id: targetCaseId,
-                    title: initialTitle,
+                    title: messageContent.substring(0, 50) || 'قضية جديدة',
                     summary: messageContent.substring(0, 150),
                     chatHistory: [userMessage],
                     createdAt: Date.now(),
@@ -445,16 +385,11 @@ export const useChatLogic = (caseId?: string, initialCaseType: CaseType = 'chat'
                 currentCaseData = updatedCase;
                 setCaseData(updatedCase);
             }
-        } catch (e) { console.error("Save error", e); setIsLoading(false); return; }
-
-        let finalResponseText = '';
-        let finalModelName = '';
-        let finalMetadata: GroundingMetadata | undefined;
-        let finalIsError = false;
+        } catch (e) { setIsLoading(false); return; }
 
         try {
             let stream;
-            const historyToSend = [...chatHistory, apiMessage]; 
+            const historyToSend = [...chatHistory, userMessage]; 
             
             if (apiSource === 'openrouter') {
                 stream = streamChatResponseFromOpenRouter(openRouterApiKey, historyToSend, openRouterModel, effectiveMode, region, currentCaseType, abortControllerRef.current.signal);
@@ -463,32 +398,24 @@ export const useChatLogic = (caseId?: string, initialCaseType: CaseType = 'chat'
             }
 
             const { fullResponse, responseModel, groundingMetadata } = await processStream(stream, tempModelMessage.id);
-            finalResponseText = fullResponse;
-            finalModelName = responseModel;
-            finalMetadata = groundingMetadata;
+            
+            if (currentCaseData) {
+                const finalHistory = newHistory.map(msg => msg.id === tempModelMessage.id ? { ...msg, content: fullResponse, model: responseModel, groundingMetadata } : msg);
+                const updatedCase = { ...currentCaseData, chatHistory: finalHistory, summary: fullResponse.substring(0, 150) + '...' };
+                await dbService.updateCase(updatedCase);
+                setCaseData(updatedCase);
+                if (isNewCase) {
+                    const routePrefix = currentCaseType === 'sharia' ? '/sharia' : (currentCaseType === 'forgery' ? '/forgery' : '/case');
+                    navigate(`${routePrefix}/${targetCaseId}`, { replace: true });
+                }
+            }
             
             if (apiSource === 'gemini') countTokensForGemini([...historyToSend, { ...tempModelMessage, content: fullResponse }]).then(setTokenCount);
 
         } catch (error: any) {
-            console.error("API Error", error);
-            const errorMessage = (error.status === 401 || error.toString().includes("API key")) ? `مفتاح API غير صالح.` : `حدث خطأ: ${error.message}`;
-            if (error.status === 401) setAuthError(errorMessage);
-            finalResponseText = errorMessage;
-            finalIsError = true;
+            const errorMessage = error.message || 'حدث خطأ غير متوقع.';
             setChatHistory(prev => prev.map(msg => msg.id === tempModelMessage.id ? { ...msg, content: errorMessage, isError: true } : msg));
         } finally {
-            try {
-                if (currentCaseData) {
-                    const finalHistory = newHistory.map(msg => msg.id === tempModelMessage.id ? { ...msg, content: finalResponseText, model: finalModelName, groundingMetadata: finalMetadata, isError: finalIsError } : msg);
-                    const updatedCase = { ...currentCaseData, chatHistory: finalHistory, summary: finalIsError ? currentCaseData.summary : finalResponseText.substring(0, 150) + '...' };
-                    await dbService.updateCase(updatedCase);
-                    setCaseData(updatedCase);
-                    if (isNewCase) {
-                        const routePrefix = currentCaseType === 'sharia' ? '/sharia' : (currentCaseType === 'forgery' ? '/forgery' : '/case');
-                        navigate(`${routePrefix}/${targetCaseId}`, { replace: true });
-                    }
-                }
-            } catch (e) { console.error("Final save error", e); }
             setIsLoading(false);
             abortControllerRef.current = null;
         }
@@ -504,12 +431,12 @@ export const useChatLogic = (caseId?: string, initialCaseType: CaseType = 'chat'
     return {
         caseData, chatHistory, userInput, setUserInput, isLoading, isNotFound, isApiKeyReady,
         apiSource, thinkingMode, setThinkingMode, 
-        uploadedImages, setUploadedImages, // Exposed Array
+        uploadedImages, setUploadedImages,
         isProcessingFile, processingMessage, tokenCount, authError,
         actionMode, setActionMode, pinnedMessages, isSummaryLoading,
         isPinnedPanelOpen, setIsPinnedPanelOpen, chatContainerRef, fileInputRef, textareaRef,
         handleSendMessage, handleStopGenerating, handleSummarize, handleSelectApiKey,
-        handleFileChange, handlePinMessage, handleUnpinMessage, handleEditMessage, // Added handleEditMessage
+        handleFileChange, handlePinMessage, handleUnpinMessage, handleEditMessage,
         handleConvertCaseType, handleFollowUpAction
     };
 };

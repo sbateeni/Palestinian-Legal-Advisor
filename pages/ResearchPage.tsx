@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { GoogleGenAI } from "@google/genai";
 import { marked } from 'marked';
@@ -12,8 +13,6 @@ const ResearchPage: React.FC = () => {
     const [result, setResult] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [region, setRegion] = useState<LegalRegion>('westbank');
-    const [isApiKeyReady, setIsApiKeyReady] = useState<boolean | null>(null);
-    // الحالة الافتراضية للنموذج تعتمد على التوجيه الذكي
     const [activeModel, setActiveModel] = useState<string>('auto');
     const [showFlashFallback, setShowFlashFallback] = useState(false);
 
@@ -22,15 +21,8 @@ const ResearchPage: React.FC = () => {
             const storedRegion = await dbService.getSetting<LegalRegion>('legalRegion');
             if (storedRegion) setRegion(storedRegion);
 
-            // جلب إعدادات النموذج المختار من صفحة الإعدادات
             const storedModel = await dbService.getSetting<string>('geminiModelId') || 'auto';
             setActiveModel(storedModel);
-
-            // التحقق الشامل من وجود مفتاح API (محلي أو بيئة)
-            const storedGeminiKey = await dbService.getSetting<string>('geminiApiKey');
-            const hasEnvKey = !!process.env.API_KEY;
-            
-            setIsApiKeyReady(hasEnvKey || (!!storedGeminiKey && storedGeminiKey.length > 5));
         };
         loadSettings();
     }, []);
@@ -43,15 +35,13 @@ const ResearchPage: React.FC = () => {
         setShowFlashFallback(false);
 
         try {
-            const storedKey = await dbService.getSetting<string>('geminiApiKey');
-            const apiKey = process.env.API_KEY || storedKey;
+            // Strictly use process.env.API_KEY
+            const apiKey = process.env.API_KEY;
             
             if (!apiKey) {
-                setIsApiKeyReady(false);
-                throw new Error("لم يتم العثور على مفتاح API. يرجى ضبطه في الإعدادات.");
+                throw new Error("API Key is missing from the environment configuration.");
             }
 
-            // تحديد النموذج بناءً على "التوجيه الذكي"
             let modelId = forcedModel || activeModel;
             if (modelId === 'auto') {
                 modelId = AGENT_MODEL_ROUTING['research'] || 'gemini-3-pro-preview';
@@ -66,7 +56,7 @@ const ResearchPage: React.FC = () => {
                 config: {
                     tools: [{ googleSearch: {} }],
                     systemInstruction: "أنت باحث قانوني فلسطيني محترف. التزم بالبحث في المقتفي والجريدة الرسمية. اجعل النصوص واضحة جداً في الوضع الليلي.",
-                    thinkingConfig: modelId.includes('pro') ? { thinkingBudget: 2048 } : undefined
+                    thinkingConfig: modelId.includes('pro') ? { thinkingBudget: 2048 } : { thinkingBudget: 0 }
                 }
             });
 
@@ -84,7 +74,6 @@ const ResearchPage: React.FC = () => {
             console.error("Research Error:", error);
             let errorMessage = error.message;
             
-            // التعامل مع خطأ نفاد الحصة (429)
             if (error.status === 429 || error.toString().includes("429")) {
                 errorMessage = "⚠️ لقد وصلت للحد الأقصى لطلبات النموذج القوي (Pro) حالياً.";
                 setShowFlashFallback(true);
@@ -103,22 +92,8 @@ const ResearchPage: React.FC = () => {
         }
     };
 
-    if (isApiKeyReady === false) {
-        return (
-            <div className="w-full h-full flex flex-col items-center justify-center p-6 text-center bg-slate-950">
-                <div className="bg-purple-900/30 p-8 rounded-full mb-6 border border-purple-800 shadow-xl">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg>
-                </div>
-                <h2 className="text-2xl font-black text-white mb-3">مطلوب مفتاح API</h2>
-                <p className="text-slate-300 mb-8 max-w-lg text-lg">يرجى إدخال مفتاح API في صفحة الإعدادات لتفعيل البحث القانوني.</p>
-                <a href="#/settings" className="px-8 py-3 bg-purple-700 text-white font-bold rounded-xl hover:bg-purple-600 transition-all shadow-lg">الانتقال للإعدادات</a>
-            </div>
-        );
-    }
-
     return (
         <div className="w-full max-w-6xl mx-auto p-4 sm:p-6 lg:p-8 flex flex-col min-h-full bg-slate-950 transition-colors duration-300">
-            {/* Header - متناسق مع حاسبة المواريث */}
             <div className="mb-8 border-b border-slate-800 pb-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-3xl font-black text-white flex items-center gap-3">
@@ -140,10 +115,8 @@ const ResearchPage: React.FC = () => {
                 </div>
             </div>
 
-            {/* Search Controls - تصميم المربعات مثل صفحة المواريث */}
             <div className="bg-gray-800 p-6 rounded-2xl shadow-xl border border-gray-700 mb-6 transition-all">
                 <div className="flex flex-col sm:flex-row gap-4 mb-6">
-                    {/* Region Selector */}
                     <div className="flex bg-gray-900 p-1.5 rounded-xl flex-shrink-0 border border-gray-700 shadow-inner">
                         <button 
                             onClick={() => setRegion('westbank')}
@@ -192,7 +165,6 @@ const ResearchPage: React.FC = () => {
                 </div>
             </div>
 
-            {/* Fallback Action - في حال حدوث ضغط على السيرفر */}
             {showFlashFallback && (
                 <div className="mb-6 p-5 bg-amber-900/20 border border-amber-700 rounded-2xl animate-fade-in flex flex-col sm:flex-row items-center justify-between gap-4">
                     <div className="flex items-center text-amber-200">
@@ -208,7 +180,6 @@ const ResearchPage: React.FC = () => {
                 </div>
             )}
 
-            {/* Results Area Card - نفس نمط حاسبة المواريث */}
             <div className="flex-grow bg-gray-800 rounded-2xl shadow-2xl border border-gray-700 p-8 overflow-y-auto min-h-[450px] transition-all">
                 {!result && !isLoading && (
                     <div className="flex flex-col items-center justify-center h-full text-gray-500 opacity-40 text-center">
@@ -222,10 +193,6 @@ const ResearchPage: React.FC = () => {
                     <div className="space-y-8 animate-pulse">
                         <div className="h-6 bg-gray-700 rounded-full w-3/4 shadow-inner"></div>
                         <div className="h-6 bg-gray-700 rounded-full w-1/2 shadow-inner"></div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-10">
-                            <div className="h-44 bg-gray-900/50 rounded-2xl border border-gray-700 shadow-lg"></div>
-                            <div className="h-44 bg-gray-900/50 rounded-2xl border border-gray-700 shadow-lg"></div>
-                        </div>
                     </div>
                 )}
 
@@ -237,12 +204,6 @@ const ResearchPage: React.FC = () => {
                         <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(marked.parse(result) as string) }} />
                     </div>
                 )}
-            </div>
-            
-            <div className="mt-8 text-center border-t border-slate-800 pt-6">
-                <p className="text-sm text-gray-500 font-bold">
-                    * يتم توفير النتائج بالاعتماد على قواعد البيانات الرقمية المتاحة. يرجى مراجعة الجريدة الرسمية للقرارات السيادية.
-                </p>
             </div>
         </div>
     );

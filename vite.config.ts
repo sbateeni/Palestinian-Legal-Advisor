@@ -9,7 +9,7 @@ export default defineConfig({
     target: 'esnext'
   },
   define: {
-    // Polyfill process.env to prevent crashes in browser if code accesses it directly
-    'process.env': {} 
+    // Correctly map process.env.API_KEY so it's available in the browser context
+    'process.env.API_KEY': JSON.stringify(process.env.API_KEY)
   }
 });
