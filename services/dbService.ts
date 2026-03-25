@@ -137,3 +137,70 @@ export const incrementTokenUsage = async (amount: number) => {
         console.error("Failed to increment token usage", e);
     }
 };
+
+export type TokenUsageTier = 'flash' | 'pro' | 'flash-lite';
+
+const TOKEN_USAGE_KEYS: Record<TokenUsageTier, string> = {
+    flash: 'dailyTokenUsageFlash',
+    pro: 'dailyTokenUsagePro',
+    'flash-lite': 'dailyTokenUsageFlashLite',
+};
+
+async function getTokenUsageByKey(key: string): Promise<number> {
+    try {
+        const today = new Date().toDateString();
+        const stored = await getSetting<TokenUsageData>(key);
+        if (stored && stored.date === today) return stored.count;
+        if (stored && stored.date !== today) {
+            await setSetting({ key, value: { date: today, count: 0 } });
+        }
+        return 0;
+    } catch {
+        return 0;
+    }
+}
+
+async function incrementTokenUsageByKey(key: string, amount: number): Promise<void> {
+    if (!amount || amount <= 0) return;
+    try {
+        const today = new Date().toDateString();
+        const stored = await getSetting<TokenUsageData>(key);
+
+        let newCount = amount;
+        if (stored && stored.date === today) {
+            newCount += stored.count;
+        }
+
+        await setSetting({ key, value: { date: today, count: newCount } });
+        // Dispatch event so UI can refresh.
+        window.dispatchEvent(new CustomEvent('tokensUpdated', { detail: newCount }));
+    } catch (e) {
+        console.error("Failed to increment token usage by key", e);
+    }
+}
+
+export async function getTokenUsageByTier(tier: TokenUsageTier): Promise<number> {
+    return getTokenUsageByKey(TOKEN_USAGE_KEYS[tier]);
+}
+
+export async function incrementTokenUsageByTier(tier: TokenUsageTier, amount: number): Promise<void> {
+    return incrementTokenUsageByKey(TOKEN_USAGE_KEYS[tier], amount);
+}
+
+function detectTokenTierFromModelId(modelId: string): TokenUsageTier {
+    // Keep ordering strict: "flash-lite" must be checked before generic "flash".
+    const normalized = (modelId || '').toLowerCase();
+    if (normalized.includes('3-pro') || normalized.includes('pro-preview') || normalized.includes('gemini-3-pro')) return 'pro';
+    if (normalized.includes('flash-lite')) return 'flash-lite';
+    if (normalized.includes('flash')) return 'flash';
+    // Fallback: treat unknown as flash.
+    return 'flash';
+}
+
+export async function incrementTokenUsageForModel(modelId: string, amount: number): Promise<void> {
+    const tier = detectTokenTierFromModelId(modelId);
+
+    // Update total counter for backward compatibility with existing UI.
+    await incrementTokenUsage(amount);
+    await incrementTokenUsageByTier(tier, amount);
+}

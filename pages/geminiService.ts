@@ -180,11 +180,12 @@ export async function* streamChatResponseFromGemini(
   actionMode: ActionMode,
   region: LegalRegion,
   caseType: CaseType,
-  signal: AbortSignal
+  signal: AbortSignal,
+  overrideModelId?: string
 ): AsyncGenerator<{ text: string; model: string; groundingMetadata?: GroundingMetadata }> {
   try {
     const ai = await createAIClient();
-    const modelId = await getModelForMode(actionMode);
+    const modelId = overrideModelId || await getModelForMode(actionMode);
     const systemInstruction = getInstruction(actionMode, region, caseType);
     const historyToSend = Array.isArray(history) ? history.slice(-MAX_HISTORY_MESSAGES) : [];
     const contents = chatHistoryToGeminiContents(historyToSend);
@@ -208,7 +209,7 @@ export async function* streamChatResponseFromGemini(
     for await (const chunk of responseStream) {
         if (signal.aborted) break;
         if (!requestCounted) {
-            dbService.incrementTokenUsage(1);
+            dbService.incrementTokenUsageForModel(modelId, 1);
             requestCounted = true;
         }
         yield { 
@@ -231,8 +232,9 @@ export async function* streamChatResponseFromGemini(
 
 export async function analyzeImageWithGemini(dataUrl: string, mimeType: string, prompt: string): Promise<string> {
     const ai = await createAIClient();
+    const modelId = 'gemini-2.5-flash-lite-latest';
     const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash-lite-latest',
+        model: modelId,
         contents: [
             {
                 inlineData: {
@@ -245,6 +247,6 @@ export async function analyzeImageWithGemini(dataUrl: string, mimeType: string, 
             }
         ]
     });
-    dbService.incrementTokenUsage(1);
+    dbService.incrementTokenUsageForModel(modelId, 1);
     return response.text || "";
 }

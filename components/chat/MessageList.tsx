@@ -181,6 +181,12 @@ const MessageList: React.FC<MessageListProps> = ({
                                 />
                             )}
 
+                            {!redirectData && msg.role === 'model' && !msg.isError && !hasGrounding && msg.content?.trim() && (
+                                <div className="mt-5 p-4 rounded-xl bg-amber-900/20 border border-amber-700 text-amber-200 no-print shadow-inner">
+                                    تنبيه: لم يتم إرفاق مصادر بحثية متحققة لهذه الإجابة. يُفضّل عدم الاعتماد عليها دون مراجعة المقتفي/الجريدة الرسمية.
+                                </div>
+                            )}
+
                             {nextActions.length > 0 && onFollowUpAction && (
                                 <div className="mt-4 pt-3 border-t border-gray-200 dark:border-slate-800 no-print">
                                     <div className="flex flex-wrap gap-2">

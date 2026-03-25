@@ -6,7 +6,7 @@ import { Case, ChatMessage, ApiSource, OpenRouterModel, GroundingMetadata, Actio
 import * as dbService from '../services/dbService';
 import { streamChatResponseFromGemini, countTokensForGemini, summarizeChatHistory, analyzeImageWithGemini } from '../pages/geminiService';
 import { streamChatResponseFromOpenRouter } from '../services/openRouterService';
-import { DEFAULT_OPENROUTER_MODELS } from '../constants';
+import { DEFAULT_OPENROUTER_MODELS, AGENT_MODEL_ROUTING } from '../constants';
 import { OCR_STRICT_PROMPT } from '../services/legalPrompts';
 import * as pdfjsLib from 'pdfjs-dist';
 
@@ -393,37 +393,62 @@ export const useChatLogic = (caseId?: string, initialCaseType: CaseType = 'chat'
         } catch (e) { setIsLoading(false); return; }
 
         try {
-            let stream;
             const historyToSend = [...chatHistory, userMessage]; 
             
-            if (apiSource === 'openrouter') {
-                stream = streamChatResponseFromOpenRouter(openRouterApiKey, historyToSend, openRouterModel, effectiveMode, region, currentCaseType, abortControllerRef.current.signal);
-            } else {
-                stream = streamChatResponseFromGemini(historyToSend, thinkingMode, effectiveMode, region, currentCaseType, abortControllerRef.current.signal);
-            }
-
-            const { fullResponse, responseModel, groundingMetadata } = await processStream(stream, tempModelMessage.id);
-            
-            if (currentCaseData) {
-                const finalHistory = newHistory.map(msg => msg.id === tempModelMessage.id ? { ...msg, content: fullResponse, model: responseModel, groundingMetadata } : msg);
-                const updatedCase = { ...currentCaseData, chatHistory: finalHistory, summary: fullResponse.substring(0, 150) + '...' };
-                await dbService.updateCase(updatedCase);
-                setCaseData(updatedCase);
-                if (isNewCase) {
-                    const routePrefix = currentCaseType === 'sharia' ? '/sharia' : (currentCaseType === 'forgery' ? '/forgery' : '/case');
-                    navigate(`${routePrefix}/${targetCaseId}`, { replace: true });
+            const runGeneration = async (overrideModelId?: string) => {
+                let stream;
+                if (apiSource === 'openrouter') {
+                    stream = streamChatResponseFromOpenRouter(openRouterApiKey, historyToSend, openRouterModel, effectiveMode, region, currentCaseType, abortControllerRef.current!.signal);
+                } else {
+                    stream = streamChatResponseFromGemini(
+                        historyToSend,
+                        thinkingMode,
+                        effectiveMode,
+                        region,
+                        currentCaseType,
+                        abortControllerRef.current!.signal,
+                        overrideModelId
+                    );
                 }
-            }
-            
-            if (apiSource === 'gemini') {
-                countTokensForGemini([...historyToSend, { ...tempModelMessage, content: fullResponse }])
-                    .then(setTokenCount)
-                    .catch(() => setTokenCount(0));
-            }
+                return processStream(stream, tempModelMessage.id);
+            };
 
-        } catch (error: any) {
-            const errorMessage = error.message || 'حدث خطأ غير متوقع.';
-            setChatHistory(prev => prev.map(msg => msg.id === tempModelMessage.id ? { ...msg, content: errorMessage, isError: true } : msg));
+            const persistResponse = async (fullResponse: string, responseModel: string, groundingMetadata?: GroundingMetadata) => {
+                if (currentCaseData) {
+                    const finalHistory = newHistory.map(msg => msg.id === tempModelMessage.id ? { ...msg, content: fullResponse, model: responseModel, groundingMetadata } : msg);
+                    const updatedCase = { ...currentCaseData, chatHistory: finalHistory, summary: fullResponse.substring(0, 150) + '...' };
+                    await dbService.updateCase(updatedCase);
+                    setCaseData(updatedCase);
+                    if (isNewCase) {
+                        const routePrefix = currentCaseType === 'sharia' ? '/sharia' : (currentCaseType === 'forgery' ? '/forgery' : '/case');
+                        navigate(`${routePrefix}/${targetCaseId}`, { replace: true });
+                    }
+                }
+
+                if (apiSource === 'gemini') {
+                    countTokensForGemini([...historyToSend, { ...tempModelMessage, content: fullResponse }])
+                        .then(setTokenCount)
+                        .catch(() => setTokenCount(0));
+                }
+            };
+
+            const is429 = (e: any) => e?.status === 429 || (e?.toString && e.toString().includes("429"));
+            let didRetryFlash = false;
+
+            try {
+                const { fullResponse, responseModel, groundingMetadata } = await runGeneration();
+                await persistResponse(fullResponse, responseModel, groundingMetadata);
+            } catch (error: any) {
+                if (apiSource === 'gemini' && !didRetryFlash && is429(error)) {
+                    didRetryFlash = true;
+                    const flashModelId = AGENT_MODEL_ROUTING['analysis'] || 'gemini-2.5-flash';
+                    const { fullResponse, responseModel, groundingMetadata } = await runGeneration(flashModelId);
+                    await persistResponse(fullResponse, responseModel, groundingMetadata);
+                    return;
+                }
+                const errorMessage = error.message || 'حدث خطأ غير متوقع.';
+                setChatHistory(prev => prev.map(msg => msg.id === tempModelMessage.id ? { ...msg, content: errorMessage, isError: true } : msg));
+            }
         } finally {
             setIsLoading(false);
             abortControllerRef.current = null;

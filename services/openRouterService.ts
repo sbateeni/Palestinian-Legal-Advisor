@@ -50,8 +50,8 @@ export async function analyzeImageWithOpenRouter(
         throw new Error(errorBody.error?.message || `HTTP error! status: ${response.status}`);
     }
 
-    // Increment request count
-    dbService.incrementTokenUsage(1);
+  // Increment request count
+  dbService.incrementTokenUsageForModel(modelName, 1);
 
     const result = await response.json();
     return result.choices[0]?.message?.content || "No response";
@@ -78,7 +78,7 @@ export async function proofreadTextWithOpenRouter(
           });
           
           // Increment request count
-          dbService.incrementTokenUsage(1);
+          dbService.incrementTokenUsageForModel(modelName, 1);
 
           const result = await response.json();
           return result.choices[0]?.message?.content || textToProofread;
@@ -156,7 +156,7 @@ export async function* streamChatResponseFromOpenRouter(
   const decoder = new TextDecoder();
 
   // Increment request count (1 per stream initiation)
-  dbService.incrementTokenUsage(1);
+  dbService.incrementTokenUsageForModel(modelName, 1);
 
   try {
     let buffer = '';
@@ -199,7 +199,7 @@ export async function extractInheritanceFromCaseWithOpenRouter(apiKey: string, m
     if (!response.ok) throw new Error("OpenRouter extraction failed");
     
     // Increment request count
-    dbService.incrementTokenUsage(1);
+    dbService.incrementTokenUsageForModel(model, 1);
 
     const result = await response.json();
     const content = result.choices[0]?.message?.content;
