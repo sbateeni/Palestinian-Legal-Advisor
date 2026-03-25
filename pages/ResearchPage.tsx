@@ -16,6 +16,11 @@ const ResearchPage: React.FC = () => {
     const [activeModel, setActiveModel] = useState<string>('auto');
     const [showFlashFallback, setShowFlashFallback] = useState(false);
 
+    const getFlashModel = () => {
+        // Use the same "Flash" model the smart routing uses for non-Pro tasks.
+        return AGENT_MODEL_ROUTING['analysis'] || 'gemini-2.5-flash';
+    };
+
     useEffect(() => {
         const loadSettings = async () => {
             const storedRegion = await dbService.getSetting<LegalRegion>('legalRegion');
@@ -33,31 +38,42 @@ const ResearchPage: React.FC = () => {
         setIsLoading(true);
         setResult(''); 
         setShowFlashFallback(false);
+        let resolvedModelId = '';
 
         try {
-            // Strictly use process.env.API_KEY
-            const apiKey = process.env.API_KEY;
+            // Check process.env.API_KEY first, then fallback to browser storage
+            let apiKey = process.env.API_KEY;
+            if (!apiKey || apiKey === "" || apiKey === "undefined") {
+                apiKey = await dbService.getSetting<string>('geminiApiKey') || "";
+            }
             
             if (!apiKey) {
-                throw new Error("API Key is missing from the environment configuration.");
+                throw new Error("مفتاح API لـ Gemini غير متوفر. يرجى إعداده في الإعدادات.");
             }
 
             let modelId = forcedModel || activeModel;
             if (modelId === 'auto') {
                 modelId = AGENT_MODEL_ROUTING['research'] || 'gemini-3-pro-preview';
             }
+            resolvedModelId = modelId;
 
             const ai = new GoogleGenAI({ apiKey: apiKey });
             const researchPrompt = getResearchPrompt(query, region);
 
+            const config: any = {
+                tools: [{ googleSearch: {} }],
+                systemInstruction: "أنت باحث قانوني فلسطيني محترف. التزم بالبحث في المقتفي والجريدة الرسمية. اجعل النصوص واضحة جداً في الوضع الليلي.",
+            };
+
+            // Only enable thinking budget for Pro models.
+            if (modelId.includes('pro')) {
+                config.thinkingConfig = { thinkingBudget: 2048 };
+            }
+
             const responseStream = await ai.models.generateContentStream({
                 model: modelId,
                 contents: researchPrompt,
-                config: {
-                    tools: [{ googleSearch: {} }],
-                    systemInstruction: "أنت باحث قانوني فلسطيني محترف. التزم بالبحث في المقتفي والجريدة الرسمية. اجعل النصوص واضحة جداً في الوضع الليلي.",
-                    thinkingConfig: modelId.includes('pro') ? { thinkingBudget: 2048 } : { thinkingBudget: 0 }
-                }
+                config: config
             });
 
             let fullText = '';
@@ -79,7 +95,7 @@ const ResearchPage: React.FC = () => {
                 setShowFlashFallback(true);
             }
 
-            setResult(`**تنبيه:**\n\n${errorMessage}`);
+            setResult(`**تنبيه:**\n\n${errorMessage}\n\nالنموذج المستخدم: \`${resolvedModelId || 'غير معروف'}\``);
         } finally {
             setIsLoading(false);
         }
@@ -172,7 +188,8 @@ const ResearchPage: React.FC = () => {
                         <p className="font-bold text-sm">هل تريد تجربة "البحث السريع" لتجاوز ضغط الحصة الحالية؟</p>
                     </div>
                     <button 
-                        onClick={() => handleSearch('gemini-3-flash-preview')}
+                        type="button"
+                        onClick={() => handleSearch(getFlashModel())}
                         className="px-6 py-2 bg-amber-600 text-white font-black rounded-lg hover:bg-amber-500 transition-all shadow-md whitespace-nowrap"
                     >
                         استخدام البحث السريع (Flash)

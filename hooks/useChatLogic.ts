@@ -64,7 +64,7 @@ export const useChatLogic = (caseId?: string, initialCaseType: CaseType = 'chat'
                 } else {
                     // Check env or storage for Gemini
                     const envKey = process.env.API_KEY;
-                    const hasEnv = !!envKey && envKey !== "" && envKey !== "undefined";
+                    const hasEnv = !!envKey && envKey !== "" && envKey !== "undefined" && envKey !== 'MISSING_KEY_PLACEHOLDER' && envKey !== 'null';
                     const storedGeminiKey = await dbService.getSetting<string>('geminiApiKey');
                     setIsApiKeyReady(hasEnv || (!!storedGeminiKey && storedGeminiKey.trim().length > 0));
                 }
@@ -93,7 +93,7 @@ export const useChatLogic = (caseId?: string, initialCaseType: CaseType = 'chat'
                     }
                 } else {
                     const envKey = process.env.API_KEY;
-                    const hasEnv = !!envKey && envKey !== "" && envKey !== "undefined";
+                    const hasEnv = !!envKey && envKey !== "" && envKey !== "undefined" && envKey !== 'MISSING_KEY_PLACEHOLDER' && envKey !== 'null';
                     const storedGeminiKey = await dbService.getSetting<string>('geminiApiKey');
                     setIsApiKeyReady(hasEnv || (!!storedGeminiKey && storedGeminiKey.trim().length > 0));
                 }
