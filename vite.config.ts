@@ -8,6 +8,11 @@ export default defineConfig({
   build: {
     target: 'esnext'
   },
+  optimizeDeps: {
+    esbuildOptions: {
+      target: 'esnext'
+    }
+  },
   define: {
     // Correctly map process.env.API_KEY so it's available in the browser context.
     // Default to empty string to ensure it is always a string type.
