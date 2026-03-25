@@ -6,6 +6,7 @@ import { GroundingMetadata, LegalRegion } from '../types';
 import ChatMessageItem from '../components/ChatMessageItem';
 import * as dbService from '../services/dbService';
 import { AGENT_MODEL_ROUTING } from '../constants';
+import { isAllowedOfficialSourceUri } from '../services/legalPrompts';
 
 const ResearchPage: React.FC = () => {
     const [query, setQuery] = useState('');
@@ -227,15 +228,16 @@ const ResearchPage: React.FC = () => {
                             groundingMetadata={groundingMetadata}
                         />
 
-                        {groundingMetadata?.groundingChunks?.length > 0 && (
+                        {groundingMetadata?.groundingChunks?.some((chunk: any) => chunk?.web?.uri && isAllowedOfficialSourceUri(chunk.web.uri)) && (
                             <div className="mt-6 pt-4 border-t border-gray-200 dark:border-slate-800 bg-gray-50 dark:bg-slate-950/60 rounded-lg p-3 -mx-2 no-print shadow-inner">
                                 <p className="text-xs font-black text-blue-700 dark:text-blue-400 mb-3 flex items-center">
                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 me-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
                                     المصادر والمراجع المتحقق منها
                                 </p>
                                 <div className="space-y-2">
-                                    {groundingMetadata.groundingChunks.map((chunk: any, idx: number) => (
-                                        chunk?.web?.uri ? (
+                                    {groundingMetadata.groundingChunks
+                                        .filter((chunk: any) => chunk?.web?.uri && isAllowedOfficialSourceUri(chunk.web.uri))
+                                        .map((chunk: any, idx: number) => (
                                             <a
                                                 key={idx}
                                                 href={chunk.web.uri}
@@ -249,13 +251,12 @@ const ResearchPage: React.FC = () => {
                                                     <p className="text-[10px] text-gray-500 dark:text-slate-400 truncate font-mono">{new URL(chunk.web.uri).hostname}</p>
                                                 </div>
                                             </a>
-                                        ) : null
-                                    ))}
+                                        ))}
                                 </div>
                             </div>
                         )}
 
-                        {!isLoading && groundingMetadata && groundingMetadata.groundingChunks?.length === 0 && (
+                        {!isLoading && groundingMetadata && (!groundingMetadata.groundingChunks || groundingMetadata.groundingChunks.length === 0 || !groundingMetadata.groundingChunks.some((chunk: any) => chunk?.web?.uri && isAllowedOfficialSourceUri(chunk.web.uri))) && (
                             <div className="mt-6 p-4 rounded-xl bg-amber-900/20 border border-amber-700 text-amber-200 shadow-inner">
                                 لم يتم العثور على مصادر بحثية متحققة لهذه الإجابة. يُفضّل الرجوع للمقتفي/الجريدة الرسمية قبل الاعتماد عليها.
                             </div>

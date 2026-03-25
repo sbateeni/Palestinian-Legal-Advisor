@@ -15,8 +15,14 @@ export const getBaseInstruction = (region: LegalRegion, caseType: CaseType) => {
 5. **منع الهلوسة:** إذا لم تجد المادة في البحث، لا تخترعها. قل "لم يتم العثور على نص صريح".
 `;
 
+    // Allowed/official sources used by the search tool guidance.
+    // Note: `palestinian-gazette.ps` did not return results as an official host during verification.
     const officialDomains = [
-        "site:birzeit.edu", "site:dftp.gov.ps", "site:wafa.ps", "site:courts.gov.ps", "site:palestinian-gazette.ps"
+        "site:birzeit.edu",
+        "site:dftp.gov.ps",
+        "site:wafa.ps",
+        "site:courts.gov.ps",
+        "site:ogb.gov.ps"
     ].join(" OR ");
 
     let legalContext = region === 'gaza' 
@@ -38,6 +44,26 @@ ${legalContext}
 ثم قدم التحليل المترابط مع روابط للمصادر.
 `;
 };
+
+// UI-side hard allowlist: even if grounding metadata returns other hosts,
+// we only link/increase confidence for these official hosts.
+export const OFFICIAL_SOURCE_HOSTS: string[] = [
+    'birzeit.edu',
+    'dftp.gov.ps',
+    'wafa.ps',
+    'courts.gov.ps',
+    'ogb.gov.ps',
+];
+
+export function isAllowedOfficialSourceUri(uri: string): boolean {
+    try {
+        const host = new URL(uri).hostname;
+        // Allow subdomains, e.g. info.wafa.ps, muqtafi.birzeit.edu
+        return OFFICIAL_SOURCE_HOSTS.some(allowed => host === allowed || host.endsWith(`.${allowed}`));
+    } catch {
+        return false;
+    }
+}
 
 export const getInstruction = (mode: ActionMode, region: LegalRegion, caseType: CaseType = 'chat') => {
     const base = getBaseInstruction(region, caseType);

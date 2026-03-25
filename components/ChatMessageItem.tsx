@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import { GroundingMetadata } from '../types';
+import { isAllowedOfficialSourceUri } from '../services/legalPrompts';
 
 // Configure marked to open links in a new tab
 const renderer = new marked.Renderer();
@@ -62,7 +63,7 @@ const ChatMessageItem: React.FC<ChatMessageItemProps> = ({ content, isModel, mes
                 const firstChunkIndex = chunkIndices[0];
                 const chunk = groundingMetadata.groundingChunks[firstChunkIndex];
                 
-                if (chunk?.web?.uri) {
+                if (chunk?.web?.uri && isAllowedOfficialSourceUri(chunk.web.uri)) {
                     const originalText = processedContent.substring(startIndex, endIndex);
                     // Wrap the legal text in a styled blue link
                     const linkedText = `[${originalText}](${chunk.web.uri})`;

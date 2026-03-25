@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ChatMessage, CaseType, ActionMode } from '../../types';
 import ChatMessageItem from '../ChatMessageItem';
+import { isAllowedOfficialSourceUri } from '../../services/legalPrompts';
 
 interface MessageListProps {
     messages: ChatMessage[];
@@ -113,7 +114,8 @@ const MessageList: React.FC<MessageListProps> = ({
             {messages.map((msg) => {
                 if (!msg) return null;
                 const isPinned = Array.isArray(pinnedMessages) && pinnedMessages.some(p => p.id === msg.id);
-                const hasGrounding = msg.groundingMetadata?.groundingChunks && msg.groundingMetadata.groundingChunks.length > 0;
+                const allowedGroundingChunks = (msg.groundingMetadata?.groundingChunks || []).filter((chunk: any) => chunk?.web?.uri && isAllowedOfficialSourceUri(chunk.web.uri));
+                const hasGrounding = allowedGroundingChunks.length > 0;
                 
                 let redirectData = null;
                 let nextActions: SuggestedAction[] = [];
@@ -206,7 +208,7 @@ const MessageList: React.FC<MessageListProps> = ({
                                         🔗 المصادر والمراجع المتحقق منها
                                     </p>
                                     <div className="space-y-2">
-                                        {msg.groundingMetadata?.groundingChunks?.map((chunk, idx) => (
+                                        {allowedGroundingChunks.map((chunk, idx) => (
                                             chunk.web && (
                                                 <a key={idx} href={chunk.web.uri} target="_blank" rel="noopener noreferrer" className="flex items-center p-2 rounded bg-white dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-900/30 border border-gray-200 dark:border-slate-700 transition-all group/link shadow-sm">
                                                     <span className="flex-shrink-0 w-5 h-5 rounded bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-300 flex items-center justify-center text-[10px] me-2 font-mono border border-blue-200 dark:border-blue-700 shadow-inner font-bold">{idx + 1}</span>
