@@ -1,5 +1,5 @@
 
-import React, { RefObject } from 'react';
+import React from 'react';
 import { Case, CaseStatus } from '../../types';
 import { STATUS_OPTIONS, STATUS_MAP } from '../../constants';
 
@@ -11,13 +11,13 @@ interface CaseGridItemProps {
     handleEditClick: (caseItem: Case) => void;
     handleSaveTitle: (id: string) => void;
     handleTitleKeyDown: (e: React.KeyboardEvent<HTMLInputElement>, id: string) => void;
-    titleInputRef: RefObject<HTMLInputElement | null>;
+    titleInputRef: React.RefObject<HTMLInputElement | null>;
     openStatusMenu: string | null;
     setOpenStatusMenu: (id: string | null) => void;
     handleStatusChange: (id: string, status: CaseStatus) => void;
     deleteCase: (id: string) => void;
     onNavigate: (id: string) => void;
-    statusMenuRef: RefObject<HTMLDivElement | null>;
+    statusMenuRef: React.RefObject<HTMLDivElement | null>;
 }
 
 const CaseGridItem: React.FC<CaseGridItemProps> = ({
@@ -54,7 +54,7 @@ const CaseGridItem: React.FC<CaseGridItemProps> = ({
                         
                         {editingCaseId === caseItem.id ? (
                             <input
-                                ref={titleInputRef}
+                                ref={titleInputRef as React.LegacyRef<HTMLInputElement>}
                                 type="text"
                                 value={newTitle}
                                 onChange={(e) => setNewTitle(e.target.value)}
@@ -85,7 +85,7 @@ const CaseGridItem: React.FC<CaseGridItemProps> = ({
                         <svg className="h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                     </button>
                     {openStatusMenu === caseItem.id && (
-                        <div ref={statusMenuRef} className="absolute top-full start-0 mt-2 w-36 bg-white border border-gray-200 rounded-md shadow-xl z-20">
+                        <div ref={statusMenuRef as React.LegacyRef<HTMLDivElement>} className="absolute top-full start-0 mt-2 w-36 bg-white border border-gray-200 rounded-md shadow-xl z-20">
                             {STATUS_OPTIONS.map(option => (
                                 <button 
                                     key={option.value} 

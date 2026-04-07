@@ -1,10 +1,10 @@
+'use client';
+
 import React, { RefObject, useState, useEffect, useRef } from 'react';
-import * as ReactRouterDOM from 'react-router-dom';
+import Link from 'next/link';
 import { ActionMode } from '../../types';
 import { AGENT_PROMPTS } from '../../constants';
 import LegalToolbar from '../LegalToolbar';
-
-const { Link } = ReactRouterDOM;
 
 interface ChatInputProps {
     userInput: string;
@@ -124,7 +124,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
                         </svg>
                         <span>وضع القراءة فقط: يجب إدخال مفتاح API لمتابعة المحادثة.</span>
                     </div>
-                    <Link to="/settings" className="bg-yellow-100 dark:bg-yellow-900/40 hover:bg-yellow-200 dark:hover:bg-yellow-900/60 text-yellow-800 dark:text-yellow-200 px-3 py-1 rounded transition-colors text-xs font-bold">
+                    <Link href="/settings" className="bg-yellow-100 dark:bg-yellow-900/40 hover:bg-yellow-200 dark:hover:bg-yellow-900/60 text-yellow-800 dark:text-yellow-200 px-3 py-1 rounded transition-colors text-xs font-bold">
                         الإعدادات
                     </Link>
                 </div>
@@ -133,7 +133,19 @@ const ChatInput: React.FC<ChatInputProps> = ({
             {/* Legal Action Toolbar */}
             <LegalToolbar
                 currentMode={actionMode}
-                onModeChange={setActionMode}
+                onModeChange={(mode) => {
+                    setActionMode(mode);
+                    if (mode === 'execution_minutes') {
+                        setUserInput((prev) => {
+                            const seed =
+                                'أعد محضر تنفيذ دائرة التنفيذ (رام الله) لسند شيك أو كمبيالة من هذه المحادثة والمرفقات؛ أدرج قسم «المرفقات المطلوبة لملف التنفيذ» (الأصل، صورتان، وكالة بطوابع، وصل رسوم) مع حالة كل بند، ثم قائمة «ناقص لإكمال الطباعة الرسمية».';
+                            const t = prev.trim();
+                            if (t.includes('محضر تنفيذ')) return prev;
+                            if (!t) return seed;
+                            return prev;
+                        });
+                    }
+                }}
                 disabled={isDisabled}
             />
 
@@ -160,7 +172,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
 
             {/* Input Area */}
             <div className="flex items-center space-x-reverse space-x-2 relative">
-                <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*,application/pdf" className="hidden" multiple />
+                <input type="file" ref={fileInputRef as React.LegacyRef<HTMLInputElement>} onChange={handleFileChange} accept="image/*,application/pdf" className="hidden" multiple />
                 <button onClick={() => fileInputRef.current?.click()} disabled={isDisabled} className="p-3 bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-400 rounded-lg hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors" title="إرفاق ملف">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>
                 </button>
@@ -180,7 +192,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
                 </button>
 
                 <textarea
-                    ref={textareaRef}
+                    ref={textareaRef as React.LegacyRef<HTMLTextAreaElement>}
                     value={userInput}
                     onChange={(e) => {
                         setUserInput(e.target.value);
@@ -189,8 +201,10 @@ const ChatInput: React.FC<ChatInputProps> = ({
                     }}
                     onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }}
                     className={`flex-grow p-3 bg-gray-50 dark:bg-slate-800 border border-gray-300 dark:border-slate-700 rounded-lg text-gray-900 dark:text-slate-100 focus:ring-2 focus:outline-none resize-none transition-all duration-300 disabled:opacity-50 ${
-                        actionMode === 'loopholes' ? 'focus:ring-rose-500' :
                         actionMode === 'drafting' ? 'focus:ring-emerald-500' :
+                        actionMode === 'execution_minutes' ? 'focus:ring-orange-500' :
+                        actionMode === 'research' || actionMode === 'verifier' ? 'focus:ring-purple-500' :
+                        actionMode === 'strategy' || actionMode === 'loopholes' || actionMode === 'negotiator' ? 'focus:ring-amber-500' :
                         'focus:ring-blue-500'
                     }`}
                     placeholder="اكتب رسالتك هنا..."
@@ -210,8 +224,10 @@ const ChatInput: React.FC<ChatInputProps> = ({
                         onClick={() => handleSendMessage()}
                         disabled={isDisabled || (!userInput.trim() && uploadedImages.length === 0)}
                         className={`p-3 text-white rounded-lg transition-colors ${
-                            actionMode === 'loopholes' ? 'bg-rose-600 hover:bg-rose-700' :
                             actionMode === 'drafting' ? 'bg-emerald-600 hover:bg-emerald-700' :
+                            actionMode === 'execution_minutes' ? 'bg-orange-600 hover:bg-orange-700' :
+                            actionMode === 'research' || actionMode === 'verifier' ? 'bg-purple-600 hover:bg-purple-700' :
+                            actionMode === 'strategy' || actionMode === 'loopholes' || actionMode === 'negotiator' ? 'bg-amber-600 hover:bg-amber-700' :
                             'bg-blue-600 hover:bg-blue-700'
                         } disabled:bg-gray-300 dark:disabled:bg-slate-700`}
                     >

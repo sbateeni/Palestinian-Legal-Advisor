@@ -1,23 +1,21 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import * as ReactRouterDOM from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import { v4 as uuidv4 } from 'uuid';
 import { Case, ChatMessage, ApiSource, OpenRouterModel, GroundingMetadata, ActionMode, LegalRegion, CaseType } from '../types';
 import * as dbService from '../services/dbService';
-import { streamChatResponseFromGemini, countTokensForGemini, summarizeChatHistory, analyzeImageWithGemini } from '../pages/geminiService';
+import { streamChatResponseFromGemini, countTokensForGemini, summarizeChatHistory, analyzeImageWithGemini } from '../views/geminiService';
 import { streamChatResponseFromOpenRouter } from '../services/openRouterService';
 import { DEFAULT_OPENROUTER_MODELS, AGENT_MODEL_ROUTING } from '../constants';
 import { OCR_STRICT_PROMPT } from '../services/legalPrompts';
-import * as pdfjsLib from 'pdfjs-dist';
-
-const { useNavigate } = ReactRouterDOM;
-
-// Use the correct worker version matching importmap
-pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://esm.sh/pdfjs-dist@4.0.379/build/pdf.worker.min.mjs';
+import { loadPdfjs } from '../lib/pdfjsClient';
+import { hasClientGeminiKeyFromEnv } from '../lib/publicEnv';
 
 export const useChatLogic = (caseId?: string, initialCaseType: CaseType = 'chat') => {
-    const navigate = useNavigate();
-    const [isLoading, setIsLoading] = useState(!!caseId);
+    const router = useRouter();
+    /** تحميل القضية من التخزين فقط — لا يُخلط مع توليد الرد */
+    const [isCaseHydrating, setIsCaseHydrating] = useState(!!caseId);
+    const [isGenerating, setIsGenerating] = useState(false);
     const [isNotFound, setIsNotFound] = useState(false);
     
     const [caseData, setCaseData] = useState<Case | null>(null);
@@ -63,16 +61,15 @@ export const useChatLogic = (caseId?: string, initialCaseType: CaseType = 'chat'
                     setIsApiKeyReady(!!orKey && orKey.trim().length > 0);
                 } else {
                     // Check env or storage for Gemini
-                    const envKey = process.env.API_KEY;
-                    const hasEnv = !!envKey && envKey !== "" && envKey !== "undefined" && envKey !== 'MISSING_KEY_PLACEHOLDER' && envKey !== 'null';
+                    const hasEnv = hasClientGeminiKeyFromEnv();
                     const storedGeminiKey = await dbService.getSetting<string>('geminiApiKey');
                     setIsApiKeyReady(hasEnv || (!!storedGeminiKey && storedGeminiKey.trim().length > 0));
                 }
-                setIsLoading(false);
+                setIsCaseHydrating(false);
                 return;
             }
 
-            setIsLoading(true);
+            setIsCaseHydrating(true);
             try {
                 const storedApiSource = await dbService.getSetting<ApiSource>('apiSource') || 'gemini';
                 setApiSource(storedApiSource);
@@ -92,8 +89,7 @@ export const useChatLogic = (caseId?: string, initialCaseType: CaseType = 'chat'
                         setIsApiKeyReady(false);
                     }
                 } else {
-                    const envKey = process.env.API_KEY;
-                    const hasEnv = !!envKey && envKey !== "" && envKey !== "undefined" && envKey !== 'MISSING_KEY_PLACEHOLDER' && envKey !== 'null';
+                    const hasEnv = hasClientGeminiKeyFromEnv();
                     const storedGeminiKey = await dbService.getSetting<string>('geminiApiKey');
                     setIsApiKeyReady(hasEnv || (!!storedGeminiKey && storedGeminiKey.trim().length > 0));
                 }
@@ -112,18 +108,29 @@ export const useChatLogic = (caseId?: string, initialCaseType: CaseType = 'chat'
             } catch (error) {
                 console.error("Failed to load initial data:", error);
             } finally {
-                setIsLoading(false);
+                setIsCaseHydrating(false);
             }
         };
         loadData();
     }, [caseId]);
+
+    /** أوضاع قديمة في المحادثة المدنية تُطابق الأزرار المدموجة في الشريط */
+    useEffect(() => {
+        if (initialCaseType !== 'chat') return;
+        setActionMode((prev) => {
+            if (prev === 'interrogator' || prev === 'contract_review' || prev === 'forensic') return 'analysis';
+            if (prev === 'verifier') return 'research';
+            if (prev === 'loopholes' || prev === 'negotiator') return 'strategy';
+            return prev;
+        });
+    }, [caseId, initialCaseType]);
 
     const handleSelectApiKey = async () => {
         if (apiSource === 'gemini' && window.aistudio?.openSelectKey) {
             await window.aistudio.openSelectKey();
             setIsApiKeyReady(true);
         } else {
-            navigate('/settings');
+            router.push('/settings');
         }
     };
 
@@ -170,7 +177,7 @@ export const useChatLogic = (caseId?: string, initialCaseType: CaseType = 'chat'
         if (!caseData) return;
         const normalizedType: CaseType = newType === 'civil' ? 'chat' : (newType as CaseType);
 
-        setIsLoading(true);
+        setIsCaseHydrating(true);
         try {
             const cleanedHistory = caseData.chatHistory.filter(msg => {
                 const isRedirectMsg = /```json\s*\{[\s\S]*?"redirect"[\s\S]*?\}\s*```/.test(msg.content);
@@ -186,17 +193,17 @@ export const useChatLogic = (caseId?: string, initialCaseType: CaseType = 'chat'
             setCaseData(updatedCase); 
             
             const routePrefix = normalizedType === 'sharia' ? '/sharia' : '/case';
-            navigate(`${routePrefix}/${caseData.id}`, { replace: true });
+            router.replace(`${routePrefix}/${caseData.id}`);
             window.location.reload();
         } catch (error) {
             console.error("Failed to convert case type:", error);
             alert("حدث خطأ أثناء نقل القضية.");
-            setIsLoading(false);
+            setIsCaseHydrating(false);
         }
     };
 
     const handleSummarize = async () => {
-        if (isSummaryLoading || isLoading || chatHistory.length === 0) return;
+        if (isSummaryLoading || isGenerating || isCaseHydrating || chatHistory.length === 0) return;
         setIsSummaryLoading(true);
         const tempSummaryMessage: ChatMessage = { id: uuidv4(), role: 'model', content: 'جاري إنشاء الملخص...', model: apiSource === 'gemini' ? 'gemini-3-flash-preview' : openRouterModel };
         const currentChatHistory = [...chatHistory, tempSummaryMessage];
@@ -258,6 +265,7 @@ export const useChatLogic = (caseId?: string, initialCaseType: CaseType = 'chat'
                 const reader = new FileReader();
                 reader.onload = async (e) => {
                     try {
+                        const pdfjsLib = await loadPdfjs();
                         const typedarray = new Uint8Array(e.target!.result as ArrayBuffer);
                         const pdf = await pdfjsLib.getDocument(typedarray).promise;
                         let fullText = '';
@@ -324,12 +332,31 @@ export const useChatLogic = (caseId?: string, initialCaseType: CaseType = 'chat'
         let responseModel = '';
         let groundingMetadata: GroundingMetadata | undefined;
         let wasAborted = false;
+        let rafScheduled = false;
+
+        const patchMessage = () => {
+            rafScheduled = false;
+            setChatHistory((prev) =>
+                prev.map((msg) =>
+                    msg.id === tempModelMessageId
+                        ? { ...msg, content: fullResponse, model: responseModel, groundingMetadata }
+                        : msg
+                )
+            );
+        };
+
+        const schedulePatch = () => {
+            if (rafScheduled) return;
+            rafScheduled = true;
+            requestAnimationFrame(patchMessage);
+        };
+
         try {
             for await (const chunk of stream) {
                 if (chunk.text) fullResponse += chunk.text;
                 responseModel = chunk.model;
                 if (chunk.groundingMetadata) groundingMetadata = chunk.groundingMetadata;
-                setChatHistory(prev => prev.map(msg => msg.id === tempModelMessageId ? { ...msg, content: fullResponse, model: responseModel, groundingMetadata } : msg));
+                schedulePatch();
             }
         } catch (e: any) {
             if (e.name !== 'AbortError') throw e;
@@ -337,19 +364,19 @@ export const useChatLogic = (caseId?: string, initialCaseType: CaseType = 'chat'
         }
         if (wasAborted) {
             fullResponse += '\n\n**(تم إيقاف الإنشاء)**';
-            setChatHistory(prev => prev.map(msg => msg.id === tempModelMessageId ? { ...msg, content: fullResponse, model: responseModel, groundingMetadata } : msg));
         }
+        patchMessage();
         return { fullResponse, responseModel, groundingMetadata };
     }, []);
 
     const handleSendMessage = async (prompt?: string, overrideMode?: ActionMode) => {
         setAuthError(null);
         const messageContent = (prompt || userInput).trim();
-        if (isLoading || isProcessingFile || (!messageContent && uploadedImages.length === 0)) return;
+        if (isGenerating || isCaseHydrating || isProcessingFile || (!messageContent && uploadedImages.length === 0)) return;
 
         let effectiveMode = overrideMode || actionMode;
         
-        setIsLoading(true);
+        setIsGenerating(true);
         const userMessage: ChatMessage = { 
             id: uuidv4(), 
             role: 'user', 
@@ -390,7 +417,7 @@ export const useChatLogic = (caseId?: string, initialCaseType: CaseType = 'chat'
                 currentCaseData = updatedCase;
                 setCaseData(updatedCase);
             }
-        } catch (e) { setIsLoading(false); return; }
+        } catch (e) { setIsGenerating(false); return; }
 
         try {
             const historyToSend = [...chatHistory, userMessage]; 
@@ -421,7 +448,7 @@ export const useChatLogic = (caseId?: string, initialCaseType: CaseType = 'chat'
                     setCaseData(updatedCase);
                     if (isNewCase) {
                         const routePrefix = currentCaseType === 'sharia' ? '/sharia' : (currentCaseType === 'forgery' ? '/forgery' : '/case');
-                        navigate(`${routePrefix}/${targetCaseId}`, { replace: true });
+                        router.replace(`${routePrefix}/${targetCaseId}`);
                     }
                 }
 
@@ -450,7 +477,7 @@ export const useChatLogic = (caseId?: string, initialCaseType: CaseType = 'chat'
                 setChatHistory(prev => prev.map(msg => msg.id === tempModelMessage.id ? { ...msg, content: errorMessage, isError: true } : msg));
             }
         } finally {
-            setIsLoading(false);
+            setIsGenerating(false);
             abortControllerRef.current = null;
         }
     };
@@ -463,7 +490,18 @@ export const useChatLogic = (caseId?: string, initialCaseType: CaseType = 'chat'
     const handleStopGenerating = () => abortControllerRef.current?.abort();
 
     return {
-        caseData, chatHistory, userInput, setUserInput, isLoading, isNotFound, isApiKeyReady,
+        caseData,
+        chatHistory,
+        userInput,
+        setUserInput,
+        /** جاري تحميل القضية من التخزين */
+        isCaseHydrating,
+        /** جاري توليد رد النموذج */
+        isGenerating,
+        /** للتوافق: أي منهما نشط (واجهات تعتمد على اسم واحد) */
+        isLoading: isCaseHydrating || isGenerating,
+        isNotFound,
+        isApiKeyReady,
         apiSource, thinkingMode, setThinkingMode, 
         uploadedImages, setUploadedImages,
         isProcessingFile, processingMessage, tokenCount, authError,

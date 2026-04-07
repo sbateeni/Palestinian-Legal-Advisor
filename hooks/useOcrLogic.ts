@@ -1,22 +1,17 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import * as ReactRouterDOM from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import { v4 as uuidv4 } from 'uuid';
 import * as dbService from '../services/dbService';
-import { analyzeImageWithGemini, proofreadTextWithGemini } from '../pages/geminiService';
+import { analyzeImageWithGemini, proofreadTextWithGemini } from '../views/geminiService';
 import { analyzeImageWithOpenRouter, proofreadTextWithOpenRouter } from '../services/openRouterService';
 import { DEFAULT_OPENROUTER_MODELS } from '../constants';
 import { Case, ChatMessage, OpenRouterModel, SelectedImage, AnalysisResult, AnalysisType, AnalysisProvider, AnalysisProcessState } from '../types';
-import * as pdfjsLib from 'pdfjs-dist';
+import { loadPdfjs } from '../lib/pdfjsClient';
 import Tesseract from 'tesseract.js';
 
-const { useNavigate } = ReactRouterDOM;
-
-// Use the correct worker version matching importmap
-pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://esm.sh/pdfjs-dist@4.0.379/build/pdf.worker.min.mjs';
-
 export const useOcrLogic = () => {
-    const navigate = useNavigate();
+    const router = useRouter();
     
     // State
     const [selectedImages, setSelectedImages] = useState<SelectedImage[]>([]);
@@ -131,6 +126,7 @@ export const useOcrLogic = () => {
                     
                     setIsProcessingPdf(true);
                     try {
+                        const pdfjsLib = await loadPdfjs();
                         const typedarray = new Uint8Array(e.target!.result as ArrayBuffer);
                         const pdf = await pdfjsLib.getDocument(typedarray).promise;
                         
@@ -145,7 +141,7 @@ export const useOcrLogic = () => {
                             canvas.width = viewport.width;
     
                             if (context) {
-                                await page.render({ canvas, canvasContext: context, viewport: viewport }).promise;
+                                await page.render({ canvasContext: context, viewport }).promise;
                                 const dataUrl = canvas.toDataURL('image/png');
                                 const pageFile = {
                                     name: `${file.name} (صفحة ${i})`,
@@ -426,7 +422,7 @@ export const useOcrLogic = () => {
     
                 await dbService.addCase(newCase);
                 alert("تم إنشاء القضية الجديدة وإرسال النتائج بنجاح!");
-                navigate(`/case/${newCase.id}`);
+                router.push(`/case/${newCase.id}`);
     
             } else {
                 const caseToUpdate = await dbService.getCase(selectedCaseId);
@@ -436,7 +432,7 @@ export const useOcrLogic = () => {
                 await dbService.updateCase(caseToUpdate);
     
                 alert("تم إرسال النتائج بنجاح إلى القضية!");
-                navigate(`/case/${selectedCaseId}`);
+                router.push(`/case/${selectedCaseId}`);
             }
     
         } catch (error) {

@@ -1,10 +1,9 @@
+'use client';
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import * as ReactRouterDOM from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import { Case, CaseStatus } from '../types';
 import * as dbService from '../services/dbService';
-
-const { useNavigate } = ReactRouterDOM;
 
 const STATUS_OPTIONS: { value: CaseStatus; label: string; color: string }[] = [
   { value: 'جديدة', label: 'جديدة', color: 'bg-blue-500' },
@@ -33,7 +32,7 @@ const CasesListPage: React.FC = () => {
   const [openStatusMenu, setOpenStatusMenu] = useState<string | null>(null);
 
   
-  const navigate = useNavigate();
+  const router = useRouter();
   const titleInputRef = useRef<HTMLInputElement>(null);
   const statusMenuRef = useRef<HTMLDivElement>(null);
   
@@ -216,7 +215,7 @@ const CasesListPage: React.FC = () => {
           </div>
           <div className="flex justify-between items-center mt-2">
              <button
-                onClick={() => navigate(`/case/${caseItem.id}`)}
+                onClick={() => router.push(`/case/${caseItem.id}`)}
                 className="px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-md hover:bg-blue-700 transition-colors"
             >
                 فتح
@@ -239,7 +238,7 @@ const CasesListPage: React.FC = () => {
   const ListView = () => (
     <div className="space-y-3 bg-gray-800 rounded-lg p-2">
       {displayedCases.map((caseItem) => (
-        <div key={caseItem.id} onClick={() => navigate(`/case/${caseItem.id}`)} className="rounded-md p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between hover:bg-gray-700/60 cursor-pointer transition-colors duration-200">
+        <div key={caseItem.id} onClick={() => router.push(`/case/${caseItem.id}`)} className="rounded-md p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between hover:bg-gray-700/60 cursor-pointer transition-colors duration-200">
             <div className="flex-grow mb-3 sm:mb-0 sm:me-4 w-full">
                 <h2 className="text-lg font-semibold text-gray-100 line-clamp-1">{caseItem.title}</h2>
                 <p className="text-sm text-gray-400 mt-1 line-clamp-1">{caseItem.summary}</p>
@@ -337,7 +336,7 @@ const CasesListPage: React.FC = () => {
       {cases.length === 0 ? (
         <div className="text-center py-16">
           <p className="text-gray-400 text-lg">لم يتم حفظ أي قضايا بعد.</p>
-          <button onClick={() => navigate('/')} className="mt-4 px-6 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors">
+          <button onClick={() => router.push('/')} className="mt-4 px-6 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors">
             ابدأ قضية جديدة
           </button>
         </div>

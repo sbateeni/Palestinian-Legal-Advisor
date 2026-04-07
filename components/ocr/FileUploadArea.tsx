@@ -24,7 +24,7 @@ const FileUploadArea: React.FC<FileUploadAreaProps> = ({
         <div className="bg-gray-800 rounded-lg shadow-lg p-6">
             <h2 className="text-xl font-semibold text-gray-200 mb-4">1. رفع الملفات</h2>
             <div className="border-2 border-dashed border-gray-600 rounded-lg p-6 text-center hover:border-blue-500 transition-colors">
-                <input type="file" accept="image/*,application/pdf" ref={fileInputRef} onChange={handleFileChange} className="hidden" multiple />
+                <input type="file" accept="image/*,application/pdf" ref={fileInputRef as React.LegacyRef<HTMLInputElement>} onChange={handleFileChange} className="hidden" multiple />
                 <button onClick={() => fileInputRef.current?.click()} disabled={isUploading || isAnalyzing} className="w-full h-full text-gray-400 disabled:cursor-wait">
                     <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-10 w-10 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
                     <p className="mt-2 text-lg">انقر لرفع صورة أو PDF</p>

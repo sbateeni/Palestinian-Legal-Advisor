@@ -51,7 +51,19 @@ const ServiceConfig: React.FC<ServiceConfigProps> = ({
                     <h3 className="text-xl font-semibold text-gray-200 mb-4">إعدادات Google Gemini</h3>
                     
                     <div className="mb-6">
-                        <label htmlFor="gemini-api-key" className="block text-lg font-medium text-gray-200 mb-2">مفتاح API لـ Gemini</label>
+                        <div className="flex justify-between items-end mb-2">
+                            <label htmlFor="gemini-api-key" className="block text-lg font-medium text-gray-200">مفتاح API لـ Gemini</label>
+                            <a
+                                href="https://aistudio.google.com/app/apikey"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="px-3 py-1 text-xs font-medium bg-indigo-900/30 text-indigo-300 border border-indigo-500/30 rounded hover:bg-indigo-900/50 hover:text-indigo-200 transition-colors flex items-center shadow-sm"
+                            >
+                                <span className="me-1">⚡</span>
+                                <span>وصول سريع لصفحة API</span>
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 ms-1 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                            </a>
+                        </div>
                         <input 
                             type="password" 
                             id="gemini-api-key" 

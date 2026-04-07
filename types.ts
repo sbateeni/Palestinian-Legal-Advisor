@@ -80,6 +80,7 @@ export interface GeminiModel {
 // Define the allowed Legal Action Modes
 export type ActionMode = 
     | 'analysis' | 'loopholes' | 'drafting' | 'strategy' | 'research' | 'interrogator' | 'verifier' | 'forensic' | 'negotiator' | 'contract_review'
+    | 'execution_minutes'
     | 'sharia_advisor' | 'reconciliation' | 'custody' | 'alimony'
     | 'pixel_analysis' | 'ai_detect' | 'signature_verify' | 'image_comparison';
 

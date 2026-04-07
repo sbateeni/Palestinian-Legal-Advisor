@@ -1,13 +1,11 @@
 
 import { useState, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import * as ReactRouterDOM from 'react-router-dom';
+import { useSearchParams } from 'next/navigation';
 import { Case, InheritanceInput, InheritanceResult, HeirResult, ApiSource } from '../types';
 import * as dbService from '../services/dbService';
-import { extractInheritanceFromCase } from '../pages/geminiService';
+import { extractInheritanceFromCase } from '../views/geminiService';
 import { extractInheritanceFromCaseWithOpenRouter } from '../services/openRouterService';
-
-const { useSearchParams } = ReactRouterDOM;
 
 const DEFAULT_INPUT: InheritanceInput = {
     religion: 'muslim',
@@ -42,7 +40,7 @@ export const useInheritanceLogic = () => {
     const [results, setResults] = useState<InheritanceResult | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [isSaving, setIsSaving] = useState(false);
-    const [searchParams] = useSearchParams();
+    const searchParams = useSearchParams();
 
     useEffect(() => {
         dbService.getAllCases().then(setCases);

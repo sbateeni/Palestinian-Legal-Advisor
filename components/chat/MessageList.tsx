@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ChatMessage, CaseType, ActionMode } from '../../types';
 import ChatMessageItem from '../ChatMessageItem';
-import { isAllowedOfficialSourceUri } from '../../services/legalPrompts';
+import { isAllowedOfficialSourceUri, isGroundingSearchProxyUri } from '../../services/legalPrompts';
 
 interface MessageListProps {
     messages: ChatMessage[];
@@ -114,8 +114,17 @@ const MessageList: React.FC<MessageListProps> = ({
             {messages.map((msg) => {
                 if (!msg) return null;
                 const isPinned = Array.isArray(pinnedMessages) && pinnedMessages.some(p => p.id === msg.id);
-                const allowedGroundingChunks = (msg.groundingMetadata?.groundingChunks || []).filter((chunk: any) => chunk?.web?.uri && isAllowedOfficialSourceUri(chunk.web.uri));
-                const hasGrounding = allowedGroundingChunks.length > 0;
+                const allChunks = msg.groundingMetadata?.groundingChunks || [];
+                const officialGroundingChunks = allChunks.filter(
+                    (chunk: any) => chunk?.web?.uri && isAllowedOfficialSourceUri(chunk.web.uri)
+                );
+                const searchProxyGroundingChunks = allChunks.filter(
+                    (chunk: any) => chunk?.web?.uri && isGroundingSearchProxyUri(chunk.web.uri)
+                );
+                const hasOfficialGrounding = officialGroundingChunks.length > 0;
+                const hasSearchProxyOnly =
+                    searchProxyGroundingChunks.length > 0 && !hasOfficialGrounding;
+                const showSourcesSection = hasOfficialGrounding || searchProxyGroundingChunks.length > 0;
                 
                 let redirectData = null;
                 let nextActions: SuggestedAction[] = [];
@@ -183,9 +192,15 @@ const MessageList: React.FC<MessageListProps> = ({
                                 />
                             )}
 
-                            {!redirectData && msg.role === 'model' && !msg.isError && !hasGrounding && msg.content?.trim() && (
+                            {!redirectData && msg.role === 'model' && !msg.isError && !showSourcesSection && msg.content?.trim() && (
                                 <div className="mt-5 p-4 rounded-xl bg-amber-900/20 border border-amber-700 text-amber-200 no-print shadow-inner">
-                                    تنبيه: لم يتم إرفاق مصادر بحثية متحققة ضمن المواقع المسموح بها (OGB/المقتفي/ديوان الفتوى/القضاء/وفا). يُفضّل عدم الاعتماد على الإجابة دون مراجعة المصادر الرسمية.
+                                    تنبيه: لم يُرفق تدعيم بحث ولا روابط من المواقع الرسمية المعتمدة. يُفضّل عدم الاعتماد على الإجابة دون مراجعة المصادر الرسمية الفلسطينية.
+                                </div>
+                            )}
+
+                            {!redirectData && msg.role === 'model' && !msg.isError && hasSearchProxyOnly && msg.content?.trim() && (
+                                <div className="mt-5 p-4 rounded-xl bg-slate-800/80 border border-slate-600 text-slate-200 no-print shadow-inner text-sm leading-relaxed">
+                                    تم استخدام بحث Google لتدعيم الإجابة، لكن لم تُرجَع روابط مباشرة ضمن المواقع الرسمية المعتمدة (مثل المقتفي، ديوان التشريع، الجريدة الرسمية). الروابط التقنية لـ Google غير معروضة لأنها لا تُظهر الموقع الحقيقي بوضوح وقد تشير إلى مصادر خارج فلسطين — اعتمد على النص أعلاه مع التحقق اليدوي عند الحاجة.
                                 </div>
                             )}
 
@@ -201,43 +216,78 @@ const MessageList: React.FC<MessageListProps> = ({
                                 </div>
                             )}
 
-                            {hasGrounding && !redirectData && (
+                            {showSourcesSection && hasOfficialGrounding && !redirectData && (
                                 <div className="mt-6 pt-4 border-t border-gray-200 dark:border-slate-800 bg-gray-50 dark:bg-slate-950/60 rounded-lg p-3 -mx-2 no-print shadow-inner">
                                     <p className="text-xs font-black text-blue-700 dark:text-blue-400 mb-3 flex items-center">
                                         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 me-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
-                                        🔗 المصادر والمراجع المتحقق منها
+                                        مصادر مباشرة (مواقع رسمية معتمدة)
                                     </p>
                                     <div className="space-y-2">
-                                        {allowedGroundingChunks.map((chunk, idx) => (
-                                            chunk.web && (
-                                                <a key={idx} href={chunk.web.uri} target="_blank" rel="noopener noreferrer" className="flex items-center p-2 rounded bg-white dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-900/30 border border-gray-200 dark:border-slate-700 transition-all group/link shadow-sm">
-                                                    <span className="flex-shrink-0 w-5 h-5 rounded bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-300 flex items-center justify-center text-[10px] me-2 font-mono border border-blue-200 dark:border-blue-700 shadow-inner font-bold">{idx + 1}</span>
+                                        {officialGroundingChunks.map((chunk, idx) =>
+                                            chunk.web ? (
+                                                <a
+                                                    key={`o-${idx}`}
+                                                    href={chunk.web.uri}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="flex items-center p-2 rounded bg-white dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-900/30 border border-gray-200 dark:border-slate-700 transition-all group/link shadow-sm"
+                                                >
+                                                    <span className="flex-shrink-0 w-5 h-5 rounded bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-300 flex items-center justify-center text-[10px] me-2 font-mono border border-blue-200 dark:border-blue-700 shadow-inner font-bold">
+                                                        {idx + 1}
+                                                    </span>
                                                     <div className="flex-grow min-w-0">
-                                                        <p className="text-xs font-black text-gray-900 dark:text-white truncate group-hover/link:text-blue-700 dark:group-hover/link:text-blue-400">{chunk.web.title || "مصدر قانوني"}</p>
-                                                        <p className="text-[10px] text-gray-500 dark:text-slate-400 truncate font-mono">{new URL(chunk.web.uri).hostname}</p>
+                                                        <p className="text-xs font-black text-gray-900 dark:text-white truncate group-hover/link:text-blue-700 dark:group-hover/link:text-blue-400">
+                                                            {chunk.web.title || 'مصدر قانوني'}
+                                                        </p>
+                                                        <p className="text-[10px] text-gray-500 dark:text-slate-400 truncate font-mono">
+                                                            {new URL(chunk.web.uri).hostname}
+                                                        </p>
                                                     </div>
-                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-gray-400 dark:text-slate-500 ms-2 group-hover/link:translate-x-0.5 group-hover/link:-translate-y-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                                                    <svg
+                                                        xmlns="http://www.w3.org/2000/svg"
+                                                        className="h-3 w-3 text-gray-400 dark:text-slate-500 ms-2 group-hover/link:translate-x-0.5 group-hover/link:-translate-y-0.5 transition-transform"
+                                                        fill="none"
+                                                        viewBox="0 0 24 24"
+                                                        stroke="currentColor"
+                                                    >
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                                    </svg>
                                                 </a>
-                                            )
-                                        ))}
+                                            ) : null
+                                        )}
                                     </div>
+                                    {searchProxyGroundingChunks.length > 0 && (
+                                        <p className="text-[11px] text-gray-600 dark:text-slate-400 mt-3 leading-relaxed border-t border-gray-200 dark:border-slate-700 pt-3">
+                                            إضافةً لذلك، استُخدم بحث Google داخلياً؛ لا نعرض روابط الوسيط التقنية لأنها طويلة ولا تُظهر الوجهة النهائية بوضوح.
+                                        </p>
+                                    )}
                                 </div>
                             )}
                         </div>
                     </div>
                 )
             })}
-            {isLoading && messages.length > 0 && messages[messages.length - 1].role !== 'model' && (
-                <div className="flex justify-start no-print">
-                    <div className="max-w-xl px-6 py-4 rounded-2xl bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 shadow-sm rounded-bl-none">
-                        <div className="flex items-center space-x-2 space-x-reverse">
-                            <div className="w-2.5 h-2.5 bg-blue-500 dark:bg-blue-400 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-                            <div className="w-2.5 h-2.5 bg-blue-500 dark:bg-blue-400 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-                            <div className="w-2.5 h-2.5 bg-blue-500 dark:bg-blue-400 rounded-full animate-bounce"></div>
+            {(() => {
+                const last = messages.length > 0 ? messages[messages.length - 1] : null;
+                const awaitingModelStream =
+                    isLoading &&
+                    last?.role === 'model' &&
+                    !(typeof last.content === 'string' && last.content.trim());
+                return awaitingModelStream ? (
+                    <div className="flex justify-start no-print">
+                        <div className="max-w-xl px-6 py-4 rounded-2xl bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 shadow-sm rounded-bl-none">
+                            <p className="text-xs text-gray-600 dark:text-slate-400 mb-2 font-medium">
+                                جاري التفكير والبحث… قد يستغرق وضع Pro بضع ثوانٍ قبل ظهور أول سطر.
+                            </p>
+                            <div className="flex items-center space-x-2 space-x-reverse">
+                                <div className="w-2.5 h-2.5 bg-blue-500 dark:bg-blue-400 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+                                <div className="w-2.5 h-2.5 bg-blue-500 dark:bg-blue-400 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+                                <div className="w-2.5 h-2.5 bg-blue-500 dark:bg-blue-400 rounded-full animate-bounce"></div>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
+                ) : null;
+            })()}
         </div>
     );
 };

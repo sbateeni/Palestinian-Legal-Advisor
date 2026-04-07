@@ -1,5 +1,5 @@
 
-import { CaseStatus, ActionMode, GeminiModel } from './types';
+import { CaseStatus, GeminiModel } from './types';
 
 // Gemini Models List - Added Smart Routing as the default option
 export const DEFAULT_GEMINI_MODELS: (GeminiModel | { id: string; name: string; description: string; limitRPD: number })[] = [
@@ -44,26 +44,54 @@ export const AGENT_MODEL_ROUTING: Record<string, string> = {
   'reconciliation': 'gemini-2.5-flash',
   'custody': 'gemini-2.5-flash',
   'alimony': 'gemini-2.5-flash',
-  'interrogator': 'gemini-2.5-flash-lite',
+  'interrogator': 'gemini-2.5-flash',
   'verifier': 'gemini-3-pro-preview',
   'forensic': 'gemini-3-pro-preview',
   'pixel_analysis': 'gemini-3-pro-preview',
   'ai_detect': 'gemini-3-pro-preview',
   'signature_verify': 'gemini-3-pro-preview',
   'image_comparison': 'gemini-3-pro-preview',
-  'negotiator': 'gemini-2.5-flash'
+  'negotiator': 'gemini-3-pro-preview',
+  'execution_minutes': 'gemini-2.5-flash'
 };
 
+/** اقتراحات مدموجة لأزرار الشريط المدني (تحليل / بحث وتدقيق / استراتيجية) */
+const ANALYSIS_PROMPTS_MERGED = [
+  'حلل الموقف القانوني بناءً على ما سبق.',
+  'ما هو التكييف القانوني الصحيح لهذه الواقعة؟',
+  'ما الأسئلة التي تكمل الوقائع الناقصة؟',
+  'حلل العقد أو المستند المرفوع واذكر الملاحظات على البنود الظاهرة.',
+  'ماذا يظهر في المرفق من مبالغ وتواريخ وأسماء، وما انطباقه القانوني؟',
+];
+
+const RESEARCH_PROMPTS_MERGED = [
+  'ابحث عن نصوص قانونية تدعم موقفي في هذه القضية.',
+  'هل هناك سوابق قضائية مشابهة لهذه الحالة؟',
+  'تأكد من سريان القانون المذكور ومن عدم إلغائه أو تعديله.',
+  'هل هذا النص القانوني محدث وفق المصادر الرسمية؟',
+];
+
+const STRATEGY_PROMPTS_MERGED = [
+  'ضع خطة دفاع أو متابعة استراتيجية مرتبطة بوقائع الملف.',
+  'ما هي نقاط القوة التي يجب التركيز عليها؟',
+  'هل هناك تناقض أو ثغرة إجرائية يمكن استغلالها؟',
+  'اقترح استراتيجية للتفاوض أو التسوية في هذه الحالة.',
+];
+
 export const AGENT_PROMPTS: Record<string, string[]> = {
-  'analysis': ["حلل الموقف القانوني بناءً على ما سبق.", "ما هو التكييف القانوني الصحيح لهذه الواقعة؟"],
-  'loopholes': ["هل هناك تناقض في أقوال الخصم أو البينات؟", "ابحث عن ثغرات إجرائية في التبليغات."],
+  'analysis': ANALYSIS_PROMPTS_MERGED,
+  'interrogator': ANALYSIS_PROMPTS_MERGED,
+  'contract_review': ANALYSIS_PROMPTS_MERGED,
+  'research': RESEARCH_PROMPTS_MERGED,
+  'verifier': RESEARCH_PROMPTS_MERGED,
+  'strategy': STRATEGY_PROMPTS_MERGED,
+  'loopholes': STRATEGY_PROMPTS_MERGED,
+  'negotiator': STRATEGY_PROMPTS_MERGED,
   'drafting': ["صغ لائحة دعوى بناءً على التحليل السابق.", "اكتب إخطاراً عدلياً يتضمن الوقائع المذكورة."],
-  'strategy': ["ضع خطة دفاع استراتيجية للفوز.", "ما هي نقاط القوة التي يجب التركيز عليها؟"],
-  'research': ["ابحث عن نصوص قانونية تدعم موقفي في هذه القضية.", "هل هناك سوابق قضائية مشابهة لهذه الحالة؟"],
-  'verifier': ["تأكد من سريان القانون وعدم إلغائه.", "هل هذا النص القانوني محدث؟"],
-  'interrogator': ["ما هي الأسئلة التي يجب طرحها على الموكل؟", "استخرج الوقائع الغامضة من القصة."],
-  'contract_review': ["حلل هذا العقد واكتشف الثغرات.", "هل هناك بنود مجحفة في هذا الاتفاق؟"],
-  'negotiator': ["اقترح استراتيجية للتفاوض والصلح.", "ما هي أفضل تسوية ممكنة في هذه الحالة؟"],
+  'execution_minutes': [
+    'أعد محضر تنفيذ (شيك أو كمبيالة) من المحادثة والمرفقات، مع قسم المرفقات المطلوبة: الأصل + صورتان، وكالة بطوابع، وصل رسوم.',
+    'راجع ما ناقص من مرفقات التنفيذ والبيانات قبل الطباعة.',
+  ],
   'forensic': ["حلل المستند جنائياً واكتشف التلاعب.", "هل هناك شبهة تزوير في هذا التوقيع؟"],
   'pixel_analysis': ["افحص بكسلات الصورة بحثاً عن تعديل.", "هل تم التلاعب بمحتوى هذه الصورة رقمياً؟"],
   'ai_detect': ["هل تم توليد هذا المحتوى بالذكاء الاصطناعي؟", "ابحث عن علامات التزييف العميق."],

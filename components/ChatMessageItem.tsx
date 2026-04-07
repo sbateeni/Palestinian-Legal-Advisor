@@ -77,6 +77,31 @@ const ChatMessageItem: React.FC<ChatMessageItemProps> = ({ content, isModel, mes
         return processedContent;
     }, [content, isModel, groundingMetadata]);
 
+    const { toolCode, thought, finalContent } = useMemo(() => {
+        let c = contentWithGrounding || '';
+        let tc: string | null = null;
+        let th: string | null = null;
+
+        const toolCodeRegex = /^tool_code\s*\n([\s\S]*?)(?=\n(thought|[\u0600-\u06FF]|$))/;
+        const tcMatch = c.match(toolCodeRegex);
+        if (tcMatch) {
+            tc = tcMatch[1].trim();
+            c = c.replace(tcMatch[0], '').trim();
+        }
+
+        const thoughtRegex = /^thought\s*\n([\s\S]*?)(?=\n[\u0600-\u06FF]|$)/;
+        const thMatch = c.match(thoughtRegex);
+        if (thMatch) {
+            th = thMatch[1].trim();
+            c = c.replace(thMatch[0], '').trim();
+        } else if (c.startsWith('thought')) {
+            th = c.replace(/^thought\s*\n/, '').trim();
+            c = '';
+        }
+
+        return { toolCode: tc, thought: th, finalContent: c };
+    }, [contentWithGrounding]);
+
     if (!isModel) {
         if (isEditing) {
             return (
@@ -107,31 +132,6 @@ const ChatMessageItem: React.FC<ChatMessageItemProps> = ({ content, isModel, mes
             </div>
         );
     }
-
-    const { toolCode, thought, finalContent } = useMemo(() => {
-        let c = contentWithGrounding || '';
-        let tc: string | null = null;
-        let th: string | null = null;
-
-        const toolCodeRegex = /^tool_code\s*\n([\s\S]*?)(?=\n(thought|[\u0600-\u06FF]|$))/;
-        const tcMatch = c.match(toolCodeRegex);
-        if (tcMatch) {
-             tc = tcMatch[1].trim();
-             c = c.replace(tcMatch[0], '').trim();
-        }
-
-        const thoughtRegex = /^thought\s*\n([\s\S]*?)(?=\n[\u0600-\u06FF]|$)/;
-        const thMatch = c.match(thoughtRegex);
-        if (thMatch) {
-            th = thMatch[1].trim();
-            c = c.replace(thMatch[0], '').trim();
-        } else if (c.startsWith('thought')) {
-             th = c.replace(/^thought\s*\n/, '').trim();
-             c = ''; 
-        }
-        
-        return { toolCode: tc, thought: th, finalContent: c };
-    }, [contentWithGrounding]);
 
     if (isEditing) {
         return (
@@ -190,8 +190,11 @@ const ChatMessageItem: React.FC<ChatMessageItemProps> = ({ content, isModel, mes
             )}
             
             {!finalContent && !toolCode && !thought && (
-                <div className="flex items-center space-x-2 space-x-reverse text-gray-400 text-sm animate-pulse">
-                     <span>جاري التحليل...</span>
+                <div className="flex flex-col gap-1 text-gray-500 dark:text-slate-400 text-sm">
+                    <span className="animate-pulse font-medium">جاري التفكير والبحث…</span>
+                    <span className="text-xs opacity-80 leading-snug">
+                        إن استخدمت نموذجاً مع وضع تفكير أو بحث Google، قد يتأخر أول نص قليلاً — هذا طبيعي.
+                    </span>
                 </div>
             )}
         </div>
